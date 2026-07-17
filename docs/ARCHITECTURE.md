@@ -35,6 +35,7 @@ mnemosyne/
 
   mcp/
     __init__.py
+    messages.py       # MCP message parsing and normalization
     methods.py        # MCP/JSON-RPC method dispatch
     protocol.py       # JSON-RPC result/error helpers
     tools.py          # MCP tool registry and tool execution
@@ -61,6 +62,7 @@ Route modules should not accumulate MCP semantics or tool execution logic.
 
 Owns MCP protocol concerns:
 
+- MCP message parsing and normalization
 - JSON-RPC response shape
 - MCP method dispatch
 - tool definitions and tool execution
