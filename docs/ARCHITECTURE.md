@@ -38,7 +38,12 @@ mnemosyne/
     messages.py       # MCP message parsing and normalization
     methods.py        # MCP/JSON-RPC method dispatch
     protocol.py       # JSON-RPC result/error helpers
-    tools.py          # MCP tool registry and tool execution
+
+    tools/
+      __init__.py
+      registry.py     # MCP tool registry and dispatch
+      hello.py        # hello tool schema and handler
+      list_tools.py   # list_tools tool schema and handler
 ```
 
 ## Responsibilities
@@ -65,7 +70,8 @@ Owns MCP protocol concerns:
 - MCP message parsing and normalization
 - JSON-RPC response shape
 - MCP method dispatch
-- tool definitions and tool execution
+- tool registry and dispatch
+- individual tool definitions and execution handlers
 
 This is where the protocol surface should grow.
 
