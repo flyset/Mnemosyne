@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from time import perf_counter
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Request
@@ -34,5 +35,29 @@ async def mcp_stream() -> StreamingResponse:
 @router.post("/mcp")
 async def mcp_endpoint(request: Request) -> JSONResponse:
     message = await request.json()
-    logger.info("REQUEST %s", json.dumps(message, indent=2))
-    return handle_message(message)
+    request_id = message.get("id") if isinstance(message, dict) else None
+    method = message.get("method") if isinstance(message, dict) else None
+    logger.info("request id=%s method=%s", request_id, method)
+
+    started_at = perf_counter()
+    response = handle_message(message)
+    duration_ms = round((perf_counter() - started_at) * 1000)
+    response_body = json.loads(response.body)
+
+    if "error" in response_body:
+        logger.warning(
+            "response id=%s method=%s outcome=error code=%s duration_ms=%s",
+            request_id,
+            method,
+            response_body["error"]["code"],
+            duration_ms,
+        )
+    else:
+        logger.info(
+            "response id=%s method=%s outcome=ok duration_ms=%s",
+            request_id,
+            method,
+            duration_ms,
+        )
+
+    return response

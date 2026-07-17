@@ -1,3 +1,5 @@
+import logging
+
 from fastapi.testclient import TestClient
 
 from mnemosyne.app import app
@@ -5,6 +7,43 @@ from mnemosyne.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
 client = TestClient(app)
+
+
+def test_mcp_logs_compact_success_events(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="mcp")
+
+    response = client.post("/mcp", json={"id": "r1", "method": "initialize"})
+
+    assert response.status_code == 200
+    assert "request id=r1 method=initialize" in caplog.messages
+    assert any(
+        message.startswith("response id=r1 method=initialize outcome=ok duration_ms=")
+        for message in caplog.messages
+    )
+
+
+def test_mcp_logs_compact_error_events_without_arguments(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="mcp")
+    secret = "do-not-log-this"
+
+    response = client.post(
+        "/mcp",
+        json={
+            "id": "r1",
+            "method": "tools/call",
+            "params": {"name": "missing", "arguments": {"token": secret}},
+        },
+    )
+
+    assert response.status_code == 200
+    assert "request id=r1 method=tools/call" in caplog.messages
+    assert any(
+        message.startswith(
+            "response id=r1 method=tools/call outcome=error code=-32602 duration_ms="
+        )
+        for message in caplog.messages
+    )
+    assert all(secret not in message for message in caplog.messages)
 
 
 def test_mcp_initialize_returns_server_capabilities() -> None:
