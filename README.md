@@ -45,6 +45,11 @@ The MCP endpoint is exposed at:
 http://127.0.0.1:8000/mcp
 ```
 
+Additional operational endpoints:
+
+- `http://127.0.0.1:8000/health`
+- `http://127.0.0.1:8000/version`
+
 Create a local virtual environment and install the project in editable mode:
 
 ```bash
@@ -93,3 +98,5 @@ Likely next steps:
 5. Add tests or protocol checks for MCP behavior.
 
 See `VISION.md` for the broader scope and boundaries.
+
+See `docs/ARCHITECTURE.md` for the current code organization.

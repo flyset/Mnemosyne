@@ -28,3 +28,12 @@ This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
 - Test MCP access directly through available MCP/client connections and tools when possible.
 - Avoid creating ad-hoc test scripts for MCP access unless explicitly requested.
 - Prefer small direct protocol/tool checks over temporary files or broad automation.
+
+## Project Documentation
+
+- The `docs/` folder is the home for durable project documentation beyond the README.
+- Use `README.md` for user-facing setup, status, and quick orientation.
+- Use `VISION.md` for product intent, boundaries, non-goals, and future direction.
+- Use `docs/ARCHITECTURE.md` for current code organization and architectural rules.
+- Add new focused docs under `docs/` when a topic becomes too detailed for the README.
+- Keep documentation updated when changing public endpoints, package layout, or MCP structure.

@@ -1,0 +1,91 @@
+# Architecture
+
+Mnemosyne is organized around a small HTTP surface and a separate MCP protocol layer.
+
+The central distinction is:
+
+- FastAPI routes handle transport: where a request arrives.
+- MCP modules handle protocol meaning: what the request asks the server to do.
+
+## HTTP Surface
+
+The public HTTP surface is intentionally small:
+
+- `GET /mcp` — MCP stream endpoint.
+- `POST /mcp` — MCP JSON-RPC message endpoint.
+- `GET /health` — liveness check for the running process.
+- `GET /version` — server identity and supported MCP protocol version.
+
+The `/mcp` endpoint is the main protocol gate. Most behavior should be expressed as MCP methods or tools, not as extra HTTP routes.
+
+## Filesystem Layout
+
+```text
+mnemosyne/
+  __init__.py
+  app.py              # FastAPI app assembly
+  cli.py              # console entrypoints
+  settings.py         # server identity and protocol constants
+
+  routes/
+    __init__.py
+    mcp.py            # HTTP transport for /mcp
+    health.py         # GET /health
+    version.py        # GET /version
+
+  mcp/
+    __init__.py
+    methods.py        # MCP/JSON-RPC method dispatch
+    protocol.py       # JSON-RPC result/error helpers
+    tools.py          # MCP tool registry and tool execution
+```
+
+## Responsibilities
+
+### `mnemosyne/app.py`
+
+Builds the FastAPI application and includes route modules. It should stay thin.
+
+### `mnemosyne/routes/`
+
+Owns HTTP transport concerns:
+
+- paths
+- request body intake
+- response transport types
+- lightweight operational endpoints
+
+Route modules should not accumulate MCP semantics or tool execution logic.
+
+### `mnemosyne/mcp/`
+
+Owns MCP protocol concerns:
+
+- JSON-RPC response shape
+- MCP method dispatch
+- tool definitions and tool execution
+
+This is where the protocol surface should grow.
+
+### `mnemosyne/settings.py`
+
+Contains stable server identity constants used across routes and MCP initialization.
+
+### `mnemosyne/cli.py`
+
+Contains console entrypoints for normal and development server startup.
+
+## Design Rule
+
+Keep FastAPI routes thin. Put MCP meaning under `mnemosyne/mcp/`.
+
+In short:
+
+```text
+HTTP request
+  -> FastAPI route
+    -> MCP method handler
+      -> MCP tool handler
+```
+
+The door is HTTP. The language spoken behind it is MCP.
