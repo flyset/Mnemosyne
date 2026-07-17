@@ -8,6 +8,7 @@ class MCPMessage:
     method: str | None
     params: dict[str, Any]
     params_valid: bool
+    is_notification: bool = False
 
 
 def parse_message(message: dict[str, Any]) -> MCPMessage:
@@ -19,4 +20,5 @@ def parse_message(message: dict[str, Any]) -> MCPMessage:
         method=message.get("method"),
         params=params if params_valid else {},
         params_valid=params_valid,
+        is_notification="id" not in message,
     )

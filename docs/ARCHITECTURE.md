@@ -18,6 +18,10 @@ The public HTTP surface is intentionally small:
 
 The `/mcp` endpoint is the main protocol gate. Most behavior should be expressed as MCP methods or tools, not as extra HTTP routes.
 
+MCP requests receive JSON-RPC result or error bodies. MCP notifications omit
+`id` and receive HTTP `202` with no JSON-RPC body; the transport does not log
+their payloads at the default level.
+
 ## Filesystem Layout
 
 ```text

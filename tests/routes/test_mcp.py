@@ -46,6 +46,46 @@ def test_mcp_logs_compact_error_events_without_arguments(caplog) -> None:
     assert all(secret not in message for message in caplog.messages)
 
 
+def test_mcp_cancellation_notification_returns_no_content() -> None:
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "method": "notifications/cancelled",
+            "params": {"requestId": "r1"},
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.content == b""
+
+
+def test_mcp_cancellation_notification_is_quiet_at_info_level(caplog) -> None:
+    caplog.set_level(logging.INFO, logger="mcp")
+
+    response = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "method": "notifications/cancelled",
+            "params": {"requestId": "r1"},
+        },
+    )
+
+    assert response.status_code == 202
+    assert caplog.messages == []
+
+
+def test_mcp_initialized_notification_returns_no_content() -> None:
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "method": "notifications/initialized"},
+    )
+
+    assert response.status_code == 202
+    assert response.content == b""
+
+
 def test_mcp_initialize_returns_server_capabilities() -> None:
     response = client.post("/mcp", json={"id": "r1", "method": "initialize"})
 

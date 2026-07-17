@@ -14,5 +14,6 @@
 - **Public MCP contract** — the externally observable behavior of endpoints, protocol methods, tool names, input schemas, and result or error shapes.
 - **Tool schema** — the declared name, description, and input contract for an MCP tool.
 - **JSON-RPC error** — a protocol-shaped error response with a stable code and explanatory message.
+- **MCP notification** — an MCP message without an `id`; it receives HTTP `202` with no JSON-RPC response body.
 - **Invalid parameters** — JSON-RPC error `-32602`, returned when a request supplies a non-object `params` value; the valid request ID is preserved.
 - **Invalid request** — JSON-RPC error `-32600`, returned with `id: null` when the top-level request envelope is not an object.

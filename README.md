@@ -22,6 +22,10 @@ When present, its `params` value must also be an object. Otherwise the server
 returns JSON-RPC error `-32602` with the message `Invalid params` and preserves
 the request ID.
 
+MCP notifications omit `id` and receive HTTP `202` with no JSON-RPC response
+body. `notifications/initialized` and `notifications/cancelled` are accepted;
+cancellation is currently a no-op because tool handlers complete synchronously.
+
 ## Intended Role
 
 Mnemosyne is meant to become a local-first MCP server that gives agents controlled access to:

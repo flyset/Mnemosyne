@@ -8,11 +8,14 @@ from mnemosyne.mcp.tools import TOOLS, call_tool
 from mnemosyne.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
-def handle_message(message: Any) -> JSONResponse:
+def handle_message(message: Any) -> JSONResponse | None:
     if not isinstance(message, dict):
         return mcp_error(None, -32600, "Invalid Request")
 
     parsed_message = parse_message(message)
+    if parsed_message.is_notification:
+        return None
+
     if not parsed_message.params_valid:
         return mcp_error(parsed_message.request_id, -32602, "Invalid params")
 
