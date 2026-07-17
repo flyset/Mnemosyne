@@ -45,10 +45,25 @@ The MCP endpoint is exposed at:
 http://127.0.0.1:8000/mcp
 ```
 
-Start the server with a FastAPI ASGI runner such as Uvicorn:
+Create a local virtual environment and install the project in editable mode:
 
 ```bash
-uvicorn mnemosyne:app --host 127.0.0.1 --port 8000
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
+
+Start the development server with auto-reload:
+
+```bash
+mnemosyne-dev
+```
+
+Start the server without auto-reload:
+
+```bash
+mnemosyne
 ```
 
 ## OpenCode Configuration
