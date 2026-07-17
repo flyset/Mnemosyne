@@ -19,9 +19,13 @@ This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
 
 ## Before Editing
 
-- Inspect `README.md`, `VISION.md`, and `mnemosyne.py`.
+- Read `docs/AI_WORKFLOW.md` before planning any state-changing action.
+- Inspect `README.md`, `VISION.md`, `docs/ARCHITECTURE.md`, and the affected package files.
+- For terminology or public-contract work, read `docs/GLOSSARY.md` first.
+- For backlog work, follow `.backlog/README.md`; implementation requires an ACTIVE Track and its implementation gates.
 - Preserve local-first and single-user assumptions unless explicitly changed.
-- Add tests/protocol checks when behavior changes.
+- Implementation follows TDD by default: write a failing focused test, make it pass with the smallest implementation, then refactor and validate.
+- Every behavior change requires automated test coverage; direct MCP protocol checks complement automated tests and do not replace them.
 
 ## MCP Testing
 
@@ -35,5 +39,9 @@ This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
 - Use `README.md` for user-facing setup, status, and quick orientation.
 - Use `VISION.md` for product intent, boundaries, non-goals, and future direction.
 - Use `docs/ARCHITECTURE.md` for current code organization and architectural rules.
+- Use `docs/AI_WORKFLOW.md` for contribution gates and verification expectations.
+- Use `docs/GLOSSARY.md` for canonical product and protocol terminology.
 - Add new focused docs under `docs/` when a topic becomes too detailed for the README.
-- Keep documentation updated when changing public endpoints, package layout, or MCP structure.
+- Keep `README.md`, `docs/ARCHITECTURE.md`, and `docs/GLOSSARY.md` updated when changing public MCP behavior, endpoints, package layout, or MCP structure.
+- Put implementation-specific rules in the nearest scoped `AGENTS.md`; keep this root file focused on project-wide constraints.
+- Use `.backlog/README.md` for local Track governance and `.backlog/PORE.md` for problem-oriented requirements.

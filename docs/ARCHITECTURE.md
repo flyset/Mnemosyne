@@ -42,8 +42,12 @@ mnemosyne/
     tools/
       __init__.py
       registry.py     # MCP tool registry and dispatch
-      hello.py        # hello tool schema and handler
-      list_tools.py   # list_tools tool schema and handler
+
+      hello/
+        __init__.py   # hello tool schema and handler
+
+      list_tools/
+        __init__.py   # list_tools tool schema and handler
 ```
 
 ## Responsibilities
@@ -97,3 +101,10 @@ HTTP request
 ```
 
 The door is HTTP. The language spoken behind it is MCP.
+
+## Contribution Boundaries
+
+- Project-wide workflow and verification gates live in `docs/AI_WORKFLOW.md`.
+- Canonical product and public-contract terms live in `docs/GLOSSARY.md`.
+- `mnemosyne/mcp/AGENTS.md` governs MCP protocol and tool work.
+- `mnemosyne/routes/AGENTS.md` governs HTTP transport work.

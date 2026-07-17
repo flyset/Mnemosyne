@@ -95,8 +95,11 @@ Likely next steps:
 2. Add read-only awareness tools.
 3. Add explicit memory recall and remember tools.
 4. Add governance rules for consent, hygiene, and no-secret handling.
-5. Add tests or protocol checks for MCP behavior.
+5. Add automated tests for MCP behavior, supplemented by direct protocol checks.
 
 See `VISION.md` for the broader scope and boundaries.
 
 See `docs/ARCHITECTURE.md` for the current code organization.
+
+See `docs/AI_WORKFLOW.md` for contribution and verification gates, and
+`docs/GLOSSARY.md` for canonical terms and public-contract language.
