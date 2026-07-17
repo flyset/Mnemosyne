@@ -152,3 +152,9 @@ def mcp_error(request_id: Any, code: int, message: str) -> JSONResponse:
     return JSONResponse(
         response
     )
+
+
+def main() -> None:
+    import uvicorn
+
+    uvicorn.run("mnemosyne:app", host="127.0.0.1", port=8000)
