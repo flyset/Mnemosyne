@@ -10,10 +10,17 @@ This repository currently contains a minimal FastAPI-based MCP skeleton.
 
 Implemented tools:
 
-- `hello` — returns a greeting
 - `list_tools` — lists the tools exposed by the server
 
 This is not yet a full memory or awareness system. The current code is a starting point for shaping that server.
+
+## MCP Validation
+
+An MCP request envelope must be an object. Otherwise the server returns
+JSON-RPC error `-32600` with the message `Invalid Request` and `id: null`.
+When present, its `params` value must also be an object. Otherwise the server
+returns JSON-RPC error `-32602` with the message `Invalid params` and preserves
+the request ID.
 
 ## Intended Role
 
@@ -69,6 +76,12 @@ Start the server without auto-reload:
 
 ```bash
 mnemosyne
+```
+
+Run the test suite after installing the `test` extra:
+
+```bash
+mnemosyne-test
 ```
 
 ## OpenCode Configuration

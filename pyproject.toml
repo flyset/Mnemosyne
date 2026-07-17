@@ -13,9 +13,20 @@ dependencies = [
   "uvicorn[standard]",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "httpx2",
+]
+
 [project.scripts]
 mnemosyne = "mnemosyne.cli:main"
 mnemosyne-dev = "mnemosyne.cli:dev"
+mnemosyne-test = "mnemosyne.cli:test"
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+testpaths = ["tests"]
 
 [build-system]
 requires = ["setuptools>=61"]

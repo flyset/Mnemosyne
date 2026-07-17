@@ -43,9 +43,6 @@ mnemosyne/
       __init__.py
       registry.py     # MCP tool registry and dispatch
 
-      hello/
-        __init__.py   # hello tool schema and handler
-
       list_tools/
         __init__.py   # list_tools tool schema and handler
 ```
@@ -72,6 +69,7 @@ Route modules should not accumulate MCP semantics or tool execution logic.
 Owns MCP protocol concerns:
 
 - MCP message parsing and normalization
+- JSON-RPC request-parameter validation and errors
 - JSON-RPC response shape
 - MCP method dispatch
 - tool registry and dispatch
@@ -85,7 +83,8 @@ Contains stable server identity constants used across routes and MCP initializat
 
 ### `mnemosyne/cli.py`
 
-Contains console entrypoints for normal and development server startup.
+Contains console entrypoints for normal and development server startup, plus
+the test-suite runner when the `test` extra is installed.
 
 ## Design Rule
 
