@@ -1,9 +1,8 @@
+import asyncio
 import json
 import logging
-from typing import Any
-
-import asyncio
 from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -152,15 +151,3 @@ def mcp_error(request_id: Any, code: int, message: str) -> JSONResponse:
     return JSONResponse(
         response
     )
-
-
-def main() -> None:
-    import uvicorn
-
-    uvicorn.run("mnemosyne:app", host="127.0.0.1", port=8000)
-
-
-def dev() -> None:
-    import uvicorn
-
-    uvicorn.run("mnemosyne:app", host="127.0.0.1", port=8000, reload=True)

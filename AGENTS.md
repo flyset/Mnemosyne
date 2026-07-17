@@ -22,3 +22,9 @@ This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
 - Inspect `README.md`, `VISION.md`, and `mnemosyne.py`.
 - Preserve local-first and single-user assumptions unless explicitly changed.
 - Add tests/protocol checks when behavior changes.
+
+## MCP Testing
+
+- Test MCP access directly through available MCP/client connections and tools when possible.
+- Avoid creating ad-hoc test scripts for MCP access unless explicitly requested.
+- Prefer small direct protocol/tool checks over temporary files or broad automation.

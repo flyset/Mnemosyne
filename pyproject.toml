@@ -14,8 +14,8 @@ dependencies = [
 ]
 
 [project.scripts]
-mnemosyne = "mnemosyne:main"
-mnemosyne-dev = "mnemosyne:dev"
+mnemosyne = "mnemosyne.cli:main"
+mnemosyne-dev = "mnemosyne.cli:dev"
 
 [build-system]
 requires = ["setuptools>=61"]
