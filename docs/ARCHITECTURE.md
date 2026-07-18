@@ -29,7 +29,7 @@ mnemosyne/
   __init__.py
   app.py              # FastAPI app assembly
   cli.py              # console entrypoints
-  settings.py         # server identity and protocol constants
+  settings.py         # server identity, protocol constants, and memory-root config
 
   routes/
     __init__.py
@@ -51,7 +51,10 @@ mnemosyne/
         __init__.py   # list_tools tool schema and handler
 
       memory_recall/
-        __init__.py   # recall-request schema and placeholder handler
+        __init__.py   # public TOOL and handle re-exports
+        definition.py # Tool schema and canonical scopes
+        handler.py    # validation, logging, orchestration, and Tool results
+        retrieval.py  # safe filesystem discovery, parsing, and ranking
 ```
 
 ## Responsibilities
@@ -84,20 +87,43 @@ Owns MCP protocol concerns:
 
 This is where the protocol surface should grow.
 
-`memory_recall` currently stops at the MCP Tool boundary. It validates a narrow
-query, exactly one required high-level memory scope, and optional bounded
-free-form tags. The six scopes are `self`, `relationship`, `preference`,
-`practice`, `project`, and `knowledge`; each has an individual model-facing
-description in the Tool schema. Tags are descriptive request metadata with no
-current filtering or ranking semantics. Valid calls return a stable
-`retrieval_unavailable` result without reading a memory source, generating
-embeddings, searching, ranking, or returning memory. The placeholder handler
-does not persist recall requests. Calls remain visible through the MCP client's
-existing Tool-call and session representation.
+`memory_recall` validates a narrow query, exactly one required high-level memory
+scope, and optional bounded free-form tags. The six scopes are `self`,
+`relationship`, `preference`, `practice`, `project`, and `knowledge`; each has an
+individual model-facing description in the Tool schema.
+
+The handler maps the validated scope through a fixed allowlist to one directory
+under the configured memory root, discovers bounded version-1 JSON records, and
+ranks them using deterministic query/path/title/content terms and exact tag
+overlap. It returns no more than five records with match evidence and never
+returns filesystem paths or internal scores. Missing directories and no positive
+match return `no_matches`; source and candidate-limit failures return stable Tool
+errors. Recall does not create memory directories, mutate records, persist recall
+requests, generate embeddings, or access external services.
+
+The package boundary is deliberately explicit: `definition.py` owns the public
+Tool contract, `handler.py` owns MCP argument and result semantics, and
+`retrieval.py` owns constrained local-file behavior. `__init__.py` only preserves
+the package-level `TOOL` and `handle` imports used by the registry.
+
+## Filesystem Retrieval
+
+The default root is `~/.mnemosyne/memory`; the operator may set
+`MNEMOSYNE_MEMORY_ROOT`. Recall never accepts a path from an MCP request. Beneath
+the root, the canonical scope names are fixed top-level directories. Records are
+UTF-8 JSON objects with required `schema_version: 1`, `id`, and `content`, plus
+optional `title` and `tags`.
+
+Discovery rejects symlinks, limits nesting to four directories, limits files to
+64 KiB, and fails rather than returning a partial result when a scope exceeds
+1,000 candidate JSON files. Invalid individual records are skipped with bounded
+warning details. Files remain the source of truth and are directly inspectable
+and deletable by the user.
 
 ### `mnemosyne/settings.py`
 
-Contains stable server identity constants used across routes and MCP initialization.
+Contains stable server identity constants used across routes and MCP
+initialization, plus dynamic resolution of the operator-controlled memory root.
 
 ### `mnemosyne/cli.py`
 

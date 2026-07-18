@@ -1,5 +1,8 @@
+import json
 import logging
+from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from mnemosyne.app import app
@@ -122,7 +125,12 @@ def test_mcp_tools_list_exposes_the_registered_tools() -> None:
     ]
 
 
-def test_mcp_tools_call_returns_memory_recall_placeholder() -> None:
+def test_mcp_tools_call_returns_memory_recall_no_matches(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
     response = client.post(
         "/mcp",
         json={
@@ -147,10 +155,65 @@ def test_mcp_tools_call_returns_memory_recall_placeholder() -> None:
             "content": [
                 {
                     "type": "text",
-                    "text": '{"status":"retrieval_unavailable"}',
+                    "text": '{"status":"no_matches","memories":[]}',
                 }
             ]
         },
+    }
+
+
+def test_mcp_tools_call_returns_matching_memory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_path = tmp_path / "preference" / "leisure" / "rainy.json"
+    memory_path.parent.mkdir(parents=True)
+    memory_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "id": "rainy-day",
+                "content": "The user prefers museums on rainy days.",
+                "tags": ["leisure", "rainy-day"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "id": "r1",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_recall",
+                "arguments": {
+                    "query": "rainy leisure activities",
+                    "scope": "preference",
+                    "tags": ["leisure", "rainy-day"],
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert json.loads(result["content"][0]["text"]) == {
+        "status": "ok",
+        "memories": [
+            {
+                "id": "rainy-day",
+                "scope": "preference",
+                "title": None,
+                "content": "The user prefers museums on rainy days.",
+                "tags": ["leisure", "rainy-day"],
+                "match": {
+                    "terms": ["leisure", "rainy"],
+                    "tags": ["leisure", "rainy-day"],
+                },
+            }
+        ],
     }
 
 

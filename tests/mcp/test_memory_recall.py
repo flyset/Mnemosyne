@@ -1,8 +1,22 @@
 import json
+import logging
+from pathlib import Path
 
 import pytest
 
 from mnemosyne.mcp.tools.memory_recall import TOOL, handle
+from mnemosyne.mcp.tools.memory_recall import handler as handler_module
+from mnemosyne.mcp.tools.memory_recall.definition import TOOL as DEFINED_TOOL
+from mnemosyne.mcp.tools.memory_recall.retrieval import (
+    CandidateLimitExceeded,
+    MemorySourceUnavailable,
+)
+from mnemosyne.settings import get_memory_root
+
+
+def _write_memory(path: Path, record: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record), encoding="utf-8")
 
 
 def test_memory_recall_exposes_the_selected_tool_definition() -> None:
@@ -95,6 +109,11 @@ def test_memory_recall_exposes_the_selected_tool_definition() -> None:
     }
 
 
+def test_memory_recall_package_reexports_definition_and_handler() -> None:
+    assert TOOL is DEFINED_TOOL
+    assert handle is handler_module.handle
+
+
 @pytest.mark.parametrize(
     "arguments",
     [
@@ -106,17 +125,166 @@ def test_memory_recall_exposes_the_selected_tool_definition() -> None:
         },
     ],
 )
-def test_memory_recall_returns_retrieval_unavailable_for_valid_arguments(
+def test_memory_recall_returns_no_matches_for_valid_arguments_without_memories(
     arguments: dict[str, object],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
     assert handle(arguments) == {
         "content": [
             {
                 "type": "text",
-                "text": '{"status":"retrieval_unavailable"}',
+                "text": '{"status":"no_matches","memories":[]}',
             }
         ]
     }
+
+
+def test_memory_recall_returns_ranked_memories_without_paths_or_scores(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_memory(
+        tmp_path / "preference" / "leisure" / "rainy-weekend.json",
+        {
+            "schema_version": 1,
+            "id": "rainy-weekend",
+            "title": "Rainy weekend activities",
+            "content": "The user prefers museums on a rainy weekend.",
+            "tags": ["leisure", "rainy-day", "weekend"],
+        },
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    result = handle(
+        {
+            "query": "What does the user prefer doing on rainy Saturday afternoons?",
+            "scope": "preference",
+            "tags": ["leisure", "rainy-day", "weekend"],
+        }
+    )
+
+    assert "isError" not in result
+    assert json.loads(result["content"][0]["text"]) == {
+        "status": "ok",
+        "memories": [
+            {
+                "id": "rainy-weekend",
+                "scope": "preference",
+                "title": "Rainy weekend activities",
+                "content": "The user prefers museums on a rainy weekend.",
+                "tags": ["leisure", "rainy-day", "weekend"],
+                "match": {
+                    "terms": ["rainy"],
+                    "tags": ["leisure", "rainy-day", "weekend"],
+                },
+            }
+        ],
+    }
+    assert "path" not in result["content"][0]["text"]
+    assert "score" not in result["content"][0]["text"]
+
+
+def test_memory_recall_searches_only_the_requested_scope(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_memory(
+        tmp_path / "self" / "rainy.json",
+        {
+            "schema_version": 1,
+            "id": "rainy-self",
+            "content": "Rainy personal context.",
+        },
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    result = handle({"query": "rainy", "scope": "preference"})
+
+    assert json.loads(result["content"][0]["text"]) == {
+        "status": "no_matches",
+        "memories": [],
+    }
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (
+            MemorySourceUnavailable(),
+            {
+                "status": "retrieval_error",
+                "code": "memory_source_unavailable",
+                "message": "memory source could not be read",
+            },
+        ),
+        (
+            CandidateLimitExceeded(),
+            {
+                "status": "retrieval_error",
+                "code": "candidate_limit_exceeded",
+                "message": "memory scope contains more than 1000 candidate files",
+            },
+        ),
+    ],
+)
+def test_memory_recall_returns_stable_retrieval_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+    expected: dict[str, str],
+) -> None:
+    def fail_discovery(*args: object) -> None:
+        raise error
+
+    monkeypatch.setattr(handler_module, "discover_records", fail_discovery)
+
+    result = handle({"query": "relevant memory", "scope": "knowledge"})
+
+    assert result["isError"] is True
+    assert json.loads(result["content"][0]["text"]) == expected
+
+
+def test_memory_recall_logs_message_scope_and_tags(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    caplog.set_level(logging.INFO, logger="mcp.memory_recall")
+
+    handle(
+        {
+            "query": "rainy weekend activities",
+            "scope": "preference",
+            "tags": ["leisure", "weekend"],
+        }
+    )
+
+    assert (
+        "request message='rainy weekend activities' scope='preference' "
+        "tags=['leisure', 'weekend']"
+    ) in caplog.messages
+
+
+def test_memory_root_uses_operator_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    assert get_memory_root() == tmp_path
+
+
+def test_memory_root_defaults_under_the_user_home(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MNEMOSYNE_MEMORY_ROOT", raising=False)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+
+    assert get_memory_root() == tmp_path / ".mnemosyne" / "memory"
 
 
 @pytest.mark.parametrize(
