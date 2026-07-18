@@ -10,6 +10,7 @@ from mnemosyne.memory.errors import (
     RevisionConflict,
 )
 from mnemosyne.memory.normalization import normalize_memory_id
+from mnemosyne.memory.policy import validate_remember_content
 from mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
@@ -109,6 +110,7 @@ class MemoryService:
 
     def remember(self, draft: MemoryDraft) -> MemoryResult:
         self._require_mutations()
+        validate_remember_content(draft)
         with self._mutation_lock:
             duplicate_key = draft.duplicate_key()
             for stored in self.store.discover(draft.scope):

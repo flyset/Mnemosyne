@@ -12,6 +12,11 @@
 - **Memory lifecycle** — the active/archived state and positive revision of a version-2 record; archived records are inspectable but excluded from normal recall, while forgotten records are physically absent.
 - **Memory namespace** — the required stable routing identity beneath a scope, such as a project, relationship subject, preference domain, practice domain, self aspect, or knowledge topic.
 - **Memory provenance** — bounded metadata describing an approved record's origin and server-controlled recording mechanism; it contains no prompt, transcript, or unverifiable consent claim.
+- **Memory remember** — the explicit, consent-gated MCP mutation that validates one bounded approved draft and, only when operator-enabled, atomically creates a canonical version-2 record or returns an exact duplicate outcome.
+- **Memory remember request** — the nine caller-owned scope, namespace, optional collection, kind, language, title, content, tags, and public-origin fields shown to the user before client approval; it never contains a path or server-owned operational field.
+- **Remember content policy** — bounded signature-based refusal applied by the shared domain before duplicate discovery or writes; it recognizes declared secret, credential, payment-card, and government-identifier shapes but is not complete semantic DLP.
+- **Remember enablement** — the startup-fixed, remember-only operator gate controlled by exact `MNEMOSYNE_MEMORY_REMEMBER_ENABLED=true`; it is separate from MCP-client consent and defaults to disabled.
+- **Remember outcome** — `remembered`, `already_exists`, or `existing_archived` with only a structured reference and lifecycle; validation, refusal, conflict, disabled, and storage conditions are bounded Tool errors.
 - **Memory record** — one user-visible, versioned JSON source-of-truth file; canonical version-2 records separate scope, namespace, collection, kind, language, content, tags, provenance, timestamps, and lifecycle.
 - **Memory reference** — a structured scope, namespace ID, optional collection ID, and record ID used by lifecycle operations instead of a client-supplied path.
 - **Memory root** — the operator-controlled local directory containing the six fixed memory scope directories; it defaults to `~/.mnemosyne/memory`.
@@ -22,7 +27,7 @@
 - **Recall tags** — optional, bounded, free-form descriptive labels attached to a memory recall request; exact normalized overlap with record tags is a ranking signal, not a required filter.
 - **Recall match evidence** — the sorted terms and tags explaining which request signals matched a returned memory record; it excludes paths and internal scores.
 - **Memory recall** — read-only retrieval that validates a recall request, searches only its selected scope directory, and returns bounded approved records without persisting the request.
-- **Memory mutation** — an explicit create, revise, archive, restore, relocate, or physical-forget operation; domain primitives are disabled by default and no mutation MCP Tool is currently exposed.
+- **Memory mutation** — an explicit create, revise, archive, restore, relocate, or physical-forget operation; domain primitives are disabled by default, and remember is the only currently implemented MCP mutation behind a separate startup gate.
 - **Reflection** — operational agent configuration, such as policies, checklists, and failure-mode mitigations; not personal facts.
 - **Session context** — selectively retrieved summaries or excerpts from prior agent sessions.
 

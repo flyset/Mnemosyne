@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from mnemosyne.memory.errors import MutationDisabled, RevisionConflict
+from mnemosyne.memory.errors import (
+    DisallowedMemoryContent,
+    MutationDisabled,
+    RevisionConflict,
+)
 from mnemosyne.memory.records import (
     LegacyMemoryReference,
     LifecycleState,
@@ -91,6 +95,30 @@ def test_service_remember_generates_operational_fields_and_persists_record(
     assert result.memory.lifecycle.revision == 1
     assert result.memory.provenance.recorded_via.value == "memory_remember"
     assert (tmp_path / "preference" / "leisure" / f"{MEMORY_ID}.json").exists()
+
+
+def test_service_remember_refuses_disallowed_content_before_discovery_or_write(
+    tmp_path: Path,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    store.discover = lambda scope: pytest.fail("discovery must not run")
+    service = MemoryService(store, mutations_enabled=True)
+    arguments = {
+        "scope": "project",
+        "namespace": {"kind": "project", "id": "mnemosyne", "label": None},
+        "collection": None,
+        "kind": "decision",
+        "language": "en",
+        "title": None,
+        "content": "Authorization: Bearer synthetic-token",
+        "tags": [],
+        "origin": "explicit_user_statement",
+    }
+
+    with pytest.raises(DisallowedMemoryContent):
+        service.remember(MemoryDraft.from_dict(arguments))
+
+    assert not tmp_path.exists() or list(tmp_path.iterdir()) == []
 
 
 def test_service_remember_returns_existing_active_duplicate(tmp_path: Path) -> None:

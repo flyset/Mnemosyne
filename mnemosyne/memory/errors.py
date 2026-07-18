@@ -41,5 +41,9 @@ class WriteConflict(MemoryDomainError):
     code = "write_conflict"
 
 
+class DisallowedMemoryContent(MemoryDomainError):
+    code = "disallowed_content"
+
+
 class MutationDisabled(MemoryDomainError):
     code = "mutation_disabled"

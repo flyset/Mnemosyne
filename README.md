@@ -12,6 +12,7 @@ Implemented tools:
 
 - `list_tools` — lists the tools exposed by the server
 - `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope directory
+- `memory_remember` — when explicitly enabled, validates and atomically persists one approved canonical version-2 memory
 
 This is not yet a full memory or awareness system. A `memory_recall` request
 contains a free-form `query`, exactly one high-level scope (`self`,
@@ -33,11 +34,120 @@ Recall remains read-only. It does not create, update, delete, or automatically
 extract memory, and it does not persist recall requests. Calls remain visible
 through the MCP client's existing Tool-call/session representation.
 
-Memory scopes, records, paths, storage, retrieval, and lifecycle policy now live
-in a shared `mnemosyne/memory/` domain rather than inside the recall Tool. The
-domain includes mutation-disabled create, revise, archive, restore, and physical
-delete primitives for future Tools, but `memory_recall` remains the only exposed
-memory Tool. No MCP mutation endpoint is currently registered.
+Memory scopes, records, paths, storage, retrieval, content policy, and lifecycle
+policy live in a shared `mnemosyne/memory/` domain rather than inside either MCP
+Tool. The domain includes mutation-disabled revise, archive, restore, and
+physical-delete primitives for future Tools. `memory_remember` is the only MCP
+mutation Tool and is absent from discovery and dispatch unless the operator
+enables it explicitly.
+
+## Remembering Memory
+
+Remember is disabled by default. With no setting, or with the exact value
+`false`, `tools/list` and `list_tools` omit `memory_remember` and direct dispatch
+treats it as unknown. Enable only this Tool with:
+
+```bash
+export MNEMOSYNE_MEMORY_REMEMBER_ENABLED=true
+```
+
+The server reads this setting at startup, so restart it after changing the
+value. Only exact lowercase `true` and `false` are accepted; any other supplied
+value fails startup closed without being echoed. Enabling the server-side Tool
+does not establish user consent. A compatible MCP client must separately show
+the complete arguments and require user approval for every exact call.
+
+All nine caller-owned fields are required, including nullable values:
+
+```json
+{
+  "scope": "project",
+  "namespace": {
+    "kind": "project",
+    "id": "mnemosyne",
+    "label": "Mnemosyne"
+  },
+  "collection": {
+    "id": "decisions",
+    "label": "Decisions"
+  },
+  "kind": "decision",
+  "language": "en",
+  "title": "Remember consent boundary",
+  "content": "Durable memory requires approval for each exact Tool call.",
+  "tags": ["architecture", "consent"],
+  "origin": "user_approved_proposal"
+}
+```
+
+`namespace.label`, `collection`, `collection.label`, `language`, and `title`
+may be null, but their keys remain required. Tags are a required zero-to-ten
+item array. Namespace/collection IDs are 1–64 safe identifier characters,
+labels are at most 100 characters, language tags at most 35, title at most 200,
+content at most 4,000, and each tag at most 50. Unknown fields are rejected at
+every level. The allowed dimensions are derived from the shared domain:
+
+| Scope | Namespace kinds | Memory kinds |
+| --- | --- | --- |
+| `self` | `aspect` | `attribute` |
+| `relationship` | `person`, `group`, `relationship` | `perspective`, `summary` |
+| `preference` | `domain` | `preference` |
+| `practice` | `domain` | `practice` |
+| `project` | `project` | `decision`, `constraint`, `state`, `question`, `reference`, `summary` |
+| `knowledge` | `topic` | `reference`, `summary` |
+
+Public origin is either `explicit_user_statement` or
+`user_approved_proposal`. Callers cannot supply a filesystem path, record ID,
+timestamp, lifecycle state, revision, `recorded_via`, or model-authored
+confirmation/consent field.
+
+A new memory returns only its status, structured reference, and lifecycle:
+
+```json
+{
+  "status": "remembered",
+  "reference": {
+    "scope": "project",
+    "namespace_id": "mnemosyne",
+    "collection_id": "decisions",
+    "id": "mem_0123456789abcdef0123456789abcdef"
+  },
+  "lifecycle": {
+    "state": "active",
+    "revision": 1
+  }
+}
+```
+
+An exact active duplicate returns `already_exists`; an archived duplicate
+returns `existing_archived`. Both identify the existing reference/lifecycle and
+write no second file. Validation, content refusal, disabled mutation, candidate
+overflow, generated-ID conflict, storage failure, and unexpected failure return
+bounded Tool errors with stable codes and no path or submitted content.
+Validation uses `invalid_scope`, `invalid_namespace`, `invalid_collection`,
+`invalid_kind`, `invalid_record`, or `invalid_origin`; policy refusal uses
+`disallowed_content`; disabled mutation uses `mutation_disabled`; bounded
+discovery uses `candidate_limit_exceeded`; publication conflict uses
+`write_conflict`; storage/path failures use `memory_source_unavailable`; and an
+unexpected failure uses `internal_error`.
+
+Before duplicate discovery or directory creation, the shared policy rejects
+recognized private-key blocks, declared provider token/API-key prefixes,
+Basic/Bearer authorization headers, credential assignments and
+credential-bearing URLs, compact JWT-shaped values, Luhn-valid 13–19 digit
+payment-card values, and SSN-shaped identifiers. It inspects
+namespace/collection IDs and labels, title, content, and tags. This is
+intentionally bounded signature detection, not semantic DLP: false positives
+and false negatives remain possible. Unrecognized secrets and sensitive
+personal facts remain prohibited, and the user must review the exact proposed
+arguments before approval.
+
+Remember logs one terminal event containing only outcome, stable error
+code/field where applicable, scope, namespace kind, memory kind,
+collection-present state, origin, and generated ID/lifecycle after a domain
+result. Logs never include labels, title, content, tags, language, complete
+arguments, rejected values, filesystem paths, exception messages, or
+tracebacks.
 
 ## Filesystem Memory
 
@@ -53,7 +163,8 @@ Set an explicit root for another local location:
 export MNEMOSYNE_MEMORY_ROOT=/path/to/memory
 ```
 
-Recall recognizes only the six fixed scope directories beneath the memory root:
+The memory domain recognizes only the six fixed scope directories beneath the
+memory root:
 
 ```text
 memory/
@@ -133,8 +244,9 @@ Unknown fields or mismatched paths make a version-2 record invalid.
 Version-2 records are either `active` or `archived`; normal recall excludes
 archived records. Revision replaces the same file atomically without retaining
 hidden prior content. Forgetting is designed as physical deletion with no
-tombstone. These lifecycle operations are domain primitives only until explicit
-consent-gated MCP Tools are implemented.
+tombstone. Remember creation is exposed only behind its explicit gate; the other
+lifecycle operations remain domain primitives until dedicated consent-gated MCP
+Tools are implemented.
 
 All record files are limited to 64 KiB, content to 4,000 characters, and titles
 to 200 characters. Invalid, oversized, too-deep, or unsafe records are skipped
@@ -147,10 +259,10 @@ Symlinks are rejected, no more than 1,000 candidate files are accepted in one
 scope, and no more than five records are returned. Files remain the source of
 truth: inspect them directly and delete a record by deleting its file.
 
-There is no required manifest or persistent content-bearing index. Future
-mutation Tools must remain disabled unless the operator enables them and the MCP
-client can require approval for every exact mutation call. A model-provided
-confirmation field is not consent.
+There is no required manifest or persistent content-bearing index. Remember
+remains disabled unless the operator enables it and the MCP client can require
+approval for every exact call. Future lifecycle mutation Tools remain
+unregistered. A model-provided confirmation field is not consent.
 
 ## MCP Validation
 
@@ -228,25 +340,58 @@ mnemosyne-test
 
 ## OpenCode Configuration
 
-The included `opencode.json` registers this server as a remote MCP server:
+The included `opencode.json` registers this server as a remote MCP server and
+requires approval for the exact prefixed remember Tool. The agent-level rule is
+also explicit because per-agent permissions can override top-level rules and
+OpenCode uses the last matching Tool-name rule. It denies the broad server
+prefix first, then allows the two read-only Tools and asks for remember:
 
 ```json
 {
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "mnemosyne_memory_remember": "ask"
+  },
   "mcp": {
     "mnemosyne": {
       "type": "remote",
       "url": "http://127.0.0.1:8000/mcp",
       "enabled": true
     }
+  },
+  "agent": {
+    "mnemosyne": {
+      "permission": {
+        "mnemosyne_*": "deny",
+        "mnemosyne_list_tools": "allow",
+        "mnemosyne_memory_recall": "allow",
+        "mnemosyne_memory_remember": "ask"
+      }
+    }
   }
 }
 ```
+
+This client permission does not enable mutation on the server. The operator
+must separately set `MNEMOSYNE_MEMORY_REMEMBER_ENABLED=true` and restart the
+server. After changing `opencode.json`, quit and restart OpenCode so it reloads
+the configuration and Tool discovery.
+
+For every proposed remember call, review the complete Tool arguments and choose
+`once`. Choosing `reject` prevents the request from reaching Mnemosyne and
+therefore produces no write. Do not choose session-wide `always`, start OpenCode
+with `--auto`, or enable interactive auto-approval while memory mutation is
+enabled: each bypasses approval on later exact calls. If any of those modes was
+used, disable server mutation and restart both the server and OpenCode before
+continuing. Any additional per-agent permission override must preserve
+this order: broad `mnemosyne_*` denial first, explicit read-only allows next,
+and `mnemosyne_memory_remember: ask` last.
 
 ## Roadmap Shape
 
 Likely next steps:
 
-1. Add explicit, consent-based memory creation and deletion tools.
+1. Add explicit, consent-based memory inspection and deletion tools.
 2. Add read-only awareness tools.
 3. Add governance rules for consent, hygiene, and no-secret handling.
 4. Refine retrieval using observed local recall behavior.
