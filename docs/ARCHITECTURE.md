@@ -173,6 +173,16 @@ version-1 files remain readable without rewriting. New canonical records use
 schema version 2 and derive their location from scope, namespace ID, optional
 collection ID, and server-generated memory ID.
 
+The filesystem store initializes directories lazily only on canonical create.
+After validating that the deterministic record parent is beneath the configured
+root, it collects a missing root-ancestor chain back to the nearest existing
+directory and creates each missing component in parent-to-child order. Newly
+created directories use mode `0700` on POSIX, existing directories are not
+chmodded, and atomic record files retain mode `0600`. Symlink/non-directory
+conflicts and creation failures remain bounded domain errors. Settings
+resolution, startup, recall, disabled or invalid remember calls, and
+content-policy refusal do not create the root or its parents.
+
 Discovery rejects symlinks, limits nesting to four directories, limits files to
 64 KiB, and fails rather than returning a partial result when a scope exceeds
 1,000 candidate JSON files. Invalid individual records are skipped with bounded

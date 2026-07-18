@@ -71,7 +71,9 @@ def _reference() -> MemoryReference:
 
 
 def test_store_atomically_creates_private_directories_and_file(tmp_path: Path) -> None:
-    root = tmp_path / "memory"
+    home = tmp_path / "home"
+    home.mkdir(mode=0o750)
+    root = home / ".mnemosyne" / "memory"
     store = FilesystemMemoryStore(root)
 
     stored = store.create(_record())
@@ -81,8 +83,15 @@ def test_store_atomically_creates_private_directories_and_file(tmp_path: Path) -
     assert json.loads(path.read_text(encoding="utf-8")) == _payload()
     assert list(path.parent.glob(".*.tmp")) == []
     if os.name == "posix":
-        assert stat.S_IMODE(root.stat().st_mode) == 0o700
-        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+        assert stat.S_IMODE(home.stat().st_mode) == 0o750
+        for directory in (
+            home / ".mnemosyne",
+            root,
+            root / "project",
+            root / "project" / "mnemosyne",
+            path.parent,
+        ):
+            assert stat.S_IMODE(directory.stat().st_mode) == 0o700
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 

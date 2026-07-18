@@ -153,7 +153,8 @@ def test_memory_remember_validates_without_persisting(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    memory_root = tmp_path / "application" / "memory"
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(memory_root))
 
     result = handle(_arguments())
 
@@ -163,7 +164,7 @@ def test_memory_remember_validates_without_persisting(
         "code": "mutation_disabled",
         "message": "memory remember is disabled",
     }
-    assert list(tmp_path.iterdir()) == []
+    assert not memory_root.parent.exists()
 
 
 @pytest.mark.parametrize(
@@ -326,6 +327,22 @@ def test_memory_remember_persists_canonical_record_with_minimal_result(
     assert stored["lifecycle"] == {"state": "active", "revision": 1}
 
 
+def test_memory_remember_initializes_an_absent_default_memory_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.delenv("MNEMOSYNE_MEMORY_ROOT", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: home)
+
+    result = handle(_arguments(), mutations_enabled=True)
+
+    assert _payload(result)["status"] == "remembered"
+    memory_root = home / ".mnemosyne" / "memory"
+    assert len(list(memory_root.rglob("*.json"))) == 1
+
+
 def test_memory_remember_returns_active_duplicate_without_second_write(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -369,7 +386,8 @@ def test_memory_remember_refuses_disallowed_content_without_writing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    memory_root = tmp_path / "application" / "memory"
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(memory_root))
     arguments = _arguments()
     arguments["content"] = "Authorization: Bearer synthetic-token"
 
@@ -381,7 +399,7 @@ def test_memory_remember_refuses_disallowed_content_without_writing(
         "code": "disallowed_content",
         "message": "memory contains content that Mnemosyne does not store",
     }
-    assert list(tmp_path.iterdir()) == []
+    assert not memory_root.parent.exists()
 
 
 @pytest.mark.parametrize(

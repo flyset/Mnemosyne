@@ -129,7 +129,20 @@ class FilesystemMemoryStore:
         except ValueError as error:
             raise UnsafeMemoryPath from error
 
-        directories = [self.memory_root]
+        missing_ancestors: list[Path] = []
+        current = self.memory_root
+        while not current.exists():
+            if current.is_symlink():
+                raise UnsafeMemoryPath
+            missing_ancestors.append(current)
+            parent = current.parent
+            if parent == current:
+                raise MemorySourceUnavailable
+            current = parent
+
+        directories = list(reversed(missing_ancestors))
+        if not directories or directories[-1] != self.memory_root:
+            directories.append(self.memory_root)
         current = self.memory_root
         for part in relative_directory.parts:
             current /= part

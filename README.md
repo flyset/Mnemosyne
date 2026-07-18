@@ -157,6 +157,18 @@ The default memory root is:
 ~/.mnemosyne/memory
 ```
 
+No manual first-run initialization is required. When an enabled, valid,
+policy-accepted `memory_remember` call reaches canonical creation, Mnemosyne
+lazily creates any missing directories from the nearest existing ancestor
+through the record directory. Every newly created directory uses private mode
+`0700` on POSIX, and the record file uses mode `0600`. Existing directories are
+left unchanged rather than chmodded.
+
+Resolving the setting, starting the server, recalling memory, disabled or
+invalid remember calls, and content-policy refusals do not initialize the
+memory root. Filesystem initialization therefore remains behind the existing
+operator-enable and per-call consent boundaries.
+
 Set an explicit root for another local location:
 
 ```bash

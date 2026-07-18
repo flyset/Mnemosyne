@@ -19,7 +19,7 @@
 - **Remember outcome** — `remembered`, `already_exists`, or `existing_archived` with only a structured reference and lifecycle; validation, refusal, conflict, disabled, and storage conditions are bounded Tool errors.
 - **Memory record** — one user-visible, versioned JSON source-of-truth file; canonical version-2 records separate scope, namespace, collection, kind, language, content, tags, provenance, timestamps, and lifecycle.
 - **Memory reference** — a structured scope, namespace ID, optional collection ID, and record ID used by lifecycle operations instead of a client-supplied path.
-- **Memory root** — the operator-controlled local directory containing the six fixed memory scope directories; it defaults to `~/.mnemosyne/memory`.
+- **Memory root** — the operator-controlled local directory containing the six fixed memory scope directories; it defaults to `~/.mnemosyne/memory` and is initialized lazily with private newly created directories only when an enabled, valid, policy-accepted remember call reaches canonical creation.
 - **Memory recall request** — a narrow, model-generated description of user-specific context that could materially affect the current response.
 - **Memory scope** — the single required high-level category describing what a memory recall request concerns: `self`, `relationship`, `preference`, `practice`, `project`, or `knowledge`.
 - **Memory scope directory** — one fixed top-level directory beneath the memory root selected by a validated memory scope; recall never accepts a client-supplied path.
