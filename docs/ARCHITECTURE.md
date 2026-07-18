@@ -29,7 +29,7 @@ mnemosyne/
   __init__.py
   app.py              # FastAPI app assembly
   cli.py              # console entrypoints
-  settings.py         # identity, protocol, memory-root, and remember-gate config
+  settings.py         # identity, memory root, and bounded startup configuration
 
   memory/
     __init__.py       # stable shared-domain exports
@@ -157,12 +157,25 @@ reference, and lifecycle for `remembered`, `already_exists`, or
 `mcp.memory_remember` emits one content-free terminal event and never records
 submitted memory text, labels, tags, paths, exception messages, or tracebacks.
 
-Tool availability is startup-fixed. `MNEMOSYNE_MEMORY_REMEMBER_ENABLED` accepts
-only exact lowercase `true` or `false`; absence is false and every other value
-fails startup closed. The immutable startup registry contains only `list_tools`
-and `memory_recall` by default and appends the remember definition and handler
-together when enabled. The same selection drives MCP `tools/list`, the
-`list_tools` Tool, and dispatch. No HTTP route owns this policy.
+Tool availability is startup-fixed. A supplied
+`MNEMOSYNE_MEMORY_REMEMBER_ENABLED` value has precedence, accepts only exact
+lowercase `true` or `false`, and fails startup closed without file fallback for
+every other value. When absent, the settings layer consults only
+`Path.home() / ".mnemosyne" / "config.toml"`; the strict optional `[memory]`
+table may contain only the optional TOML boolean `remember_enabled`, and the
+final default is false.
+
+The settings layer performs no initialization. It bounds the file to 16 KiB of
+UTF-8 TOML, rejects unknown structure, symlinked or non-regular sources,
+metadata replacement during open, unreadable sources, and group/world-writable
+POSIX application directories or files. Descriptor-relative/no-follow access
+is used where supported, and failures expose only stable non-content-bearing
+codes/messages. The immutable startup registry contains only `list_tools` and
+`memory_recall` by default and appends the remember definition and handler
+together when enabled. The same startup selection drives MCP `tools/list`, the
+`list_tools` Tool, and dispatch until restart. No HTTP route or CLI entrypoint
+owns this policy, and server enablement remains separate from per-call client
+consent.
 
 ## Filesystem Retrieval
 
@@ -205,7 +218,10 @@ clients without that boundary must leave mutation Tools disabled.
 
 Contains stable server identity constants used across routes and MCP
 initialization, dynamic resolution of the operator-controlled memory root, and
-strict startup parsing for the remember-only enablement gate.
+strict environment-first/fixed-file startup parsing for the remember-only
+enablement gate. It owns the fixed local settings path, schema, bounded source
+checks, and stable configuration failures without creating or editing operator
+configuration.
 
 ### `mnemosyne/cli.py`
 

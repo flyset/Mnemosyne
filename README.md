@@ -43,19 +43,54 @@ enables it explicitly.
 
 ## Remembering Memory
 
-Remember is disabled by default. With no setting, or with the exact value
-`false`, `tools/list` and `list_tools` omit `memory_remember` and direct dispatch
-treats it as unknown. Enable only this Tool with:
+Remember is disabled by default. With no setting, an accepted disabled setting,
+or the exact environment value `false`, `tools/list` and `list_tools` omit
+`memory_remember` and direct dispatch treats it as unknown.
+
+Persist the operator's choice in the one fixed local settings file:
+
+```text
+~/.mnemosyne/config.toml
+```
+
+```toml
+[memory]
+remember_enabled = true
+```
+
+The file is optional and read-only to Mnemosyne. Startup does not create or
+edit it or its parent. A missing file, empty document, absent or empty
+`[memory]` table, absent key, or TOML boolean `false` all mean disabled. The
+document may contain only the optional `[memory]` table, which may contain only
+the optional TOML boolean `remember_enabled`; strings such as `"true"`, unknown
+keys/tables, and malformed TOML fail startup closed.
+
+For one process-level override, use:
 
 ```bash
 export MNEMOSYNE_MEMORY_REMEMBER_ENABLED=true
 ```
 
-The server reads this setting at startup, so restart it after changing the
-value. Only exact lowercase `true` and `false` are accepted; any other supplied
-value fails startup closed without being echoed. Enabling the server-side Tool
-does not establish user consent. A compatible MCP client must separately show
-the complete arguments and require user approval for every exact call.
+A supplied environment value has precedence and prevents file access. Only
+exact lowercase `true` and `false` are accepted; any other supplied value fails
+startup closed without being echoed or falling back to the file. When the
+variable is absent, Mnemosyne consults the fixed file and finally defaults to
+false.
+
+The server reads enablement once at startup, so restart it after changing either
+source. Restart or reconnect the MCP client as well so it refreshes Tool
+discovery. Enabling the server-side Tool does not establish user consent. A
+compatible MCP client must separately show the complete arguments and require
+user approval for every exact call.
+
+The settings source is limited to 16 KiB of UTF-8 TOML. Mnemosyne rejects a
+symlinked `.mnemosyne` directory or file, non-directory/non-regular source,
+unreadable source, and—on POSIX—a directory or file writable by group or others.
+Use mode `0700` for `~/.mnemosyne` and `0600` for `config.toml`; non-writable
+`0755`/`0644` modes are also accepted because this file is not a secret store.
+Configuration failures use stable bounded messages and do not expose supplied
+values, file contents, parser details, underlying exception text, or the
+absolute settings path.
 
 All nine caller-owned fields are required, including nullable values:
 
@@ -164,10 +199,10 @@ through the record directory. Every newly created directory uses private mode
 `0700` on POSIX, and the record file uses mode `0600`. Existing directories are
 left unchanged rather than chmodded.
 
-Resolving the setting, starting the server, recalling memory, disabled or
-invalid remember calls, and content-policy refusals do not initialize the
-memory root. Filesystem initialization therefore remains behind the existing
-operator-enable and per-call consent boundaries.
+Resolving either settings source, starting the server, recalling memory,
+disabled or invalid remember calls, and content-policy refusals do not
+initialize the memory root. Filesystem initialization therefore remains behind
+the existing operator-enable and per-call consent boundaries.
 
 Set an explicit root for another local location:
 
