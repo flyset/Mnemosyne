@@ -33,6 +33,12 @@ Recall remains read-only. It does not create, update, delete, or automatically
 extract memory, and it does not persist recall requests. Calls remain visible
 through the MCP client's existing Tool-call/session representation.
 
+Memory scopes, records, paths, storage, retrieval, and lifecycle policy now live
+in a shared `mnemosyne/memory/` domain rather than inside the recall Tool. The
+domain includes mutation-disabled create, revise, archive, restore, and physical
+delete primitives for future Tools, but `memory_recall` remains the only exposed
+memory Tool. No MCP mutation endpoint is currently registered.
+
 ## Filesystem Memory
 
 The default memory root is:
@@ -59,8 +65,8 @@ memory/
   knowledge/
 ```
 
-Records may be placed directly in a scope or beneath at most four nested topic,
-project, or subject directories. Each record is one UTF-8 `.json` file:
+Legacy version-1 records remain readable in their existing locations. Their
+minimal format is:
 
 ```json
 {
@@ -72,12 +78,67 @@ project, or subject directories. Each record is one UTF-8 `.json` file:
 }
 ```
 
-`schema_version`, `id`, and `content` are required. `title` and `tags` are
-optional; unknown fields make a record invalid. IDs contain 1–100 ASCII letters,
-digits, `.`, `_`, or `-`. Files are limited to 64 KiB, content to 4,000
-characters, title to 200 characters, and tags to 1–10 unique values of at most 50
-characters each. Invalid, oversized, too-deep, or unsafe records are skipped and
-logged without their content.
+Version-1 `schema_version`, `id`, and `content` are required; `title` and `tags`
+are optional. No background migration or rewrite occurs.
+
+Canonical version-2 records are self-contained and use a deterministic path:
+
+```text
+<scope>/<namespace-id>/<collection-id?>/<memory-id>.json
+```
+
+For example:
+
+```text
+project/mnemosyne/decisions/mem_0123456789abcdef0123456789abcdef.json
+```
+
+```json
+{
+  "schema_version": 2,
+  "id": "mem_0123456789abcdef0123456789abcdef",
+  "scope": "project",
+  "namespace": {
+    "kind": "project",
+    "id": "mnemosyne",
+    "label": "Mnemosyne"
+  },
+  "collection": {
+    "id": "decisions",
+    "label": "Decisions"
+  },
+  "kind": "decision",
+  "language": "en",
+  "title": "Shared memory ownership",
+  "content": "Canonical memory concepts belong to the shared memory domain.",
+  "tags": ["architecture", "memory-domain"],
+  "provenance": {
+    "origin": "explicit_user_statement",
+    "recorded_via": "memory_remember"
+  },
+  "lifecycle": {
+    "state": "active",
+    "revision": 1
+  },
+  "created_at": "2026-07-18T12:00:00Z",
+  "updated_at": "2026-07-18T12:00:00Z"
+}
+```
+
+Scope, namespace, optional collection, kind, language, content, tags,
+provenance, timestamps, and lifecycle are separate dimensions. IDs determine
+paths; mutable labels do not. Record metadata must agree with its location.
+Unknown fields or mismatched paths make a version-2 record invalid.
+
+Version-2 records are either `active` or `archived`; normal recall excludes
+archived records. Revision replaces the same file atomically without retaining
+hidden prior content. Forgetting is designed as physical deletion with no
+tombstone. These lifecycle operations are domain primitives only until explicit
+consent-gated MCP Tools are implemented.
+
+All record files are limited to 64 KiB, content to 4,000 characters, and titles
+to 200 characters. Invalid, oversized, too-deep, or unsafe records are skipped
+and logged without their content.
 
 Retrieval case-folds and tokenizes the query, relative path, title, content, and
 record tags. Exact request-tag overlap has the strongest weight, followed by
@@ -85,6 +146,11 @@ title, path/record-tag, and content matches. Ties are resolved deterministically
 Symlinks are rejected, no more than 1,000 candidate files are accepted in one
 scope, and no more than five records are returned. Files remain the source of
 truth: inspect them directly and delete a record by deleting its file.
+
+There is no required manifest or persistent content-bearing index. Future
+mutation Tools must remain disabled unless the operator enables them and the MCP
+client can require approval for every exact mutation call. A model-provided
+confirmation field is not consent.
 
 ## MCP Validation
 

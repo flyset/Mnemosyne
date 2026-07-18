@@ -2,14 +2,14 @@ import json
 import logging
 from typing import Any
 
-from mnemosyne.mcp.tools.memory_recall.definition import SCOPES
-from mnemosyne.mcp.tools.memory_recall.retrieval import (
+from mnemosyne.memory.errors import (
     CandidateLimitExceeded,
-    MemoryMatch,
     MemorySourceUnavailable,
-    discover_records,
-    rank_records,
 )
+from mnemosyne.memory.retrieval import MemoryMatch
+from mnemosyne.memory.scopes import SCOPE_VALUES, parse_scope
+from mnemosyne.memory.service import MemoryService
+from mnemosyne.memory.store import FilesystemMemoryStore
 from mnemosyne.settings import get_memory_root
 
 
@@ -55,12 +55,13 @@ def _error(code: str, message: str, *, status: str) -> dict[str, Any]:
 
 
 def _serialize_match(match: MemoryMatch, scope: str) -> dict[str, Any]:
+    record = match.memory.record
     return {
-        "id": match.record.id,
+        "id": record.id,
         "scope": scope,
-        "title": match.record.title,
-        "content": match.record.content,
-        "tags": list(match.record.tags),
+        "title": record.title,
+        "content": record.content,
+        "tags": list(record.tags),
         "match": {
             "terms": list(match.matched_terms),
             "tags": list(match.matched_tags),
@@ -86,7 +87,7 @@ def handle(arguments: dict[str, Any]) -> dict[str, Any]:
         )
 
     scope = arguments.get("scope")
-    if scope not in SCOPES:
+    if scope not in SCOPE_VALUES:
         return _error(
             "invalid_scope",
             INVALID_SCOPE_MESSAGE,
@@ -115,7 +116,12 @@ def handle(arguments: dict[str, Any]) -> dict[str, Any]:
         request_tags = tags
 
     try:
-        records = discover_records(get_memory_root(), scope)
+        service = MemoryService(FilesystemMemoryStore(get_memory_root()))
+        matches = service.recall(
+            parse_scope(scope),
+            query,
+            request_tags,
+        )
     except CandidateLimitExceeded:
         return _error(
             "candidate_limit_exceeded",
@@ -129,7 +135,6 @@ def handle(arguments: dict[str, Any]) -> dict[str, Any]:
             status="retrieval_error",
         )
 
-    matches = rank_records(records, query, request_tags)
     if not matches:
         return {
             "content": _text_content(
@@ -144,10 +149,7 @@ def handle(arguments: dict[str, Any]) -> dict[str, Any]:
         "content": _text_content(
             {
                 "status": "ok",
-                "memories": [
-                    _serialize_match(match, scope)
-                    for match in matches
-                ],
+                "memories": [_serialize_match(match, scope) for match in matches],
             }
         )
     }

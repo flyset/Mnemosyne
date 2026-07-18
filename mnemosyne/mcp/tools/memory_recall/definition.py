@@ -1,11 +1,4 @@
-SCOPES = (
-    "self",
-    "relationship",
-    "preference",
-    "practice",
-    "project",
-    "knowledge",
-)
+from mnemosyne.memory.scopes import SCOPE_DEFINITIONS
 
 
 TOOL = {
@@ -37,42 +30,10 @@ TOOL = {
                 ),
                 "oneOf": [
                     {
-                        "const": "self",
-                        "description": (
-                            "Who the user is and their enduring circumstances."
-                        ),
-                    },
-                    {
-                        "const": "relationship",
-                        "description": (
-                            "People, relationships, and the user's perspective about "
-                            "others."
-                        ),
-                    },
-                    {
-                        "const": "preference",
-                        "description": "Choices the user explicitly wants respected.",
-                    },
-                    {
-                        "const": "practice",
-                        "description": (
-                            "Routines, methods, habits, and actual ways of working."
-                        ),
-                    },
-                    {
-                        "const": "project",
-                        "description": (
-                            "Goals, state, decisions, and constraints of a bounded "
-                            "endeavor."
-                        ),
-                    },
-                    {
-                        "const": "knowledge",
-                        "description": (
-                            "User-approved reference material useful beyond one project, "
-                            "not ordinary general knowledge."
-                        ),
-                    },
+                        "const": definition.scope.value,
+                        "description": definition.description,
+                    }
+                    for definition in SCOPE_DEFINITIONS
                 ],
             },
             "tags": {

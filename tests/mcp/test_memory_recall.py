@@ -7,7 +7,7 @@ import pytest
 from mnemosyne.mcp.tools.memory_recall import TOOL, handle
 from mnemosyne.mcp.tools.memory_recall import handler as handler_module
 from mnemosyne.mcp.tools.memory_recall.definition import TOOL as DEFINED_TOOL
-from mnemosyne.mcp.tools.memory_recall.retrieval import (
+from mnemosyne.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
 )
@@ -187,6 +187,106 @@ def test_memory_recall_returns_ranked_memories_without_paths_or_scores(
     assert "score" not in result["content"][0]["text"]
 
 
+def test_memory_recall_returns_active_version_two_memory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_id = "mem_0123456789abcdef0123456789abcdef"
+    _write_memory(
+        tmp_path / "preference" / "leisure" / f"{memory_id}.json",
+        {
+            "schema_version": 2,
+            "id": memory_id,
+            "scope": "preference",
+            "namespace": {
+                "kind": "domain",
+                "id": "leisure",
+                "label": "Leisure",
+            },
+            "collection": None,
+            "kind": "preference",
+            "language": "en",
+            "title": "Rainy activities",
+            "content": "The user prefers museums on rainy days.",
+            "tags": ["leisure", "rainy-day"],
+            "provenance": {
+                "origin": "explicit_user_statement",
+                "recorded_via": "memory_remember",
+            },
+            "lifecycle": {"state": "active", "revision": 1},
+            "created_at": "2026-07-18T12:00:00Z",
+            "updated_at": "2026-07-18T12:00:00Z",
+        },
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    result = handle(
+        {
+            "query": "rainy leisure activities",
+            "scope": "preference",
+            "tags": ["leisure", "rainy-day"],
+        }
+    )
+
+    assert json.loads(result["content"][0]["text"]) == {
+        "status": "ok",
+        "memories": [
+            {
+                "id": memory_id,
+                "scope": "preference",
+                "title": "Rainy activities",
+                "content": "The user prefers museums on rainy days.",
+                "tags": ["leisure", "rainy-day"],
+                "match": {
+                    "terms": ["activities", "leisure", "rainy"],
+                    "tags": ["leisure", "rainy-day"],
+                },
+            }
+        ],
+    }
+
+
+def test_memory_recall_excludes_archived_version_two_memory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_id = "mem_0123456789abcdef0123456789abcdef"
+    _write_memory(
+        tmp_path / "preference" / "leisure" / f"{memory_id}.json",
+        {
+            "schema_version": 2,
+            "id": memory_id,
+            "scope": "preference",
+            "namespace": {
+                "kind": "domain",
+                "id": "leisure",
+                "label": "Leisure",
+            },
+            "collection": None,
+            "kind": "preference",
+            "language": "en",
+            "title": None,
+            "content": "Archived rainy memory.",
+            "tags": [],
+            "provenance": {
+                "origin": "explicit_user_statement",
+                "recorded_via": "memory_remember",
+            },
+            "lifecycle": {"state": "archived", "revision": 2},
+            "created_at": "2026-07-18T12:00:00Z",
+            "updated_at": "2026-07-18T13:00:00Z",
+        },
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    result = handle({"query": "rainy", "scope": "preference"})
+
+    assert json.loads(result["content"][0]["text"]) == {
+        "status": "no_matches",
+        "memories": [],
+    }
+
+
 def test_memory_recall_searches_only_the_requested_scope(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -235,10 +335,10 @@ def test_memory_recall_returns_stable_retrieval_errors(
     error: Exception,
     expected: dict[str, str],
 ) -> None:
-    def fail_discovery(*args: object) -> None:
+    def fail_recall(*args: object) -> None:
         raise error
 
-    monkeypatch.setattr(handler_module, "discover_records", fail_discovery)
+    monkeypatch.setattr(handler_module.MemoryService, "recall", fail_recall)
 
     result = handle({"query": "relevant memory", "scope": "knowledge"})
 

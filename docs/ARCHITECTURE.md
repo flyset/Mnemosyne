@@ -31,6 +31,17 @@ mnemosyne/
   cli.py              # console entrypoints
   settings.py         # server identity, protocol constants, and memory-root config
 
+  memory/
+    __init__.py       # stable shared-domain exports
+    scopes.py         # canonical scopes and namespace-kind policy
+    records.py        # versioned records, drafts, revisions, and references
+    normalization.py  # Unicode, identifiers, language, and tags
+    paths.py          # deterministic safe filesystem projection
+    errors.py         # shared domain and storage errors
+    store.py          # bounded reads and atomic filesystem persistence
+    retrieval.py      # eligibility, ranking, and match evidence
+    service.py        # recall and lifecycle policy
+
   routes/
     __init__.py
     mcp.py            # HTTP transport for /mcp
@@ -52,9 +63,8 @@ mnemosyne/
 
       memory_recall/
         __init__.py   # public TOOL and handle re-exports
-        definition.py # Tool schema and canonical scopes
-        handler.py    # validation, logging, orchestration, and Tool results
-        retrieval.py  # safe filesystem discovery, parsing, and ranking
+        definition.py # Tool schema derived from canonical shared scopes
+        handler.py    # MCP validation, logging, adaptation, and Tool results
 ```
 
 ## Responsibilities
@@ -87,38 +97,67 @@ Owns MCP protocol concerns:
 
 This is where the protocol surface should grow.
 
+### `mnemosyne/memory/`
+
+Owns tool-independent memory meaning and local persistence:
+
+- canonical scope definitions and scope-specific namespace kinds;
+- version-1 compatibility and canonical version-2 records;
+- namespace, collection, kind, language, provenance, and lifecycle dimensions;
+- structured references and deterministic safe path projection;
+- bounded filesystem discovery and exact lookup;
+- private atomic create/replace/delete primitives and revision conflicts;
+- active/archived eligibility, deterministic ranking, and match evidence;
+- mutation-disabled-by-default lifecycle policy.
+
+The shared domain imports no MCP, FastAPI, or route modules. MCP Tool handlers
+adapt domain inputs/results; they do not own record, storage, or retrieval truth.
+Import-boundary tests enforce this dependency direction.
+
 `memory_recall` validates a narrow query, exactly one required high-level memory
 scope, and optional bounded free-form tags. The six scopes are `self`,
 `relationship`, `preference`, `practice`, `project`, and `knowledge`; each has an
 individual model-facing description in the Tool schema.
 
-The handler maps the validated scope through a fixed allowlist to one directory
-under the configured memory root, discovers bounded version-1 JSON records, and
-ranks them using deterministic query/path/title/content terms and exact tag
-overlap. It returns no more than five records with match evidence and never
-returns filesystem paths or internal scores. Missing directories and no positive
-match return `no_matches`; source and candidate-limit failures return stable Tool
-errors. Recall does not create memory directories, mutate records, persist recall
-requests, generate embeddings, or access external services.
+The handler constructs a read-only `MemoryService` over a
+`FilesystemMemoryStore` rooted at the configured location. The shared service
+discovers compatible version-1 and canonical version-2 records and ranks them
+using deterministic query/path/title/content terms and exact tag overlap. It
+returns no more than five records with match evidence and never returns paths,
+internal scores, provenance, or lifecycle metadata. Archived version-2 records
+are excluded. Missing directories and no positive match return `no_matches`;
+source and candidate-limit failures return stable Tool errors.
 
-The package boundary is deliberately explicit: `definition.py` owns the public
-Tool contract, `handler.py` owns MCP argument and result semantics, and
-`retrieval.py` owns constrained local-file behavior. `__init__.py` only preserves
-the package-level `TOOL` and `handle` imports used by the registry.
+The recall package is deliberately limited to `__init__.py`, `definition.py`,
+and `handler.py`. Its definition derives scope branches from the shared registry;
+its handler owns MCP-specific argument/result semantics. Storage and ranking do
+not live under the Tool package.
 
 ## Filesystem Retrieval
 
 The default root is `~/.mnemosyne/memory`; the operator may set
 `MNEMOSYNE_MEMORY_ROOT`. Recall never accepts a path from an MCP request. Beneath
-the root, the canonical scope names are fixed top-level directories. Records are
-UTF-8 JSON objects with required `schema_version: 1`, `id`, and `content`, plus
-optional `title` and `tags`.
+the root, the canonical scope names are fixed top-level directories. Legacy
+version-1 files remain readable without rewriting. New canonical records use
+schema version 2 and derive their location from scope, namespace ID, optional
+collection ID, and server-generated memory ID.
 
 Discovery rejects symlinks, limits nesting to four directories, limits files to
 64 KiB, and fails rather than returning a partial result when a scope exceeds
 1,000 candidate JSON files. Invalid individual records are skipped with bounded
 warning details. Files remain the source of truth and are directly inspectable
 and deletable by the user.
+
+Version-2 metadata must agree with its path. JSON files are the only durable
+memory source of truth; there is no required manifest, alias database, persistent
+content index, tombstone, or hidden revision history. Atomic mutation primitives
+exist only in the shared domain and are disabled by default. No mutation MCP Tool
+is registered in the current server.
+
+Future remember/revise/archive/restore/forget Tools must be thin adapters over
+the existing service/store contracts. They require explicit operator enablement
+and a client capable of per-call approval; clients without that boundary must
+leave mutation Tools disabled.
 
 ### `mnemosyne/settings.py`
 
