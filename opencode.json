@@ -16,6 +16,7 @@
         "mnemosyne_*": "deny",
         "mnemosyne_list_tools": "allow",
         "mnemosyne_memory_recall": "allow",
+        "mnemosyne_memory_inspect": "allow",
         "mnemosyne_memory_remember": "ask"
       }
     }

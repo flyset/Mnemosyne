@@ -127,11 +127,12 @@ def test_store_skips_invalid_and_path_mismatched_records_with_safe_warnings(
 
     assert FilesystemMemoryStore(tmp_path).discover(MemoryScope.PROJECT) == []
     assert caplog.messages == [
-        "skipped scope='project' path='bad-json.json' reason='invalid_json'",
-        "skipped scope='project' path='invalid.json' reason='invalid_record'",
-        "skipped scope='project' path='wrong/record.json' reason='path_mismatch'",
+        "skipped scope='project' reason='invalid_json'",
+        "skipped scope='project' reason='invalid_record'",
+        "skipped scope='project' reason='path_mismatch'",
     ]
     assert all(str(tmp_path) not in message for message in caplog.messages)
+    assert all(".json" not in message for message in caplog.messages)
 
 
 def test_store_skips_oversized_and_too_deep_sources(
@@ -152,10 +153,11 @@ def test_store_skips_oversized_and_too_deep_sources(
 
     assert [memory.record.id for memory in stored] == ["valid"]
     assert caplog.messages == [
-        "skipped scope='project' path='one/two/three/four/five' "
-        "reason='too_deep'",
-        "skipped scope='project' path='oversized.json' reason='oversized'",
+        "skipped scope='project' reason='too_deep'",
+        "skipped scope='project' reason='oversized'",
     ]
+    assert all("one/two" not in message for message in caplog.messages)
+    assert all("oversized.json" not in message for message in caplog.messages)
 
 
 def test_store_rejects_symlink_files_and_directories(
@@ -177,9 +179,10 @@ def test_store_rejects_symlink_files_and_directories(
 
     assert FilesystemMemoryStore(tmp_path).discover(MemoryScope.PROJECT) == []
     assert caplog.messages == [
-        "skipped scope='project' path='linked-directory' reason='symlink'",
-        "skipped scope='project' path='linked-file.json' reason='symlink'",
+        "skipped scope='project' reason='symlink'",
+        "skipped scope='project' reason='symlink'",
     ]
+    assert all("linked-" not in message for message in caplog.messages)
 
 
 def test_store_rejects_more_than_one_thousand_candidates(tmp_path: Path) -> None:

@@ -6,6 +6,7 @@ from mnemosyne.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
 )
+from mnemosyne.memory.records import MemoryRecordV2
 from mnemosyne.memory.retrieval import MemoryMatch
 from mnemosyne.memory.scopes import SCOPE_VALUES, parse_scope
 from mnemosyne.memory.service import MemoryService
@@ -56,7 +57,25 @@ def _error(code: str, message: str, *, status: str) -> dict[str, Any]:
 
 def _serialize_match(match: MemoryMatch, scope: str) -> dict[str, Any]:
     record = match.memory.record
+    reference = (
+        {
+            "schema_version": 2,
+            "scope": record.scope.value,
+            "namespace_id": record.namespace.id,
+            "collection_id": (
+                record.collection.id if record.collection is not None else None
+            ),
+            "id": record.id,
+        }
+        if isinstance(record, MemoryRecordV2)
+        else {
+            "schema_version": 1,
+            "scope": scope,
+            "id": record.id,
+        }
+    )
     return {
+        "reference": reference,
         "id": record.id,
         "scope": scope,
         "title": record.title,

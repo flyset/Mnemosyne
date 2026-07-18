@@ -119,10 +119,13 @@ def test_mcp_tools_list_exposes_the_registered_tools() -> None:
     response = client.post("/mcp", json={"id": "r1", "method": "tools/list"})
 
     assert response.status_code == 200
-    assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
+    tool_names = [tool["name"] for tool in response.json()["result"]["tools"]]
+    assert tool_names[:3] == [
         "list_tools",
         "memory_recall",
+        "memory_inspect",
     ]
+    assert tool_names[3:] in ([], ["memory_remember"])
 
 
 def test_mcp_tools_call_returns_memory_recall_no_matches(
@@ -203,6 +206,11 @@ def test_mcp_tools_call_returns_matching_memory(
         "status": "ok",
         "memories": [
             {
+                "reference": {
+                    "schema_version": 1,
+                    "scope": "preference",
+                    "id": "rainy-day",
+                },
                 "id": "rainy-day",
                 "scope": "preference",
                 "title": None,
@@ -215,6 +223,62 @@ def test_mcp_tools_call_returns_matching_memory(
             }
         ],
     }
+
+
+def test_mcp_tools_call_returns_one_exact_inspected_memory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_path = tmp_path / "preference" / "legacy" / "rainy.json"
+    memory_path.parent.mkdir(parents=True)
+    memory_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "id": "rainy-day",
+                "content": "The user prefers museums on rainy days.",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "id": "r1",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_inspect",
+                "arguments": {
+                    "reference": {
+                        "schema_version": 1,
+                        "scope": "preference",
+                        "id": "rainy-day",
+                    }
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert json.loads(result["content"][0]["text"]) == {
+        "status": "ok",
+        "memory": {
+            "reference": {
+                "schema_version": 1,
+                "scope": "preference",
+                "id": "rainy-day",
+            },
+            "schema_version": 1,
+            "id": "rainy-day",
+            "title": None,
+            "content": "The user prefers museums on rainy days.",
+            "tags": [],
+        },
+    }
+    assert "path" not in result["content"][0]["text"]
 
 
 def test_mcp_tools_call_reports_hello_as_an_unknown_tool() -> None:

@@ -67,6 +67,11 @@ mnemosyne/
         definition.py # Tool schema derived from canonical shared scopes
         handler.py    # MCP validation, logging, adaptation, and Tool results
 
+      memory_inspect/
+        __init__.py   # public TOOL and handle re-exports
+        definition.py # strict versioned-reference schema
+        handler.py    # exact lookup, public projections, errors, and logs
+
       memory_remember/
         __init__.py   # public TOOL and handle re-exports
         definition.py # scope/dimension-derived mutation schema
@@ -130,15 +135,35 @@ The handler constructs a read-only `MemoryService` over a
 `FilesystemMemoryStore` rooted at the configured location. The shared service
 discovers compatible version-1 and canonical version-2 records and ranks them
 using deterministic query/path/title/content terms and exact tag overlap. It
-returns no more than five records with match evidence and never returns paths,
-internal scores, provenance, or lifecycle metadata. Archived version-2 records
-are excluded. Missing directories and no positive match return `no_matches`;
-source and candidate-limit failures return stable Tool errors.
+returns no more than five records with match evidence and an inspect-compatible
+versioned reference. Legacy references contain scope and ID; canonical
+references also contain namespace ID and nullable collection ID. Recall never
+returns paths, internal scores, provenance, or lifecycle metadata. Archived
+version-2 records are excluded. Missing directories and no positive match return
+`no_matches`; source and candidate-limit failures return stable Tool errors.
 
 The recall package is deliberately limited to `__init__.py`, `definition.py`,
 and `handler.py`. Its definition derives scope branches from the shared registry;
 its handler owns MCP-specific argument/result semantics. Storage and ranking do
 not live under the Tool package.
+
+`memory_inspect` is likewise limited to `__init__.py`, `definition.py`, and
+`handler.py`. Its strict schema accepts one reference discriminated by schema
+version. Version 2 requires scope, namespace ID, nullable collection ID, and
+canonical ID; version 1 requires scope and legacy ID. It accepts no filesystem
+path, storage root, broad selector, query, lifecycle state, or mutation field.
+
+The inspect handler validates before resolving the memory root and delegates
+exact lookup to the existing read-only `MemoryService.inspect()` and
+`FilesystemMemoryStore.get()` contracts. Canonical results contain a
+record-derived reference and all user-visible version-2 fields. Legacy results
+contain a versioned reference and only ID, nullable title, content, and tags.
+Archived canonical records remain inspectable without a lifecycle selector.
+Missing, ambiguous, candidate-limit, unsafe/unavailable-source, validation, and
+unexpected failures map to bounded Tool errors. Inspection does not initialize
+the root or change files. Logger `mcp.memory_inspect` emits one content-free
+terminal event containing only allowlisted outcome/reference metadata; shared
+skip warnings omit candidate paths.
 
 `memory_remember` is also limited to `__init__.py`, `definition.py`, and
 `handler.py`. Its schema derives six scope branches, namespace kinds, and memory
@@ -170,18 +195,19 @@ UTF-8 TOML, rejects unknown structure, symlinked or non-regular sources,
 metadata replacement during open, unreadable sources, and group/world-writable
 POSIX application directories or files. Descriptor-relative/no-follow access
 is used where supported, and failures expose only stable non-content-bearing
-codes/messages. The immutable startup registry contains only `list_tools` and
-`memory_recall` by default and appends the remember definition and handler
-together when enabled. The same startup selection drives MCP `tools/list`, the
-`list_tools` Tool, and dispatch until restart. No HTTP route or CLI entrypoint
-owns this policy, and server enablement remains separate from per-call client
-consent.
+codes/messages. The immutable startup registry always contains `list_tools`,
+`memory_recall`, and `memory_inspect`, in that order, and appends the remember
+definition and handler together when enabled. Inspect definition and dispatch
+are connected as one pair, so no placeholder Tool is advertised. The same
+startup selection drives MCP `tools/list`, the `list_tools` Tool, and dispatch
+until restart. No HTTP route or CLI entrypoint owns this policy, and server
+enablement remains separate from per-call client consent.
 
 ## Filesystem Retrieval
 
 The default root is `~/.mnemosyne/memory`; the operator may set
-`MNEMOSYNE_MEMORY_ROOT`. Recall never accepts a path from an MCP request. Beneath
-the root, the canonical scope names are fixed top-level directories. Legacy
+`MNEMOSYNE_MEMORY_ROOT`. Recall and inspection never accept a path from an MCP
+request. Beneath the root, the canonical scope names are fixed top-level directories. Legacy
 version-1 files remain readable without rewriting. New canonical records use
 schema version 2 and derive their location from scope, namespace ID, optional
 collection ID, and server-generated memory ID.
@@ -198,9 +224,10 @@ content-policy refusal do not create the root or its parents.
 
 Discovery rejects symlinks, limits nesting to four directories, limits files to
 64 KiB, and fails rather than returning a partial result when a scope exceeds
-1,000 candidate JSON files. Invalid individual records are skipped with bounded
-warning details. Files remain the source of truth and are directly inspectable
-and deletable by the user.
+1,000 candidate JSON files. Invalid individual records are skipped with warnings
+limited to scope and a bounded reason; candidate paths are not logged. Files
+remain the source of truth and are directly inspectable and deletable by the
+user.
 
 Version-2 metadata must agree with its path. JSON files are the only durable
 memory source of truth; there is no required manifest, alias database, persistent

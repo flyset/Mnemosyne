@@ -31,6 +31,22 @@ list_tools = request(
         "params": {"name": "list_tools", "arguments": {}},
     }
 )
+inspect = request(
+    {
+        "id": "inspect",
+        "method": "tools/call",
+        "params": {
+            "name": "memory_inspect",
+            "arguments": {
+                "reference": {
+                    "schema_version": 1,
+                    "scope": "project",
+                    "id": "missing"
+                }
+            },
+        },
+    }
+)
 remember = request(
     {
         "id": "remember",
@@ -45,6 +61,7 @@ print(
                 tool["name"] for tool in tools_list["result"]["tools"]
             ],
             "list_tools_text": list_tools["result"]["content"][0]["text"],
+            "inspect": inspect,
             "remember": remember,
         },
         sort_keys=True,
@@ -142,11 +159,15 @@ def test_file_enabled_startup_exposes_discovery_and_dispatch_without_writes(
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_inspect",
         "memory_remember",
     ]
     assert result["list_tools_text"] == (
-        "Available tools: list_tools, memory_recall, memory_remember"
+        "Available tools: list_tools, memory_recall, memory_inspect, memory_remember"
     )
+    inspect_result = result["inspect"]["result"]
+    assert inspect_result["isError"] is True
+    assert json.loads(inspect_result["content"][0]["text"])["code"] == "not_found"
     remember_result = result["remember"]["result"]
     assert remember_result["isError"] is True
     assert json.loads(remember_result["content"][0]["text"])["code"] == (
@@ -170,10 +191,17 @@ def test_disabled_startup_omits_remember_and_creates_no_paths(
 
     result = _probe_result(_run_probe(home))
 
-    assert result["tool_names"] == ["list_tools", "memory_recall"]
+    assert result["tool_names"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+    ]
     assert result["list_tools_text"] == (
-        "Available tools: list_tools, memory_recall"
+        "Available tools: list_tools, memory_recall, memory_inspect"
     )
+    inspect_result = result["inspect"]["result"]
+    assert inspect_result["isError"] is True
+    assert json.loads(inspect_result["content"][0]["text"])["code"] == "not_found"
     assert result["remember"]["error"] == {
         "code": -32602,
         "message": "Unknown tool: memory_remember",
@@ -261,6 +289,7 @@ def test_registry_selection_remains_fixed_until_a_fresh_startup(
     assert fixed_result["before"] == [
         "list_tools",
         "memory_recall",
+        "memory_inspect",
         "memory_remember",
     ]
     assert fixed_result["after"] == fixed_result["before"]
@@ -269,5 +298,6 @@ def test_registry_selection_remains_fixed_until_a_fresh_startup(
     assert restarted_result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_inspect",
     ]
     assert not (home / ".mnemosyne" / "memory").exists()

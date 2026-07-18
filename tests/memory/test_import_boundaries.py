@@ -6,6 +6,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MEMORY_PACKAGE = PROJECT_ROOT / "mnemosyne" / "memory"
 RECALL_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_recall"
 REMEMBER_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_remember"
+INSPECT_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_inspect"
 
 
 def _imports(path: Path) -> set[str]:
@@ -72,6 +73,38 @@ def test_memory_remember_definition_and_handler_use_only_shared_contracts() -> N
     assert all(
         not imported.startswith(
             ("mnemosyne.mcp.tools.memory_recall", "mnemosyne.routes", "fastapi")
+        )
+        for imported in definition_imports | handler_imports
+    )
+
+
+def test_memory_inspect_package_contains_only_mcp_adapter_modules() -> None:
+    assert sorted(path.name for path in INSPECT_PACKAGE.glob("*.py")) == [
+        "__init__.py",
+        "definition.py",
+        "handler.py",
+    ]
+
+
+def test_memory_inspect_definition_and_handler_use_shared_reference_contracts() -> None:
+    definition_imports = _imports(INSPECT_PACKAGE / "definition.py")
+    handler_imports = _imports(INSPECT_PACKAGE / "handler.py")
+
+    assert "mnemosyne.memory.scopes" in definition_imports
+    assert "mnemosyne.memory.normalization" in definition_imports
+    assert "mnemosyne.memory.records" in handler_imports
+    assert "mnemosyne.memory.errors" in handler_imports
+    assert "mnemosyne.memory.service" in handler_imports
+    assert "mnemosyne.memory.store" in handler_imports
+    assert "mnemosyne.settings" in handler_imports
+    assert all(
+        not imported.startswith(
+            (
+                "mnemosyne.mcp.tools.memory_recall",
+                "mnemosyne.mcp.tools.memory_remember",
+                "mnemosyne.routes",
+                "fastapi",
+            )
         )
         for imported in definition_imports | handler_imports
     )

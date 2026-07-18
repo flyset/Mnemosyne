@@ -15,6 +15,7 @@ def test_opencode_requires_exact_memory_remember_approval() -> None:
         ("mnemosyne_*", "deny"),
         ("mnemosyne_list_tools", "allow"),
         ("mnemosyne_memory_recall", "allow"),
+        ("mnemosyne_memory_inspect", "allow"),
         ("mnemosyne_memory_remember", "ask"),
     ]
     assert config["mcp"]["mnemosyne"] == {

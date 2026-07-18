@@ -12,6 +12,7 @@ Implemented tools:
 
 - `list_tools` — lists the tools exposed by the server
 - `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope directory
+- `memory_inspect` — returns one exact canonical or legacy memory selected by a versioned structured reference
 - `memory_remember` — when explicitly enabled, validates and atomically persists one approved canonical version-2 memory
 
 This is not yet a full memory or awareness system. A `memory_recall` request
@@ -22,9 +23,11 @@ Query terms and tags rank valid records from that directory; recall never search
 another scope or accepts a client-supplied path.
 
 Matching calls return a normal Tool result with `status: ok` and at most five
-memory records. Results include the record ID, scope, title, content, tags, and
-matched terms/tags, but never include filesystem paths or internal scores. An
-absent scope directory or no relevant record returns
+memory records. Results include an inspect-compatible versioned reference, the
+record ID, scope, title, content, tags, and matched terms/tags, but never include
+filesystem paths or internal scores. A legacy reference contains schema version,
+scope, and ID. A canonical reference additionally contains namespace ID and the
+nullable collection ID. An absent scope directory or no relevant record returns
 `{"status":"no_matches","memories":[]}`. Invalid arguments retain stable Tool
 errors with code `invalid_query`, `invalid_scope`, or `invalid_tags`; unreadable
 or excessive sources return `memory_source_unavailable` or
@@ -34,8 +37,63 @@ Recall remains read-only. It does not create, update, delete, or automatically
 extract memory, and it does not persist recall requests. Calls remain visible
 through the MCP client's existing Tool-call/session representation.
 
+## Inspecting Memory
+
+`memory_inspect` is registered by default as a read-only Tool. It accepts exactly
+one `reference` object and no path, memory root, filename, query, lifecycle
+selector, or broad list selector. Use the versioned reference returned by
+`memory_recall` or add `schema_version: 2` to the canonical identity returned by
+`memory_remember`:
+
+```json
+{
+  "reference": {
+    "schema_version": 2,
+    "scope": "project",
+    "namespace_id": "mnemosyne",
+    "collection_id": "decisions",
+    "id": "mem_0123456789abcdef0123456789abcdef"
+  }
+}
+```
+
+A legacy selector is limited to its actual identity:
+
+```json
+{
+  "reference": {
+    "schema_version": 1,
+    "scope": "preference",
+    "id": "rainy-weekend"
+  }
+}
+```
+
+Canonical success returns `status: ok`, the versioned structured reference, and
+the complete user-visible version-2 record: scope, namespace, optional
+collection, kind, language, nullable title, content, tags, provenance,
+lifecycle, and timestamps. Active and archived records use the same result
+shape; exact inspection does not filter archived memory. Legacy success returns
+only its versioned reference and fields that version 1 can represent: schema
+version, ID, nullable title, content, and tags. It does not invent namespace,
+collection, kind, language, provenance, lifecycle, or timestamps.
+
+Invalid references, missing records, ambiguous legacy IDs, excessive legacy
+candidates, unsafe or unavailable sources, and unexpected failures return
+bounded Tool errors with stable codes: `invalid_reference`, `not_found`,
+`ambiguous_reference`, `candidate_limit_exceeded`,
+`memory_source_unavailable`, or `internal_error`. Results never include paths,
+fingerprints, retrieval scores, storage wrappers, or unrelated records.
+
+Inspection never creates, changes, migrates, archives, restores, or deletes a
+record and does not initialize a missing memory root. Its one terminal log event
+contains only the outcome, stable code/field where applicable, reference schema
+version, and scope. It omits IDs, memory text and metadata, complete arguments,
+paths, exception details, and tracebacks. Shared skipped-record warnings likewise
+contain only scope and a bounded reason.
+
 Memory scopes, records, paths, storage, retrieval, content policy, and lifecycle
-policy live in a shared `mnemosyne/memory/` domain rather than inside either MCP
+policy live in a shared `mnemosyne/memory/` domain rather than inside individual MCP
 Tool. The domain includes mutation-disabled revise, archive, restore, and
 physical-delete primitives for future Tools. `memory_remember` is the only MCP
 mutation Tool and is absent from discovery and dispatch unless the operator
@@ -306,7 +364,9 @@ Symlinks are rejected, no more than 1,000 candidate files are accepted in one
 scope, and no more than five records are returned. Files remain the source of
 truth: inspect them directly and delete a record by deleting its file.
 
-There is no required manifest or persistent content-bearing index. Remember
+There is no required manifest or persistent content-bearing index. Exact
+inspection uses a structured reference and never accepts a filesystem path.
+Remember
 remains disabled unless the operator enables it and the MCP client can require
 approval for every exact call. Future lifecycle mutation Tools remain
 unregistered. A model-provided confirmation field is not consent.
@@ -391,7 +451,7 @@ The included `opencode.json` registers this server as a remote MCP server and
 requires approval for the exact prefixed remember Tool. The agent-level rule is
 also explicit because per-agent permissions can override top-level rules and
 OpenCode uses the last matching Tool-name rule. It denies the broad server
-prefix first, then allows the two read-only Tools and asks for remember:
+prefix first, then allows the three read-only Tools and asks for remember:
 
 ```json
 {
@@ -412,6 +472,7 @@ prefix first, then allows the two read-only Tools and asks for remember:
         "mnemosyne_*": "deny",
         "mnemosyne_list_tools": "allow",
         "mnemosyne_memory_recall": "allow",
+        "mnemosyne_memory_inspect": "allow",
         "mnemosyne_memory_remember": "ask"
       }
     }
@@ -438,7 +499,7 @@ and `mnemosyne_memory_remember: ask` last.
 
 Likely next steps:
 
-1. Add explicit, consent-based memory inspection and deletion tools.
+1. Add explicit, consent-based memory deletion tools after read-only inspection.
 2. Add read-only awareness tools.
 3. Add governance rules for consent, hygiene, and no-secret handling.
 4. Refine retrieval using observed local recall behavior.

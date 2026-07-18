@@ -56,11 +56,10 @@ class StoredMemory:
             raise UnsafeMemoryPath from error
 
 
-def _log_skipped(scope: MemoryScope, relative_path: str, reason: str) -> None:
+def _log_skipped(scope: MemoryScope, reason: str) -> None:
     logger.warning(
-        "skipped scope=%r path=%r reason=%r",
+        "skipped scope=%r reason=%r",
         scope.value,
-        relative_path,
         reason,
     )
 
@@ -86,14 +85,13 @@ class FilesystemMemoryStore:
 
             for entry in entries:
                 relative_path = relative_directory / entry.name
-                display_path = relative_path.as_posix()
                 try:
                     if entry.is_symlink():
-                        _log_skipped(scope, display_path, "symlink")
+                        _log_skipped(scope, "symlink")
                         continue
                     if entry.is_dir(follow_symlinks=False):
                         if depth >= MAX_DIRECTORY_DEPTH:
-                            _log_skipped(scope, display_path, "too_deep")
+                            _log_skipped(scope, "too_deep")
                         else:
                             walk(Path(entry.path), relative_path, depth + 1)
                         continue
@@ -102,7 +100,7 @@ class FilesystemMemoryStore:
                         and Path(entry.name).suffix == ".json"
                     )
                 except OSError:
-                    _log_skipped(scope, display_path, "unreadable")
+                    _log_skipped(scope, "unreadable")
                     continue
 
                 if not is_json_file:
@@ -240,44 +238,43 @@ class FilesystemMemoryStore:
         scope: MemoryScope,
         scope_path: Path,
     ) -> StoredMemory | None:
-        scope_relative_path = path.relative_to(scope_path).as_posix()
         root_relative_path = path.relative_to(self.memory_root).as_posix()
         try:
             if path.is_symlink():
-                _log_skipped(scope, scope_relative_path, "symlink")
+                _log_skipped(scope, "symlink")
                 return None
             if path.stat().st_size > MAX_FILE_BYTES:
-                _log_skipped(scope, scope_relative_path, "oversized")
+                _log_skipped(scope, "oversized")
                 return None
             raw_record = path.read_bytes()
         except OSError:
-            _log_skipped(scope, scope_relative_path, "unreadable")
+            _log_skipped(scope, "unreadable")
             return None
 
         if len(raw_record) > MAX_FILE_BYTES:
-            _log_skipped(scope, scope_relative_path, "oversized")
+            _log_skipped(scope, "oversized")
             return None
         try:
             text_record = raw_record.decode("utf-8")
         except UnicodeDecodeError:
-            _log_skipped(scope, scope_relative_path, "invalid_encoding")
+            _log_skipped(scope, "invalid_encoding")
             return None
         try:
             payload = json.loads(text_record)
         except json.JSONDecodeError:
-            _log_skipped(scope, scope_relative_path, "invalid_json")
+            _log_skipped(scope, "invalid_json")
             return None
         try:
             record = parse_memory_record(payload)
         except MemoryValidationError:
-            _log_skipped(scope, scope_relative_path, "invalid_record")
+            _log_skipped(scope, "invalid_record")
             return None
 
         if isinstance(record, MemoryRecordV2):
             try:
                 ensure_record_path(record, Path(root_relative_path))
             except UnsafeMemoryPath:
-                _log_skipped(scope, scope_relative_path, "path_mismatch")
+                _log_skipped(scope, "path_mismatch")
                 return None
 
         return StoredMemory(
@@ -292,7 +289,7 @@ class FilesystemMemoryStore:
         if not scope_path.exists():
             return []
         if scope_path.is_symlink():
-            _log_skipped(scope, ".", "symlink")
+            _log_skipped(scope, "symlink")
             return []
         if not scope_path.is_dir():
             raise MemorySourceUnavailable

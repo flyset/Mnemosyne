@@ -3,7 +3,12 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from mnemosyne.mcp.tools import list_tools, memory_recall, memory_remember
+from mnemosyne.mcp.tools import (
+    list_tools,
+    memory_inspect,
+    memory_recall,
+    memory_remember,
+)
 from mnemosyne.settings import get_memory_remember_enabled
 
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
@@ -28,6 +33,8 @@ class ToolRegistry:
 def build_tool_registry(
     memory_remember_enabled: bool,
     *,
+    memory_inspect_tool: dict[str, Any] | None = None,
+    memory_inspect_handler: ToolHandler | None = None,
     memory_remember_tool: dict[str, Any] | None = None,
     memory_remember_handler: ToolHandler | None = None,
 ) -> ToolRegistry:
@@ -35,6 +42,12 @@ def build_tool_registry(
     handlers: dict[str, ToolHandler] = {
         memory_recall.TOOL["name"]: memory_recall.handle,
     }
+
+    if (memory_inspect_tool is None) != (memory_inspect_handler is None):
+        raise ValueError("memory inspect registration is unavailable")
+    if memory_inspect_tool is not None and memory_inspect_handler is not None:
+        tools.append(memory_inspect_tool)
+        handlers[memory_inspect_tool["name"]] = memory_inspect_handler
 
     if memory_remember_enabled:
         if memory_remember_tool is None or memory_remember_handler is None:
@@ -56,6 +69,8 @@ def build_tool_registry(
 def build_startup_tool_registry(memory_remember_enabled: bool) -> ToolRegistry:
     return build_tool_registry(
         memory_remember_enabled,
+        memory_inspect_tool=memory_inspect.TOOL,
+        memory_inspect_handler=memory_inspect.handle,
         memory_remember_tool=memory_remember.TOOL,
         memory_remember_handler=lambda arguments: memory_remember.handle(
             arguments,

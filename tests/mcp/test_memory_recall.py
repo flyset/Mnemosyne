@@ -171,6 +171,11 @@ def test_memory_recall_returns_ranked_memories_without_paths_or_scores(
         "status": "ok",
         "memories": [
             {
+                "reference": {
+                    "schema_version": 1,
+                    "scope": "preference",
+                    "id": "rainy-weekend",
+                },
                 "id": "rainy-weekend",
                 "scope": "preference",
                 "title": "Rainy weekend activities",
@@ -232,6 +237,13 @@ def test_memory_recall_returns_active_version_two_memory(
         "status": "ok",
         "memories": [
             {
+                "reference": {
+                    "schema_version": 2,
+                    "scope": "preference",
+                    "namespace_id": "leisure",
+                    "collection_id": None,
+                    "id": memory_id,
+                },
                 "id": memory_id,
                 "scope": "preference",
                 "title": "Rainy activities",
