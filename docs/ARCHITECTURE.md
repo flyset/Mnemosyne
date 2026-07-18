@@ -49,6 +49,9 @@ mnemosyne/
 
       list_tools/
         __init__.py   # list_tools tool schema and handler
+
+      memory_recall/
+        __init__.py   # recall-request schema and placeholder handler
 ```
 
 ## Responsibilities
@@ -80,6 +83,17 @@ Owns MCP protocol concerns:
 - individual tool definitions and execution handlers
 
 This is where the protocol surface should grow.
+
+`memory_recall` currently stops at the MCP Tool boundary. It validates a narrow
+query, exactly one required high-level memory scope, and optional bounded
+free-form tags. The six scopes are `self`, `relationship`, `preference`,
+`practice`, `project`, and `knowledge`; each has an individual model-facing
+description in the Tool schema. Tags are descriptive request metadata with no
+current filtering or ranking semantics. Valid calls return a stable
+`retrieval_unavailable` result without reading a memory source, generating
+embeddings, searching, ranking, or returning memory. The placeholder handler
+does not persist recall requests. Calls remain visible through the MCP client's
+existing Tool-call and session representation.
 
 ### `mnemosyne/settings.py`
 

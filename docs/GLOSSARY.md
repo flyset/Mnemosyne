@@ -6,6 +6,10 @@
 - **Hot memory** — a small, bounded working set loaded at session start from durable memory.
 - **MCP tool** — a narrowly scoped capability exposed through the Model Context Protocol.
 - **Memory** — user-approved durable context, such as a preference or stable fact; never a secret store.
+- **Memory recall request** — a narrow, model-generated description of user-specific context that could materially affect the current response.
+- **Memory scope** — the single required high-level category describing what a memory recall request concerns: `self`, `relationship`, `preference`, `practice`, `project`, or `knowledge`.
+- **Recall tags** — optional, bounded, free-form descriptive labels attached to a memory recall request; they currently define no filtering, ranking, or other retrieval behavior.
+- **Recall request surface** — a non-retrieving MCP tool that validates memory recall requests and returns a stable unavailable result without server-side request persistence.
 - **Reflection** — operational agent configuration, such as policies, checklists, and failure-mode mitigations; not personal facts.
 - **Session context** — selectively retrieved summaries or excerpts from prior agent sessions.
 

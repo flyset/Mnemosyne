@@ -11,8 +11,19 @@ This repository currently contains a minimal FastAPI-based MCP skeleton.
 Implemented tools:
 
 - `list_tools` — lists the tools exposed by the server
+- `memory_recall` — accepts a narrow user-memory request with one required scope and optional free-form tags, then returns `retrieval_unavailable`; it does not access, return, or persist memory requests
 
-This is not yet a full memory or awareness system. The current code is a starting point for shaping that server.
+This is not yet a full memory or awareness system. `memory_recall` is currently
+a request surface. A request contains a free-form `query`, exactly one high-level
+scope (`self`, `relationship`, `preference`, `practice`, `project`, or
+`knowledge`), and optionally 1–10 unique free-form `tags`. Valid calls return a
+normal MCP Tool result whose text content is
+`{"status":"retrieval_unavailable"}`. Invalid arguments return stable Tool errors
+with code `invalid_query`, `invalid_scope`, or `invalid_tags`. Scope categorizes
+what the requested memory concerns; tags add descriptive labels but currently
+have no retrieval semantics. The probe does not connect to memory data, does not
+persist requests, and relies on the MCP client's existing Tool-call visibility.
+Exposing its Tool definition may itself influence model behavior.
 
 ## MCP Validation
 

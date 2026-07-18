@@ -112,13 +112,46 @@ def test_mcp_returns_method_not_found_for_unknown_methods() -> None:
     }
 
 
-def test_mcp_tools_list_excludes_the_retired_hello_tool() -> None:
+def test_mcp_tools_list_exposes_the_registered_tools() -> None:
     response = client.post("/mcp", json={"id": "r1", "method": "tools/list"})
 
     assert response.status_code == 200
     assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
-        "list_tools"
+        "list_tools",
+        "memory_recall",
     ]
+
+
+def test_mcp_tools_call_returns_memory_recall_placeholder() -> None:
+    response = client.post(
+        "/mcp",
+        json={
+            "id": "r1",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_recall",
+                "arguments": {
+                    "query": "preferred response style",
+                    "scope": "preference",
+                    "tags": ["response-style"],
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": "r1",
+        "result": {
+            "content": [
+                {
+                    "type": "text",
+                    "text": '{"status":"retrieval_unavailable"}',
+                }
+            ]
+        },
+    }
 
 
 def test_mcp_tools_call_reports_hello_as_an_unknown_tool() -> None:

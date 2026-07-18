@@ -1,11 +1,12 @@
 from typing import Any
 
-from mnemosyne.mcp.tools import list_tools
+from mnemosyne.mcp.tools import list_tools, memory_recall
 
-TOOLS = [list_tools.TOOL]
+TOOLS = [list_tools.TOOL, memory_recall.TOOL]
 
 TOOL_HANDLERS = {
     list_tools.TOOL["name"]: lambda arguments: list_tools.handle(arguments, TOOLS),
+    memory_recall.TOOL["name"]: memory_recall.handle,
 }
 
 
