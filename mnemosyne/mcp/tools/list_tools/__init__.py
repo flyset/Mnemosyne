@@ -1,5 +1,7 @@
 from typing import Any
 
+from mnemosyne.settings import SERVER_NAME, SERVER_VERSION
+
 TOOL = {
     "name": "list_tools",
     "description": "Returns the list of tools exposed by this MCP server.",
@@ -16,7 +18,10 @@ def handle(arguments: dict[str, Any], tools: list[dict[str, Any]]) -> dict[str, 
         "content": [
             {
                 "type": "text",
-                "text": "Available tools: " + ", ".join(tool_names),
+                "text": (
+                    f"Server: {SERVER_NAME} {SERVER_VERSION}. Available tools: "
+                    + ", ".join(tool_names)
+                ),
             }
         ]
     }

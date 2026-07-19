@@ -9,7 +9,8 @@ TOOL = {
         "preserves stable identity, language, provenance, lifecycle state, and "
         "creation time. Never include secrets, sensitive personal data, paths, "
         "legacy identities, immutable fields, lifecycle targets, or model-provided "
-        "confirmation."
+        "confirmation. Omit collection_label only when reference.collection_id is "
+        "null; otherwise provide its complete string-or-null replacement."
     ),
     "inputSchema": revise_input_schema(),
 }

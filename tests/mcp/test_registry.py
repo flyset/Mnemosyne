@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from mnemosyne.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
 from mnemosyne.mcp.tools.registry import (
     build_startup_tool_registry,
     build_tool_registry,
@@ -210,7 +211,10 @@ def test_registry_omits_disabled_remember_from_discovery_and_dispatch() -> None:
         "content": [
             {
                 "type": "text",
-                "text": "Available tools: list_tools, memory_recall",
+                "text": (
+                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "list_tools, memory_recall"
+                ),
             }
         ]
     }
@@ -235,7 +239,10 @@ def test_registry_connects_inspect_discovery_and_dispatch_together() -> None:
         "content": [
             {
                 "type": "text",
-                "text": "Available tools: list_tools, memory_recall, memory_inspect",
+                "text": (
+                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "list_tools, memory_recall, memory_inspect"
+                ),
             }
         ]
     }
@@ -264,7 +271,8 @@ def test_registry_connects_list_before_inspect_and_normalizes_arguments() -> Non
             {
                 "type": "text",
                 "text": (
-                    "Available tools: list_tools, memory_recall, "
+                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "list_tools, memory_recall, "
                     "memory_list, memory_inspect"
                 ),
             }
@@ -326,7 +334,8 @@ def test_registry_enables_remember_discovery_and_dispatch_together() -> None:
             {
                 "type": "text",
                 "text": (
-                    "Available tools: list_tools, memory_recall, memory_remember"
+                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "list_tools, memory_recall, memory_remember"
                 ),
             }
         ]
@@ -426,7 +435,8 @@ def test_registry_enables_archive_restore_discovery_and_dispatch_as_one_pair() -
             {
                 "type": "text",
                 "text": (
-                    "Available tools: list_tools, memory_recall, "
+                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "list_tools, memory_recall, "
                     "memory_archive, memory_restore"
                 ),
             }
@@ -831,3 +841,48 @@ def test_startup_registry_normalizes_stringified_revise_arguments(
     assert '"code":"not_found"' in result["content"][0]["text"]
     assert arguments == original
     assert not (tmp_path / "missing").exists()
+
+
+def test_registry_delivers_claude_style_revise_arguments_with_typed_structure() -> None:
+    observed: list[dict[str, object]] = []
+    registry = build_tool_registry(
+        False,
+        memory_revise_enabled=True,
+        memory_revise_tool=MEMORY_REVISE_TOOL,
+        memory_revise_handler=lambda arguments: (
+            observed.append(arguments)
+            or {"content": [{"type": "text", "text": "captured"}]}
+        ),
+    )
+    arguments = {
+        "reference": (
+            '{"schema_version": 2, "scope": "relationship", '
+            '"namespace_id": "stakeholders", "collection_id": null, '
+            '"id": "mem_0123456789abcdef0123456789abcdef"}'
+        ),
+        "expected_revision": "1",
+        "namespace_label": "Stakeholders",
+        "title": "Stakeholder summary",
+        "content": "Synthetic transport compatibility content.",
+        "tags": '["work", "stakeholders"]',
+    }
+
+    result = registry.call_tool("memory_revise", arguments)
+
+    assert result == {"content": [{"type": "text", "text": "captured"}]}
+    assert observed == [
+        {
+            "reference": {
+                "schema_version": 2,
+                "scope": "relationship",
+                "namespace_id": "stakeholders",
+                "collection_id": None,
+                "id": "mem_0123456789abcdef0123456789abcdef",
+            },
+            "expected_revision": 1,
+            "namespace_label": "Stakeholders",
+            "title": "Stakeholder summary",
+            "content": "Synthetic transport compatibility content.",
+            "tags": ["work", "stakeholders"],
+        }
+    ]

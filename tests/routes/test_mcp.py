@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mnemosyne.app import app
+from mnemosyne.mcp import methods as mcp_methods
 from mnemosyne.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
@@ -401,3 +402,58 @@ def test_mcp_rejects_non_object_tool_arguments() -> None:
         "id": "r1",
         "error": {"code": -32602, "message": "Invalid params"},
     }
+
+
+def test_mcp_route_preserves_claude_style_revise_argument_strings(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="mcp")
+    observed: list[tuple[object, object]] = []
+
+    def capture(tool_name, arguments):
+        observed.append((tool_name, arguments))
+        return {"content": [{"type": "text", "text": "captured"}]}
+
+    monkeypatch.setattr(mcp_methods, "call_tool", capture)
+    reference = (
+        '{"schema_version": 2, "scope": "relationship", '
+        '"namespace_id": "transport-marker", "collection_id": null, '
+        '"id": "mem_0123456789abcdef0123456789abcdef"}'
+    )
+    tags = '["transport-marker"]'
+
+    response = client.post(
+        "/mcp",
+        json={
+            "id": "transport",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_revise",
+                "arguments": {
+                    "reference": reference,
+                    "expected_revision": "1",
+                    "namespace_label": "Transport marker",
+                    "title": "Transport marker",
+                    "content": "Private transport-marker content.",
+                    "tags": tags,
+                },
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert observed == [
+        (
+            "memory_revise",
+            {
+                "reference": reference,
+                "expected_revision": "1",
+                "namespace_label": "Transport marker",
+                "title": "Transport marker",
+                "content": "Private transport-marker content.",
+                "tags": tags,
+            },
+        )
+    ]
+    assert "transport-marker" not in caplog.text

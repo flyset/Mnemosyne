@@ -97,12 +97,13 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
         "reference",
         "expected_revision",
         "namespace_label",
-        "collection_label",
         "title",
         "content",
         "tags",
     ]
-    assert set(schema["properties"]) == set(schema["required"])
+    assert set(schema["properties"]) == set(schema["required"]) | {
+        "collection_label"
+    }
     assert schema["properties"]["expected_revision"] == {
         "type": "integer",
         "minimum": 1,
@@ -128,6 +129,36 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
         "minItems": 0,
         "maxItems": 10,
         "uniqueItems": True,
+    }
+    assert schema["properties"]["namespace_label"] == {
+        "type": ["string", "null"],
+        "description": (
+            "Required complete replacement for the namespace label; send JSON null "
+            "to remove the label."
+        ),
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "\\S",
+    }
+    assert schema["properties"]["collection_label"] == {
+        "type": ["string", "null"],
+        "description": (
+            "Required when reference.collection_id is a string; omit when "
+            "reference.collection_id is null. For a collected memory, send a string "
+            "or JSON null to replace its label."
+        ),
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "\\S",
+    }
+    assert schema["properties"]["title"] == {
+        "type": ["string", "null"],
+        "description": (
+            "Required complete replacement for the title; send JSON null to remove it."
+        ),
+        "minLength": 1,
+        "maxLength": 200,
+        "pattern": "\\S",
     }
 
 
@@ -167,43 +198,55 @@ def test_revise_request_parser_adapts_identity_and_normalized_replacement() -> N
 
 
 @pytest.mark.parametrize(
-    ("mutate", "code", "field"),
+    ("mutate", "code", "field", "message"),
     [
-        (lambda value: value.pop("reference"), "invalid_reference", "reference"),
+        (
+            lambda value: value.pop("reference"),
+            "invalid_reference",
+            "reference",
+            "reference is invalid",
+        ),
         (
             lambda value: value.update({"expected_revision": True}),
             "invalid_expected_revision",
             "expected_revision",
+            "expected revision is invalid",
         ),
         (
             lambda value: value.update({"expected_revision": 0}),
             "invalid_expected_revision",
             "expected_revision",
+            "expected revision is invalid",
         ),
         (
             lambda value: value.pop("namespace_label"),
             "invalid_record",
-            "revision",
+            "namespace_label",
+            "namespace label is invalid",
         ),
         (
             lambda value: value.update({"content": " "}),
             "invalid_record",
             "content",
+            "content is invalid",
         ),
         (
             lambda value: value.update({"path": "/private/memory.json"}),
             "invalid_record",
             "revision",
+            "revision request is invalid",
         ),
         (
             lambda value: value.update({"language": "en"}),
             "invalid_record",
             "revision",
+            "revision request is invalid",
         ),
         (
             lambda value: value["reference"].update({"schema_version": 1}),
             "invalid_reference",
             "reference",
+            "reference is invalid",
         ),
     ],
 )
@@ -211,6 +254,7 @@ def test_revise_request_parser_rejects_invalid_or_forbidden_fields(
     mutate,
     code: str,
     field: str,
+    message: str,
 ) -> None:
     arguments = deepcopy(_arguments())
     mutate(arguments)
@@ -220,6 +264,7 @@ def test_revise_request_parser_rejects_invalid_or_forbidden_fields(
 
     assert caught.value.code == code
     assert caught.value.field == field
+    assert caught.value.message == message
 
 
 def test_revise_request_accepts_nullable_labels_title_and_collection() -> None:
@@ -241,6 +286,48 @@ def test_revise_request_accepts_nullable_labels_title_and_collection() -> None:
     assert request.revision.collection_label is None
     assert request.revision.title is None
     assert request.revision.tags == ()
+
+
+def test_revise_request_accepts_omitted_collection_label_only_when_collectionless() -> None:
+    collectionless = _arguments()
+    collectionless["reference"]["collection_id"] = None
+    del collectionless["collection_label"]
+
+    request = parse_revise_request(collectionless)
+
+    assert request.reference.collection_id is None
+    assert request.revision.collection_label is None
+
+    collected = _arguments()
+    del collected["collection_label"]
+
+    with pytest.raises(MemoryValidationError) as caught:
+        parse_revise_request(collected)
+
+    assert caught.value.code == "invalid_record"
+    assert caught.value.field == "collection_label"
+    assert caught.value.message == "collection label is required for collected memory"
+
+
+def test_revise_request_preserves_literal_null_collection_label_as_text() -> None:
+    arguments = _arguments()
+    arguments["collection_label"] = "null"
+
+    request = parse_revise_request(arguments)
+
+    assert request.revision.collection_label == "null"
+
+
+def test_revise_request_reports_invalid_collection_label_consistently() -> None:
+    arguments = _arguments()
+    arguments["collection_label"] = ""
+
+    with pytest.raises(MemoryValidationError) as caught:
+        parse_revise_request(arguments)
+
+    assert caught.value.code == "invalid_record"
+    assert caught.value.field == "collection_label"
+    assert caught.value.message == "collection label is invalid"
 
 
 def test_memory_revise_direct_call_is_disabled_without_registration(
@@ -394,6 +481,49 @@ def test_memory_revise_updates_one_source_file_through_the_shared_service(
     assert _payload(result)["status"] == "revised"
     stored = parse_memory_record(json.loads(path.read_text(encoding="utf-8")))
     assert stored.id == original.id
+    assert stored.content == "The user enjoys sencha and gyokuro."
+    assert stored.lifecycle.revision == 4
+    assert len(list(tmp_path.rglob("*.json"))) == 1
+
+
+def test_memory_revise_updates_collectionless_source_with_omitted_collection_label(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = replace(
+        _record(revision=3),
+        collection=None,
+        title="Tea preference",
+        content="Original collectionless content.",
+        tags=("tea",),
+        updated_at=datetime(2026, 7, 18, 12, 0, tzinfo=timezone.utc),
+    )
+    path = tmp_path / "preference" / "tea" / f"{CANONICAL_ID}.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(serialize_memory_record(original)),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    arguments = _arguments()
+    arguments["reference"]["collection_id"] = None
+    del arguments["collection_label"]
+
+    result = handle(arguments, mutations_enabled=True)
+
+    assert _payload(result) == {
+        "status": "revised",
+        "reference": {
+            "schema_version": 2,
+            "scope": "preference",
+            "namespace_id": "tea",
+            "collection_id": None,
+            "id": CANONICAL_ID,
+        },
+        "lifecycle": {"state": "active", "revision": 4},
+    }
+    stored = parse_memory_record(json.loads(path.read_text(encoding="utf-8")))
+    assert stored.collection is None
     assert stored.content == "The user enjoys sencha and gyokuro."
     assert stored.lifecycle.revision == 4
     assert len(list(tmp_path.rglob("*.json"))) == 1

@@ -36,24 +36,29 @@ REQUIRED_FIELDS = [
     "reference",
     "expected_revision",
     "namespace_label",
-    "collection_label",
     "title",
     "content",
     "tags",
 ]
+REQUIRED_REPLACEMENT_FIELDS = (
+    "namespace_label",
+    "title",
+    "content",
+    "tags",
+)
 
 
-def _nullable_text(maximum_length: int) -> dict[str, object]:
+def _nullable_text(
+    maximum_length: int,
+    *,
+    description: str,
+) -> dict[str, object]:
     return {
-        "anyOf": [
-            {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": maximum_length,
-                "pattern": "\\S",
-            },
-            {"type": "null"},
-        ]
+        "type": ["string", "null"],
+        "description": description,
+        "minLength": 1,
+        "maxLength": maximum_length,
+        "pattern": "\\S",
     }
 
 
@@ -62,9 +67,28 @@ def revise_input_schema() -> dict[str, object]:
     properties = deepcopy(lifecycle_schema["properties"])
     properties.update(
         {
-            "namespace_label": _nullable_text(100),
-            "collection_label": _nullable_text(100),
-            "title": _nullable_text(200),
+            "namespace_label": _nullable_text(
+                100,
+                description=(
+                    "Required complete replacement for the namespace label; send JSON "
+                    "null to remove the label."
+                ),
+            ),
+            "collection_label": _nullable_text(
+                100,
+                description=(
+                    "Required when reference.collection_id is a string; omit when "
+                    "reference.collection_id is null. For a collected memory, send a "
+                    "string or JSON null to replace its label."
+                ),
+            ),
+            "title": _nullable_text(
+                200,
+                description=(
+                    "Required complete replacement for the title; send JSON null to "
+                    "remove it."
+                ),
+            ),
             "content": {
                 "type": "string",
                 "minLength": 1,
@@ -102,11 +126,22 @@ class ReviseRequest:
 ReviseOperation = Callable[[MemoryReference, MemoryRevision], MemoryResult]
 
 
+def _revision_error_message(field: str) -> str:
+    return {
+        "namespace_label": "namespace label is invalid",
+        "collection_label": "collection label is invalid",
+        "title": "title is invalid",
+        "content": "content is invalid",
+        "tags": "tags are invalid",
+        "revision": "revision request is invalid",
+    }.get(field, "revision request is invalid")
+
+
 def _invalid_revision(field: str = "revision") -> MemoryValidationError:
     return MemoryValidationError(
         "invalid_record",
         field,
-        "revision field is invalid",
+        _revision_error_message(field),
     )
 
 
@@ -127,20 +162,33 @@ def parse_revise_request(arguments: object) -> ReviseRequest:
             "expected_revision",
             "expected revision is invalid",
         )
-    if not REPLACEMENT_FIELDS <= set(arguments):
-        raise _invalid_revision()
-
     lifecycle_request = parse_lifecycle_request(
         {
             "reference": arguments["reference"],
             "expected_revision": arguments["expected_revision"],
         }
     )
+    for field in REQUIRED_REPLACEMENT_FIELDS:
+        if field not in arguments:
+            raise _invalid_revision(field)
+    if (
+        lifecycle_request.reference.collection_id is not None
+        and "collection_label" not in arguments
+    ):
+        raise MemoryValidationError(
+            "invalid_record",
+            "collection_label",
+            "collection label is required for collected memory",
+        )
     try:
         revision = MemoryRevision.from_dict(
             {
                 "expected_revision": arguments["expected_revision"],
-                **{field: arguments[field] for field in REPLACEMENT_FIELDS},
+                "namespace_label": arguments["namespace_label"],
+                "collection_label": arguments.get("collection_label"),
+                "title": arguments["title"],
+                "content": arguments["content"],
+                "tags": arguments["tags"],
             }
         )
     except MemoryValidationError as error:
@@ -288,7 +336,7 @@ def _validation_error(error: MemoryValidationError) -> tuple[str, str, str]:
             field,
             "expected revision is invalid",
         )
-    return ("invalid_record", field, "revision field is invalid")
+    return ("invalid_record", field, _revision_error_message(field))
 
 
 def execute_revise(

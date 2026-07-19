@@ -266,6 +266,14 @@ collection, kind, language, title, content, tags, and one of the two public
 origins. It accepts no path or server-owned identity, provenance-mechanism,
 timestamp, or lifecycle field.
 
+The schema also publishes those same nine required caller-visible fields in
+top-level `properties` and rejects additional properties there. This preserves a
+complete flat field bag for clients that discard composition, while the six full
+`oneOf` branches retain strict scope-specific namespace-kind and memory-kind
+constraints. Public origin is caller-supplied provenance context, not consent;
+the MCP client supplies the separate enforceable per-call approval boundary and
+the server assigns `recorded_via`.
+
 The remember handler validates a `MemoryDraft`, then—only when selected by the
 enabled startup registry—constructs an enabled `MemoryService` over the
 configured `FilesystemMemoryStore`. The service applies the shared content
@@ -279,14 +287,19 @@ submitted memory text, labels, tags, paths, exception messages, or tracebacks.
 `memory_revise` has the same three-file public package shape plus a private,
 capability-free `_memory_revise.py` adapter. Its flat canonical-only request
 requires the exact reference, positive expected revision, and complete
-replacement values for namespace label, collection label, title, content, and
-tags. It accepts no path, legacy identity, patch language, relocation,
-reclassification, lifecycle target, provenance replacement, timestamp, or model
-confirmation.
+replacement values for namespace label, title, content, and tags. Collection
+label is required as a nullable replacement only when the immutable reference
+contains a collection ID; a collectionless reference may omit the structurally
+nonexistent label and the adapter supplies null. Nullable scalar types and field
+descriptions remain visible without composition-only projection. The request
+accepts no path, legacy identity, patch language, relocation, reclassification,
+lifecycle target, provenance replacement, timestamp, or model confirmation.
 
-The private adapter owns strict parsing, normalization, minimal projection,
-result consistency, bounded error mapping, and content-free logging. Only the
-public handler constructs `MemoryService` and `FilesystemMemoryStore`. The
+The private adapter parses the exact reference before enforcing conditional
+replacement completeness, owns strict normalization, minimal projection, result
+consistency, field-aligned bounded errors, and content-free logging. Literal
+string `"null"` remains text. Only the public handler constructs `MemoryService`
+and `FilesystemMemoryStore`. The
 shared domain applies content policy before storage access, checks the exact
 revision, detects normalized no-ops, preserves immutable identity/metadata and
 lifecycle state, and atomically replaces the same file only on change. Changed
@@ -373,6 +386,12 @@ as a pair, so no placeholder Tool is advertised. The same
 startup selection drives MCP `tools/list`, the `list_tools` Tool, and dispatch
 until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
+
+`list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
+is kept equal to the package version and is also returned by initialize and
+`/version`. This marker identifies stale processes after public-contract updates;
+it is not a dynamic Git identifier or a replacement for reconnecting Tool
+discovery.
 
 The registry also derives an immutable Tool-name-to-input-schema mapping from
 that same startup selection. Known Tool calls pass through the shared

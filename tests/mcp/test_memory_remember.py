@@ -64,7 +64,33 @@ def _payload(result: dict[str, object]) -> dict[str, object]:
 def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
     assert TOOL["name"] == "memory_remember"
     schema = TOOL["inputSchema"]
+    assert set(schema) == {
+        "type",
+        "properties",
+        "required",
+        "additionalProperties",
+        "oneOf",
+    }
     assert schema["type"] == "object"
+    assert set(schema["properties"]) == FIELDS
+    assert set(schema["required"]) == FIELDS
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["scope"]["type"] == "string"
+    assert schema["properties"]["scope"]["enum"] == [
+        definition.scope.value for definition in SCOPE_DEFINITIONS
+    ]
+    assert schema["properties"]["origin"] == {
+        "type": "string",
+        "enum": [
+            "explicit_user_statement",
+            "user_approved_proposal",
+        ],
+        "description": (
+            "Caller-supplied provenance context, not consent. Use "
+            "explicit_user_statement for a direct user statement or "
+            "user_approved_proposal for an approved proposed memory."
+        ),
+    }
     branches = schema["oneOf"]
     assert len(branches) == len(SCOPE_DEFINITIONS)
 
@@ -144,6 +170,28 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
     assert project["tags"]["items"]["maxLength"] == 50
 
 
+def test_memory_remember_remains_callable_through_top_level_only_projection() -> None:
+    schema = TOOL["inputSchema"]
+    flattened = {
+        "properties": schema["properties"],
+        "required": schema["required"],
+    }
+    arguments = _arguments()
+    projected = {
+        name: value
+        for name, value in arguments.items()
+        if name in flattened["properties"]
+    }
+
+    assert set(flattened["required"]) == FIELDS
+    assert projected == arguments
+    assert _payload(handle(projected)) == {
+        "status": "policy_error",
+        "code": "mutation_disabled",
+        "message": "memory remember is disabled",
+    }
+
+
 def test_memory_remember_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
     assert handle is handler_module.handle
@@ -186,6 +234,24 @@ def test_memory_remember_rejects_non_public_origins(origin: object) -> None:
         "code": "invalid_origin",
         "field": "origin",
         "message": "origin is invalid",
+    }
+
+
+@pytest.mark.parametrize(
+    "origin",
+    ["explicit_user_statement", "user_approved_proposal"],
+)
+def test_memory_remember_accepts_both_public_origins(origin: str) -> None:
+    arguments = _arguments()
+    arguments["origin"] = origin
+
+    result = handle(arguments)
+
+    assert result["isError"] is True
+    assert _payload(result) == {
+        "status": "policy_error",
+        "code": "mutation_disabled",
+        "message": "memory remember is disabled",
     }
 
 

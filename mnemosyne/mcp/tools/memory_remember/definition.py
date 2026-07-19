@@ -14,6 +14,21 @@ PUBLIC_ORIGINS = [
     MemoryOrigin.EXPLICIT_USER_STATEMENT.value,
     MemoryOrigin.USER_APPROVED_PROPOSAL.value,
 ]
+PUBLIC_SCOPES = [definition.scope.value for definition in SCOPE_DEFINITIONS]
+PUBLIC_NAMESPACE_KINDS = list(
+    dict.fromkeys(
+        kind
+        for definition in SCOPE_DEFINITIONS
+        for kind in definition.namespace_kinds
+    )
+)
+PUBLIC_MEMORY_KINDS = list(
+    dict.fromkeys(
+        kind.value
+        for definition in SCOPE_DEFINITIONS
+        for kind in ALLOWED_KINDS[definition.scope]
+    )
+)
 REQUIRED_FIELDS = [
     "scope",
     "namespace",
@@ -41,14 +56,42 @@ def _nullable_text(maximum_length: int) -> dict[str, Any]:
     }
 
 
-def _namespace_schema(definition: ScopeDefinition) -> dict[str, Any]:
+def _scope_schema() -> dict[str, Any]:
+    return {
+        "type": "string",
+        "description": (
+            "Select the high-level domain that best describes the requested memory. "
+            "Allowed values: "
+            + "; ".join(
+                f"{definition.scope.value}: {definition.description}"
+                for definition in SCOPE_DEFINITIONS
+            )
+        ),
+        "enum": PUBLIC_SCOPES,
+    }
+
+
+def _namespace_schema(
+    definition: ScopeDefinition | None = None,
+) -> dict[str, Any]:
+    namespace_kinds = (
+        list(definition.namespace_kinds)
+        if definition is not None
+        else PUBLIC_NAMESPACE_KINDS
+    )
+    kind_schema: dict[str, Any] = {
+        "type": "string",
+        "enum": namespace_kinds,
+    }
+    if definition is None:
+        kind_schema["description"] = (
+            "Namespace kind must match scope; the complete schema narrows this enum "
+            "for each scope."
+        )
     return {
         "type": "object",
         "properties": {
-            "kind": {
-                "type": "string",
-                "enum": list(definition.namespace_kinds),
-            },
+            "kind": kind_schema,
             "id": dict(IDENTIFIER_SCHEMA),
             "label": _nullable_text(100),
         },
@@ -74,57 +117,82 @@ def _collection_schema() -> dict[str, Any]:
     }
 
 
+def _properties(
+    definition: ScopeDefinition | None = None,
+) -> dict[str, Any]:
+    if definition is None:
+        scope_schema = _scope_schema()
+        memory_kinds = PUBLIC_MEMORY_KINDS
+    else:
+        scope_schema = {
+            "const": definition.scope.value,
+            "description": definition.description,
+        }
+        memory_kinds = [
+            kind.value for kind in ALLOWED_KINDS[definition.scope]
+        ]
+    kind_schema: dict[str, Any] = {
+        "type": "string",
+        "enum": memory_kinds,
+    }
+    if definition is None:
+        kind_schema["description"] = (
+            "Memory kind must match scope; the complete schema narrows this enum for "
+            "each scope."
+        )
+    properties = {
+        "scope": scope_schema,
+        "namespace": _namespace_schema(definition),
+        "collection": _collection_schema(),
+        "kind": kind_schema,
+        "language": {
+            "anyOf": [
+                {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 35,
+                    "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+                },
+                {"type": "null"},
+            ]
+        },
+        "title": _nullable_text(200),
+        "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4_000,
+            "pattern": "\\S",
+        },
+        "tags": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50,
+                "pattern": "\\S",
+            },
+            "minItems": 0,
+            "maxItems": 10,
+            "uniqueItems": True,
+        },
+        "origin": {
+            "type": "string",
+            "enum": PUBLIC_ORIGINS,
+        },
+    }
+    if definition is None:
+        properties["origin"]["description"] = (
+            "Caller-supplied provenance context, not consent. Use "
+            "explicit_user_statement for a direct user statement or "
+            "user_approved_proposal for an approved proposed memory."
+        )
+    return properties
+
+
 def _scope_branch(definition: ScopeDefinition) -> dict[str, Any]:
     return {
         "type": "object",
-        "properties": {
-            "scope": {
-                "const": definition.scope.value,
-                "description": definition.description,
-            },
-            "namespace": _namespace_schema(definition),
-            "collection": _collection_schema(),
-            "kind": {
-                "type": "string",
-                "enum": [
-                    kind.value for kind in ALLOWED_KINDS[definition.scope]
-                ],
-            },
-            "language": {
-                "anyOf": [
-                    {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 35,
-                        "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
-                    },
-                    {"type": "null"},
-                ]
-            },
-            "title": _nullable_text(200),
-            "content": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 4_000,
-                "pattern": "\\S",
-            },
-            "tags": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 50,
-                    "pattern": "\\S",
-                },
-                "minItems": 0,
-                "maxItems": 10,
-                "uniqueItems": True,
-            },
-            "origin": {
-                "type": "string",
-                "enum": PUBLIC_ORIGINS,
-            },
-        },
+        "properties": _properties(definition),
         "required": REQUIRED_FIELDS,
         "additionalProperties": False,
     }
@@ -142,6 +210,9 @@ TOOL = {
     ),
     "inputSchema": {
         "type": "object",
+        "properties": _properties(),
+        "required": REQUIRED_FIELDS,
+        "additionalProperties": False,
         "oneOf": [_scope_branch(definition) for definition in SCOPE_DEFINITIONS],
     },
 }

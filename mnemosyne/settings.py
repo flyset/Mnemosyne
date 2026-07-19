@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 SERVER_NAME = "mnemosyne"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.1.1"
 PROTOCOL_VERSION = "2024-11-05"
 APP_TITLE = "Mnemosyne MCP Server"
 

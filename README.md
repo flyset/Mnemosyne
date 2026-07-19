@@ -10,7 +10,7 @@ This repository currently contains a minimal FastAPI-based MCP skeleton.
 
 Implemented tools:
 
-- `list_tools` — lists the tools exposed by the server
+- `list_tools` — reports the server version and lists the exposed tools
 - `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope directory
 - `memory_list` — completely and deterministically inventories valid memories in one bounded scope or canonical container without returning record content
 - `memory_inspect` — returns one exact canonical or legacy memory selected by a versioned structured reference
@@ -265,7 +265,8 @@ revision disabled.
 Inspect the record immediately before proposing revision. Recall returns an
 inspect-compatible reference, but inspection supplies the complete current
 record, lifecycle state, and revision needed for review and approval. Every
-revision request contains exactly these seven required fields:
+revision request contains six unconditional fields plus `collection_label` when
+the reference identifies an existing collection:
 
 ```json
 {
@@ -285,13 +286,23 @@ revision request contains exactly these seven required fields:
 }
 ```
 
-`namespace_label`, `collection_label`, and `title` may be null, but their keys
-remain required. `collection_label` must be null when the selected record has
-no collection. Content is nonblank and at most 4,000 characters; tags contain
-zero to ten unique normalized items of at most 50 characters. Unknown fields,
-legacy references, paths, patches, language or identity changes, provenance,
-lifecycle targets, timestamps, and model confirmation/consent fields are
-rejected.
+`namespace_label` and `title` may be null, but their keys remain required. When
+`reference.collection_id` is a string, `collection_label` is also required and
+may be either a replacement string or native JSON null. When
+`reference.collection_id` is null, the record has no collection and
+`collection_label` may be omitted; an explicit native JSON null remains accepted.
+The literal string `"null"` is text, not JSON null. Content is nonblank and at
+most 4,000 characters; tags contain zero to ten unique normalized items of at
+most 50 characters. Unknown fields, legacy references, paths, patches, language
+or identity changes, provenance, lifecycle targets, timestamps, and model
+confirmation/consent fields are rejected.
+
+Clients that stringify structured Tool fields receive the existing one-layer
+compatibility normalization: a JSON-encoded reference object, tags array, or
+integer revision is decoded where its schema position disallows strings. A
+nullable text position permits real strings, so string `"null"` is deliberately
+not coerced. Collectionless callers that cannot emit top-level JSON null should
+omit `collection_label`.
 
 The caller replaces only namespace label, the label of an existing collection,
 title, content, and tags. Mnemosyne preserves schema version, record ID, scope,
@@ -348,6 +359,11 @@ Logger `mcp.memory_revise` emits one terminal event containing only outcome,
 stable code/field where applicable, schema version, scope, and successful
 lifecycle state/revision. It omits IDs, labels, title, content, tags, complete
 arguments, paths, fingerprints, exception details, and tracebacks.
+
+`list_tools` prefixes the discovered Tool names with the same static server
+version exposed by MCP initialize and `/version`, for example
+`Server: mnemosyne 0.1.1.`. Restart the server and reconnect the client after an
+upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
 
@@ -553,7 +569,11 @@ Configuration failures use stable bounded messages and do not expose supplied
 values, file contents, parser details, underlying exception text, or the
 absolute settings path.
 
-All nine caller-owned fields are required, including nullable values:
+All nine caller-owned fields are required, including nullable values. The Tool
+schema publishes all nine in top-level `properties`, with the same top-level
+required list, so clients that retain only a flat object schema can still
+construct a complete call. Six scope-specific `oneOf` branches additionally
+narrow namespace kind and memory kind for clients that support composition:
 
 ```json
 {
@@ -592,10 +612,13 @@ every level. The allowed dimensions are derived from the shared domain:
 | `project` | `project` | `decision`, `constraint`, `state`, `question`, `reference`, `summary` |
 | `knowledge` | `topic` | `reference`, `summary` |
 
-Public origin is either `explicit_user_statement` or
-`user_approved_proposal`. Callers cannot supply a filesystem path, record ID,
-timestamp, lifecycle state, revision, `recorded_via`, or model-authored
-confirmation/consent field.
+Public `origin` is caller-supplied provenance context: use
+`explicit_user_statement` for a direct user statement or
+`user_approved_proposal` for an approved proposed memory. Origin is not consent;
+consent remains the MCP client's approval of the complete exact call.
+`recorded_via` is instead server-assigned. Callers cannot supply a filesystem
+path, record ID, timestamp, lifecycle state, revision, `recorded_via`, or
+model-authored confirmation/consent field.
 
 A new memory returns only its status, structured reference, and lifecycle:
 
