@@ -10,6 +10,8 @@ INSPECT_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_inspect
 ARCHIVE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_archive"
 RESTORE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_restore"
 FORGET_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_forget"
+REVISE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_revise"
+REVISE_HELPER = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_revise.py"
 FORGET_HELPER = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_forget.py"
 LIFECYCLE_HELPER = (
     PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_lifecycle.py"
@@ -198,6 +200,46 @@ def test_memory_forget_adapter_preserves_shared_domain_ownership() -> None:
             (
                 "mnemosyne.mcp.tools.memory_archive",
                 "mnemosyne.mcp.tools.memory_restore",
+                "mnemosyne.routes",
+                "fastapi",
+            )
+        )
+        for imported in helper_imports | package_imports
+    )
+
+
+def test_memory_revise_package_contains_only_mcp_adapter_modules() -> None:
+    assert sorted(path.name for path in REVISE_PACKAGE.glob("*.py")) == [
+        "__init__.py",
+        "definition.py",
+        "handler.py",
+    ]
+
+
+def test_memory_revise_adapter_preserves_shared_domain_ownership() -> None:
+    helper_imports = _imports(REVISE_HELPER)
+    package_imports = {
+        imported
+        for path in REVISE_PACKAGE.glob("*.py")
+        for imported in _imports(path)
+    }
+
+    assert "mnemosyne.mcp.tools._memory_lifecycle" in helper_imports
+    assert "mnemosyne.memory.records" in helper_imports
+    assert "mnemosyne.memory.store" not in helper_imports
+    assert "mnemosyne.settings" not in helper_imports
+    assert "mnemosyne.mcp.tools._memory_revise" in package_imports
+    assert "mnemosyne.memory.records" in package_imports
+    assert "mnemosyne.memory.service" in package_imports
+    assert "mnemosyne.memory.store" in package_imports
+    assert "mnemosyne.settings" in package_imports
+    assert all(
+        not imported.startswith(
+            (
+                "mnemosyne.mcp.tools.memory_remember",
+                "mnemosyne.mcp.tools.memory_archive",
+                "mnemosyne.mcp.tools.memory_restore",
+                "mnemosyne.mcp.tools.memory_forget",
                 "mnemosyne.routes",
                 "fastapi",
             )

@@ -54,6 +54,26 @@ def _draft() -> MemoryDraft:
     )
 
 
+def _collection_draft() -> MemoryDraft:
+    return MemoryDraft.from_dict(
+        {
+            "scope": "preference",
+            "namespace": {
+                "kind": "domain",
+                "id": "leisure",
+                "label": "Leisure",
+            },
+            "collection": {"id": "weekends", "label": "Weekends"},
+            "kind": "preference",
+            "language": "en",
+            "title": "Rainy weekends",
+            "content": "The user prefers museums on rainy weekends.",
+            "tags": ["leisure", "rainy-day"],
+            "origin": "explicit_user_statement",
+        }
+    )
+
+
 def _reference() -> MemoryReference:
     return MemoryReference(
         scope=MemoryScope.PREFERENCE,
@@ -222,15 +242,64 @@ def test_service_revise_replaces_only_mutable_state(tmp_path: Path) -> None:
     assert result.status == "revised"
     assert result.memory.id == original.id
     assert result.memory.scope == original.scope
+    assert result.memory.namespace.kind == original.namespace.kind
     assert result.memory.namespace.id == original.namespace.id
     assert result.memory.namespace.label == "Free time"
+    assert result.memory.collection == original.collection
     assert result.memory.kind == original.kind
+    assert result.memory.language == original.language
+    assert result.memory.provenance == original.provenance
     assert result.memory.created_at == original.created_at
     assert result.memory.updated_at == LATER
+    assert result.memory.lifecycle.state is original.lifecycle.state
     assert result.memory.lifecycle.revision == 2
+    assert len(list(tmp_path.rglob("*.json"))) == 1
     serialized = next(tmp_path.rglob("*.json")).read_text(encoding="utf-8")
     assert "galleries" in serialized
     assert "museums" not in serialized
+
+
+def test_service_revise_changes_collection_label_without_relocating_memory(
+    tmp_path: Path,
+) -> None:
+    clocks = iter([NOW, LATER])
+    service = _service(tmp_path, clock=lambda: next(clocks))
+    original = service.remember(_collection_draft()).memory
+    reference = MemoryReference(
+        scope=MemoryScope.PREFERENCE,
+        namespace_id="leisure",
+        collection_id="weekends",
+        id=MEMORY_ID,
+    )
+    path = (
+        tmp_path
+        / "preference"
+        / "leisure"
+        / "weekends"
+        / f"{MEMORY_ID}.json"
+    )
+
+    result = service.revise(
+        reference,
+        MemoryRevision.from_dict(
+            {
+                "expected_revision": 1,
+                "namespace_label": original.namespace.label,
+                "collection_label": "Rainy days",
+                "title": original.title,
+                "content": original.content,
+                "tags": list(original.tags),
+            }
+        ),
+    )
+
+    assert result.status == "revised"
+    assert result.memory.collection is not None
+    assert result.memory.collection.id == "weekends"
+    assert result.memory.collection.label == "Rainy days"
+    assert result.memory.lifecycle.revision == 2
+    assert path.exists()
+    assert len(list(tmp_path.rglob("*.json"))) == 1
 
 
 def test_service_revise_rejects_stale_expected_revision(tmp_path: Path) -> None:
@@ -249,6 +318,109 @@ def test_service_revise_rejects_stale_expected_revision(tmp_path: Path) -> None:
 
     with pytest.raises(RevisionConflict):
         service.revise(_reference(), stale)
+
+
+def test_service_revise_returns_already_current_without_clock_or_write(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path)
+    original = service.remember(_draft()).memory
+    path = next(tmp_path.rglob("*.json"))
+    original_bytes = path.read_bytes()
+    original_metadata = path.stat()
+    service.clock = lambda: pytest.fail("clock must not run")
+    service.store.replace = lambda record, expected_revision: pytest.fail(
+        "store write must not run"
+    )
+    revision = MemoryRevision.from_dict(
+        {
+            "expected_revision": 1,
+            "namespace_label": original.namespace.label,
+            "collection_label": None,
+            "title": original.title,
+            "content": original.content,
+            "tags": list(original.tags),
+        }
+    )
+
+    result = service.revise(_reference(), revision)
+
+    assert result.status == "already_current"
+    assert result.memory == original
+    assert path.read_bytes() == original_bytes
+    assert path.stat().st_mtime_ns == original_metadata.st_mtime_ns
+
+
+def test_service_revise_checks_stale_revision_before_already_current(
+    tmp_path: Path,
+) -> None:
+    service = _service(tmp_path)
+    original = service.remember(_draft()).memory
+    stale_no_op = MemoryRevision.from_dict(
+        {
+            "expected_revision": 2,
+            "namespace_label": original.namespace.label,
+            "collection_label": None,
+            "title": original.title,
+            "content": original.content,
+            "tags": list(original.tags),
+        }
+    )
+
+    with pytest.raises(RevisionConflict):
+        service.revise(_reference(), stale_no_op)
+
+
+def test_service_revise_preserves_archived_state(tmp_path: Path) -> None:
+    clocks = iter([NOW, LATER, LATER])
+    service = _service(tmp_path, clock=lambda: next(clocks))
+    original = service.remember(_draft()).memory
+    archived = service.archive(_reference(), expected_revision=1).memory
+    revision = MemoryRevision.from_dict(
+        {
+            "expected_revision": 2,
+            "namespace_label": "Free time",
+            "collection_label": None,
+            "title": original.title,
+            "content": "The user prefers galleries on rainy weekends.",
+            "tags": list(original.tags),
+        }
+    )
+
+    result = service.revise(_reference(), revision)
+
+    assert result.status == "revised"
+    assert result.memory.lifecycle.state is LifecycleState.ARCHIVED
+    assert result.memory.lifecycle.revision == 3
+    assert result.memory.created_at == original.created_at
+    assert result.memory.provenance == archived.provenance
+    assert len(list(tmp_path.rglob("*.json"))) == 1
+
+
+def test_service_revise_refuses_disallowed_replacement_before_read_or_write(
+    tmp_path: Path,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    store.get = lambda reference: pytest.fail("store read must not run")
+    store.replace = lambda record, expected_revision: pytest.fail(
+        "store write must not run"
+    )
+    service = MemoryService(store, mutations_enabled=True)
+    revision = MemoryRevision.from_dict(
+        {
+            "expected_revision": 1,
+            "namespace_label": "Tea",
+            "collection_label": None,
+            "title": "Japanese green tea",
+            "content": "Authorization: Bearer synthetic-token",
+            "tags": ["tea"],
+        }
+    )
+
+    with pytest.raises(DisallowedMemoryContent):
+        service.revise(_reference(), revision)
+
+    assert not tmp_path.exists() or list(tmp_path.iterdir()) == []
 
 
 def test_service_archive_and_restore_are_revisioned_and_idempotent(

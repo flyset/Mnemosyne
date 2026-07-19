@@ -10,7 +10,7 @@ from mnemosyne.memory.errors import (
     RevisionConflict,
 )
 from mnemosyne.memory.normalization import normalize_memory_id
-from mnemosyne.memory.policy import validate_remember_content
+from mnemosyne.memory.policy import validate_remember_content, validate_revision_content
 from mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
@@ -157,6 +157,7 @@ class MemoryService:
         revision: MemoryRevision,
     ) -> MemoryResult:
         self._require_mutations()
+        validate_revision_content(revision)
         with self._mutation_lock:
             current = self._current(reference, revision.expected_revision)
             if current.collection is None:
@@ -172,6 +173,20 @@ class MemoryService:
                     current.collection,
                     label=revision.collection_label,
                 )
+            if (
+                current.namespace.label,
+                current.collection.label if current.collection is not None else None,
+                current.title,
+                current.content,
+                current.tags,
+            ) == (
+                revision.namespace_label,
+                revision.collection_label,
+                revision.title,
+                revision.content,
+                revision.tags,
+            ):
+                return MemoryResult(status="already_current", memory=current)
             revised = replace(
                 current,
                 namespace=replace(

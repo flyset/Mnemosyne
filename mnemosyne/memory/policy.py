@@ -2,7 +2,7 @@ import re
 from collections.abc import Iterable
 
 from mnemosyne.memory.errors import DisallowedMemoryContent
-from mnemosyne.memory.records import MemoryDraft
+from mnemosyne.memory.records import MemoryDraft, MemoryRevision
 
 
 SIGNATURE_PATTERNS = (
@@ -35,7 +35,7 @@ SIGNATURE_PATTERNS = (
 CARD_CANDIDATE_PATTERN = re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
 
 
-def _text_values(draft: MemoryDraft) -> Iterable[str]:
+def _remember_text_values(draft: MemoryDraft) -> Iterable[str]:
     yield draft.namespace.id
     if draft.namespace.label is not None:
         yield draft.namespace.label
@@ -47,6 +47,17 @@ def _text_values(draft: MemoryDraft) -> Iterable[str]:
         yield draft.title
     yield draft.content
     yield from draft.tags
+
+
+def _revision_text_values(revision: MemoryRevision) -> Iterable[str]:
+    if revision.namespace_label is not None:
+        yield revision.namespace_label
+    if revision.collection_label is not None:
+        yield revision.collection_label
+    if revision.title is not None:
+        yield revision.title
+    yield revision.content
+    yield from revision.tags
 
 
 def _passes_luhn(value: str) -> bool:
@@ -69,9 +80,17 @@ def _contains_payment_card(value: str) -> bool:
     return False
 
 
-def validate_remember_content(draft: MemoryDraft) -> None:
-    for value in _text_values(draft):
+def _validate_text_values(values: Iterable[str]) -> None:
+    for value in values:
         if any(pattern.search(value) is not None for pattern in SIGNATURE_PATTERNS):
             raise DisallowedMemoryContent
         if _contains_payment_card(value):
             raise DisallowedMemoryContent
+
+
+def validate_remember_content(draft: MemoryDraft) -> None:
+    _validate_text_values(_remember_text_values(draft))
+
+
+def validate_revision_content(revision: MemoryRevision) -> None:
+    _validate_text_values(_revision_text_values(revision))

@@ -9,6 +9,7 @@ from mnemosyne.memory.errors import (
     MemorySourceUnavailable,
     MemoryValidationError,
     MutationDisabled,
+    ReplacementOutcomeUncertain,
     RevisionConflict,
     UnsafeMemoryPath,
     WriteConflict,
@@ -325,6 +326,13 @@ def execute_lifecycle(
     except WriteConflict:
         _log_outcome(logger, operation, logging.WARNING, "conflict", code="write_conflict", request=request)
         return _error_payload(status="conflict", code="write_conflict", message=f"memory changed before it could be {past_tense}")
+    except ReplacementOutcomeUncertain:
+        _log_outcome(logger, operation, logging.WARNING, "uncertain", code="replacement_outcome_uncertain", request=request)
+        return _error_payload(
+            status="uncertain",
+            code="replacement_outcome_uncertain",
+            message=f"memory {operation} outcome is uncertain; inspect the same reference before any retry",
+        )
     except (UnsafeMemoryPath, MemorySourceUnavailable, OSError):
         _log_outcome(logger, operation, logging.WARNING, "storage_error", code="memory_source_unavailable", request=request)
         return _error_payload(status="storage_error", code="memory_source_unavailable", message=f"memory could not be {past_tense}")

@@ -125,21 +125,16 @@ def test_mcp_tools_list_exposes_the_registered_tools() -> None:
         "memory_recall",
         "memory_inspect",
     ]
-    assert tool_names[3:] in (
-        [],
-        ["memory_archive", "memory_restore"],
-        ["memory_remember"],
-        ["memory_forget"],
-        ["memory_archive", "memory_restore", "memory_remember"],
-        ["memory_archive", "memory_restore", "memory_forget"],
-        ["memory_remember", "memory_forget"],
-        [
-            "memory_archive",
-            "memory_restore",
-            "memory_remember",
-            "memory_forget",
-        ],
-    )
+    suffix = tool_names[3:]
+    expected_order = [
+        "memory_archive",
+        "memory_restore",
+        "memory_remember",
+        "memory_revise",
+        "memory_forget",
+    ]
+    assert suffix == [name for name in expected_order if name in suffix]
+    assert ("memory_archive" in suffix) is ("memory_restore" in suffix)
 
 
 def test_mcp_tools_call_returns_memory_recall_no_matches(

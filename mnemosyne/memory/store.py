@@ -15,6 +15,7 @@ from mnemosyne.memory.errors import (
     MemoryNotFound,
     MemorySourceUnavailable,
     MemoryValidationError,
+    ReplacementOutcomeUncertain,
     RevisionConflict,
     UnsafeMemoryPath,
     WriteConflict,
@@ -442,7 +443,10 @@ class FilesystemMemoryStore:
                     os.replace(temporary, path)
                 except OSError as error:
                     raise MemorySourceUnavailable from error
-                self._sync_directory(path.parent)
+                try:
+                    self._sync_directory(path.parent)
+                except MemorySourceUnavailable as error:
+                    raise ReplacementOutcomeUncertain from error
             finally:
                 temporary.unlink(missing_ok=True)
             return self.get(reference)

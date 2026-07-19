@@ -14,6 +14,7 @@ Implemented tools:
 - `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope directory
 - `memory_inspect` — returns one exact canonical or legacy memory selected by a versioned structured reference
 - `memory_remember` — when explicitly enabled, validates and atomically persists one approved canonical version-2 memory
+- `memory_revise` — when independently enabled, revision-checks and atomically replaces the complete caller-mutable state of one exact canonical version-2 memory
 - `memory_archive` — when explicitly enabled, revision-checks and archives one exact canonical version-2 memory
 - `memory_restore` — when explicitly enabled, revision-checks and restores one exact archived canonical version-2 memory
 - `memory_forget` — when independently enabled, permanently deletes one exact archived canonical version-2 memory at its expected revision
@@ -98,9 +99,116 @@ contain only scope and a bounded reason.
 Memory scopes, records, paths, storage, retrieval, content policy, and lifecycle
 policy live in a shared `mnemosyne/memory/` domain rather than inside individual
 MCP Tools. The domain includes mutation-disabled revise, archive, restore, and
-physical-delete primitives. `memory_remember`, paired `memory_archive` /
-`memory_restore`, and `memory_forget` are absent from discovery and dispatch
-unless their independent operator gates enable them explicitly.
+physical-delete primitives. `memory_remember`, `memory_revise`, paired
+`memory_archive` / `memory_restore`, and `memory_forget` are absent from
+discovery and dispatch unless their independent operator gates enable them.
+Enabling one gate does not enable another capability.
+
+## Revising Memory
+
+Revision is disabled by default and has an independent gate. Persist it in the
+fixed settings file or use the process override:
+
+```toml
+[memory]
+revise_enabled = true
+```
+
+```bash
+export MNEMOSYNE_MEMORY_REVISE_ENABLED=true
+```
+
+Only exact lowercase `true` and `false` are accepted. Restart the server and
+reconnect or restart the MCP client after changing enablement. Clients that
+cannot require approval for every complete exact replacement must leave
+revision disabled.
+
+Inspect the record immediately before proposing revision. Recall returns an
+inspect-compatible reference, but inspection supplies the complete current
+record, lifecycle state, and revision needed for review and approval. Every
+revision request contains exactly these seven required fields:
+
+```json
+{
+  "reference": {
+    "schema_version": 2,
+    "scope": "preference",
+    "namespace_id": "tea",
+    "collection_id": "favorites",
+    "id": "mem_0123456789abcdef0123456789abcdef"
+  },
+  "expected_revision": 3,
+  "namespace_label": "Tea",
+  "collection_label": "Favorites",
+  "title": "Japanese green tea",
+  "content": "The user enjoys sencha and gyokuro.",
+  "tags": ["tea", "japanese-green-tea"]
+}
+```
+
+`namespace_label`, `collection_label`, and `title` may be null, but their keys
+remain required. `collection_label` must be null when the selected record has
+no collection. Content is nonblank and at most 4,000 characters; tags contain
+zero to ten unique normalized items of at most 50 characters. Unknown fields,
+legacy references, paths, patches, language or identity changes, provenance,
+lifecycle targets, timestamps, and model confirmation/consent fields are
+rejected.
+
+The caller replaces only namespace label, the label of an existing collection,
+title, content, and tags. Mnemosyne preserves schema version, record ID, scope,
+namespace kind/ID, collection presence/ID, memory kind, language, provenance,
+lifecycle state, and `created_at`. On change, the server increments lifecycle
+revision once and updates `updated_at`. Labels never rename directories or
+relocate the record. Revision atomically replaces the same source file and
+creates no second record, patch history, backup, diff, or tombstone.
+
+Success returns only status, canonical versioned reference, and lifecycle:
+
+```json
+{
+  "status": "revised",
+  "reference": {
+    "schema_version": 2,
+    "scope": "preference",
+    "namespace_id": "tea",
+    "collection_id": "favorites",
+    "id": "mem_0123456789abcdef0123456789abcdef"
+  },
+  "lifecycle": {"state": "active", "revision": 4}
+}
+```
+
+`revised` means one atomic replacement occurred. A current-revision normalized
+no-op returns `already_current` without a write, timestamp update, or revision
+increment; stale revision conflicts before no-op detection. Archived memory may
+be revised but remains archived, inspectable, and excluded from normal recall.
+Active memory remains recall-eligible.
+
+The shared bounded content policy checks every replacement label, title,
+content value, and tag before storage access. It refuses recognized private-key,
+credential, authorization-header, JWT-shaped, payment-card, and SSN-shaped
+values with `disallowed_content`. This is signature detection, not complete
+semantic DLP; secrets and sensitive personal data remain prohibited.
+
+Stable bounded error codes are `invalid_reference`,
+`invalid_expected_revision`, `invalid_record`, `invalid_collection`,
+`disallowed_content`, `mutation_disabled`, `not_found`, `revision_conflict`,
+`write_conflict`, `memory_source_unavailable`,
+`replacement_outcome_uncertain`, and `internal_error`. Error statuses are,
+as applicable, `invalid_request`, `refused`, `policy_error`, `not_found`,
+`conflict`, `storage_error`, `uncertain`, or `internal_error`.
+
+`replacement_outcome_uncertain` means the atomic replacement may already be
+visible, but parent-directory durability was not confirmed. Do not retry
+blindly: inspect the same reference first. If the requested replacement is
+already present, do not retry; otherwise use the inspected current revision and
+obtain new exact per-call approval. If inspection is unavailable, the outcome
+remains uncertain.
+
+Logger `mcp.memory_revise` emits one terminal event containing only outcome,
+stable code/field where applicable, schema version, scope, and successful
+lifecycle state/revision. It omits IDs, labels, title, content, tags, complete
+arguments, paths, fingerprints, exception details, and tracebacks.
 
 ## Archiving and Restoring Memory
 
@@ -171,9 +279,14 @@ Success contains only status, canonical versioned reference, and lifecycle:
 The four normal statuses are `archived`, `already_archived`, `restored`, and
 `already_active`. Stable bounded error codes are `invalid_reference`,
 `invalid_expected_revision`, `mutation_disabled`, `not_found`,
-`revision_conflict`, `write_conflict`, `memory_source_unavailable`, and
-`internal_error`. Results never expose record content, paths, fingerprints, or
-storage wrappers.
+`revision_conflict`, `write_conflict`, `memory_source_unavailable`,
+`replacement_outcome_uncertain`, and `internal_error`. Results never expose
+record content, paths, fingerprints, or storage wrappers.
+
+For archive and restore, `replacement_outcome_uncertain` means the new
+lifecycle state may already be visible but directory durability was not
+confirmed. Inspect the same reference before any newly approved retry. This is
+distinct from forget's deletion-specific uncertain outcome.
 
 Each server call logs one terminal event under `mcp.memory_archive` or
 `mcp.memory_restore`. Logs contain only outcome, stable code/field where
@@ -268,8 +381,8 @@ The file is optional and read-only to Mnemosyne. Startup does not create or
 edit it or its parent. A missing file, empty document, absent or empty
 `[memory]` table, absent key, or TOML boolean `false` all mean disabled. The
 document may contain only the optional `[memory]` table, which may contain only
-the optional TOML booleans `remember_enabled`, `archive_restore_enabled`, and
-`forget_enabled`;
+the optional TOML booleans `remember_enabled`, `archive_restore_enabled`,
+`forget_enabled`, and `revise_enabled`;
 strings such as `"true"`, unknown keys/tables, and malformed TOML fail startup
 closed.
 
@@ -279,11 +392,12 @@ For one process-level override, use:
 export MNEMOSYNE_MEMORY_REMEMBER_ENABLED=true
 ```
 
-A supplied environment value has precedence and prevents file access. Only
-exact lowercase `true` and `false` are accepted; any other supplied value fails
-startup closed without being echoed or falling back to the file. When the
-variable is absent, Mnemosyne consults the fixed file and finally defaults to
-false.
+Each environment variable overrides only its matching setting. Mnemosyne parses
+all four mutation environment values first; an invalid supplied value fails
+startup before file access without being echoed. If any setting remains
+unresolved, Mnemosyne reads the strict file at most once for unresolved values.
+The file is bypassed only when all four environment variables are supplied.
+Every unresolved setting finally defaults to false.
 
 The server reads enablement once at startup, so restart it after changing either
 source. Restart or reconnect the MCP client as well so it refreshes Tool
@@ -499,9 +613,10 @@ Unknown fields or mismatched paths make a version-2 record invalid.
 Version-2 records are either `active` or `archived`; normal recall excludes
 archived records. Revision replaces the same file atomically without retaining
 hidden prior content. Forgetting is physical deletion with no tombstone.
-Remember creation, reversible archive/restore, and archived-only physical forget
-are exposed behind independent explicit gates; revise remains an unregistered
-domain primitive.
+Remember creation, complete-state revision, reversible archive/restore, and
+archived-only physical forget are exposed through explicit MCP Tools behind
+independent default-off gates. Revision atomically replaces the same canonical
+file and retains no hidden prior content.
 
 All record files are limited to 64 KiB, content to 4,000 characters, and titles
 to 200 characters. Invalid, oversized, too-deep, or unsafe records are skipped
@@ -610,13 +725,14 @@ requires approval for each exact prefixed mutation Tool. The agent-level rule is
 also explicit because per-agent permissions can override top-level rules and
 OpenCode uses the last matching Tool-name rule. It denies the broad server
 prefix first, then allows the three read-only Tools and asks for remember,
-archive, restore, and forget:
+revise, archive, restore, and forget:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
     "mnemosyne_memory_remember": "ask",
+    "mnemosyne_memory_revise": "ask",
     "mnemosyne_memory_archive": "ask",
     "mnemosyne_memory_restore": "ask",
     "mnemosyne_memory_forget": "ask"
@@ -636,6 +752,7 @@ archive, restore, and forget:
         "mnemosyne_memory_recall": "allow",
         "mnemosyne_memory_inspect": "allow",
         "mnemosyne_memory_remember": "ask",
+        "mnemosyne_memory_revise": "ask",
         "mnemosyne_memory_archive": "ask",
         "mnemosyne_memory_restore": "ask",
         "mnemosyne_memory_forget": "ask"
@@ -646,9 +763,9 @@ archive, restore, and forget:
 ```
 
 This client permission does not enable mutation on the server. The operator
-must separately set the applicable remember, archive/restore, or forget server gate and
-restart the server. After changing `opencode.json`, quit and restart OpenCode so
-it reloads the configuration and Tool discovery.
+must separately set the applicable remember, revise, archive/restore, or forget
+server gate and restart the server. After changing `opencode.json` or agent
+policy, quit and restart OpenCode so it reloads configuration and Tool discovery.
 
 For every proposed mutation call, review the complete Tool arguments and choose
 `once`. Choosing `reject` prevents the request from reaching Mnemosyne and
@@ -658,7 +775,7 @@ enabled: each bypasses approval on later exact calls. If any of those modes was
 used, disable server mutation and restart both the server and OpenCode before
 continuing. Any additional per-agent permission override must preserve
 this order: broad `mnemosyne_*` denial first, explicit read-only allows next,
-and the exact remember/archive/restore/forget `ask` rules last.
+and the exact remember/revise/archive/restore/forget `ask` rules last.
 
 ## Roadmap Shape
 

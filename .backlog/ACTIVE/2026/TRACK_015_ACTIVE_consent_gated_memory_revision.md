@@ -1,0 +1,157 @@
+# TRACK 015 [ACTIVE]: consent-gated memory revision
+
+Track
+- ID: TRACK_015
+- Repository: Mnemosyne
+- Branch: main
+- Current path: .backlog/ACTIVE/2026/TRACK_015_ACTIVE_consent_gated_memory_revision.md
+
+Problems (PORE)
+- P1: As a user correcting or enriching durable memory, I cannot revise an existing canonical record through MCP, because the shared revision primitive is not exposed as an explicit Tool.
+- P2: As a user governing durable context, I need revision to target the exact inspected identity and current revision, because stale or ambiguous mutation could overwrite newer memory or change the wrong record.
+- P3: As a user requiring explicit control over personal memory, I need every revision disabled unless the operator enables it and the MCP client obtains approval for the complete exact replacement, because model acknowledgment is not consent.
+- P4: As a Tool caller, I need bounded outcomes for valid, invalid, stale, missing, archived, no-op, unsafe, unavailable, and conflicting revisions, because callers must recover without paths, exception details, or hidden behavior.
+- P5: As a user protecting memory contents, I need revision results and logs to reveal only necessary operational metadata, because mutation must not become a content or argument disclosure channel.
+
+Objective
+- Expose one narrow, default-off, consent-gated `memory_revise` MCP Tool over the existing shared canonical revision primitive so an exact approved memory can be atomically updated without changing its stable identity or retaining hidden prior content.
+
+Non-negotiables
+- This Track entered ACTIVE only after its blocking contract questions were resolved and its Move-to-ACTIVE step was checked.
+- All implementation follows TDD: a focused failing test, the smallest passing implementation, then refactoring and validation.
+- `mnemosyne/memory/` remains the owner of canonical reference validation, mutable-field rules, revision conflicts, atomic replacement, timestamps, storage safety, content policy, and mutation-disabled behavior; MCP remains a thin adapter.
+- Revision accepts no filesystem path, memory root, filename, query, broad selector, server-owned timestamp, lifecycle target, provenance replacement, identity replacement, scope/kind reclassification, relocation, or model confirmation.
+- Only canonical version-2 memory is eligible. Legacy revision or automatic migration remains prohibited.
+- Every state-changing call requires both explicit operator enablement and MCP-client approval for the complete exact arguments. A model-provided consent field is never accepted.
+- Clients that cannot enforce approval for every exact call must leave revision disabled. Session-wide or automatic approval remains unsupported while mutation is enabled.
+- Revision retains no hidden prior content, diff, backup, tombstone, event stream, or prompt transcript inside Mnemosyne.
+- Results and terminal logs must not contain memory content, title, tags, labels, complete arguments, paths, fingerprints, exception text, or tracebacks.
+- No commit or push occurs unless explicitly requested.
+
+Acceptance criteria
+- [ ] A1) [P1, P3] Default discovery and dispatch omit `memory_revise`; explicit operator enablement exposes its definition and handler together without enabling remember, archive/restore, or forget.
+- [ ] A2) [P1, P2] One approved revision of an exact canonical reference at its current expected revision atomically replaces only the agreed mutable fields, increments lifecycle revision once, updates `updated_at`, and preserves immutable identity and metadata.
+- [ ] A3) [P1, P2] Revision preserves schema version, record ID, scope, namespace kind/ID, optional collection ID, memory kind, language, provenance, lifecycle state, and `created_at`; mutable labels never rename directories.
+- [ ] A4) [P2, P4] Stale expected revision, missing memory, legacy or malformed reference, forbidden/unknown fields, collection-label mismatch, invalid replacement fields, write conflict, unsafe/unavailable storage, disabled mutation, and unexpected failure return stable bounded errors without mutation.
+- [ ] A5) [P3] Project client policy asks for each exact revision after broad denial/read-only allows; documentation requires per-call approval and states that rejection causes no server call or write.
+- [ ] A6) [P5] Success returns only status, canonical versioned reference, and lifecycle; logs use a reviewed content-free metadata allowlist.
+- [ ] A7) [P1, P2, P4] The agreed no-op and archived-memory semantics are explicit, tested, and do not silently create duplicate records or hidden history.
+- [x] A8) [P1, P2, P3, P4, P5] Focused automated tests, import-boundary checks, full-suite validation, whitespace checks, isolated direct MCP checks, configured-client approval/rejection checks, and cleanup pass.
+- [x] A9) [P1, P2, P3, P4, P5] `README.md`, `docs/ARCHITECTURE.md`, and `docs/GLOSSARY.md` document exact request/result contracts, mutability boundaries, enablement, approval, revision behavior, errors, logs, and relation to inspect/recall.
+- [ ] A10) [P1] The motivating preference scenario can revise the existing Japanese-green-tea memory to include sencha and gyokuro without creating a second overlapping memory.
+
+Why now / impact
+- A cross-model test showed that a newly stated detail—Kosta likes sencha and gyokuro—could only be acknowledged in-session or stored as a second memory. The existing Japanese-green-tea preference should instead be revised atomically so future models receive one coherent user-governed record.
+
+Scope
+- In scope:
+  - One public MCP Tool tentatively named `memory_revise`.
+  - Strict canonical version-2 reference and positive expected revision.
+  - Complete replacement values for the shared domain's currently mutable fields: namespace label, nullable collection label where a collection exists, nullable title, content, and tags.
+  - Thin adaptation to `MemoryService.revise()` and `FilesystemMemoryStore.replace()`.
+  - Independent default-off operator enablement and startup-fixed registry selection.
+  - Exact per-call client approval configuration and restart behavior.
+  - Shared remember-content policy application to all revised caller-owned text before storage.
+  - Stable bounded validation, disabled, not-found, revision-conflict, write-conflict, storage, and internal-error mappings.
+  - Minimal results, content-free logs, automated coverage, direct/configured-client checks, and public documentation.
+- Out of scope:
+  - Changing schema version, ID, scope, namespace kind/ID, collection presence/ID, memory kind, language, provenance, lifecycle target, or creation timestamp.
+  - Relocation, reclassification, merge, split, bulk revision, search-and-replace, patch languages, arbitrary JSON Patch, or path-based mutation.
+  - Legacy record revision/migration.
+  - Hidden history, event sourcing, backups, tombstones, retained prior hashes, or semantic contradiction detection.
+  - Automatic revision from conversation without exact user approval.
+
+Milestones
+- [x] M1) Request, mutable fields, no-op/archived semantics, content policy, enablement, consent, results/errors, logging, and validation decisions are complete and the Track is eligible for ACTIVE.
+- [x] M2) Focused TDD exposes revision while preserving shared-domain ownership, atomicity, stable identity, and all existing Tool contracts.
+- [ ] M3) Documentation, full validation, direct/configured-client evidence, motivating tea revision, cleanup, and completion transition are recorded.
+
+Risks / decisions
+- Risk: Full replacement arguments are verbose but make the exact post-revision content visible for approval; patch operations are smaller but can hide the resulting record from the user.
+- Initial direction: Prefer complete mutable-field replacement over arbitrary patches so approval shows the exact resulting user-visible values.
+- Risk: Revision can store secrets or sensitive data even though identity is unchanged.
+- Initial direction: Apply the shared content-refusal policy before discovery/write and preserve bounded refusal behavior.
+- Risk: Reusing another mutation gate could unexpectedly widen operator authority.
+- Initial direction: Use an independent revision-specific gate unless planning proves a safer explicit allowlist model.
+- Risk: Revision of archived memory may be useful for correction before restore but could create surprising hidden changes.
+- Decision: Permit exact revision of archived memory while preserving archived state, so correction does not require temporarily returning stale content to recall.
+- Risk: An exact replacement equal to current content could either increment revision unnecessarily or expose a new idempotent result.
+- Decision: Return `already_current` after revision checking and without a write, timestamp change, or revision increment.
+
+Open questions
+- [x] Q1) Use the flat exact request `{reference, expected_revision, namespace_label, collection_label, title, content, tags}`; do not add patch or replacement nesting.
+- [x] Q2) Require every mutable field, including nullable labels/title, so approval displays the complete post-revision state.
+- [x] Q3) Permit archived revision while preserving archived lifecycle state and recall exclusion.
+- [x] Q4) Return `already_current` for a current-revision exact no-op without writing, incrementing revision, or updating time; stale revision conflicts first.
+- [x] Q5) Keep language immutable and absent from the request.
+- [x] Q6) Keep origin/provenance immutable; revision records no hidden history or extra provenance mechanism.
+- [x] Q7) Generalize the shared signature engine behind typed remember/revision entry points; revision inspects labels, title, content, and tags before store access without constructing a creation draft.
+- [x] Q8) Return only `revised` or `already_current` on normal outcomes. Use stable bounded `invalid_reference`, `invalid_expected_revision`, `invalid_record`, `invalid_collection`, `disallowed_content`, `mutation_disabled`, `not_found`, `revision_conflict`, `write_conflict`, `memory_source_unavailable`, `replacement_outcome_uncertain`, and `internal_error` codes with public-field-only validation metadata. Uncertain post-publication durability instructs inspection before any newly approved retry.
+- [x] Q9) Use independent exact `MNEMOSYNE_MEMORY_REVISE_ENABLED` / `[memory].revise_enabled`, environment-first per setting, one strict file read for unresolved settings, disabled default, startup-fixed selection, and registry order archive, restore, remember, revise, forget after the three read-only Tools.
+- [x] Q10) In both client policies, order broad `mnemosyne_*` denial, exact read-only allows, then exact `ask` rules for remember, revise, archive, restore, and forget; add top-level revise `ask` beside other mutations.
+- [x] Q11) Use logger `mcp.memory_revise`; allow only outcome, stable code/field, schema version, scope, and successful lifecycle state/revision. Use INFO for normal outcomes, WARNING for bounded expected failures, and ERROR without traceback for unexpected failure.
+- [x] Q12) Add the standard `memory_revise/{__init__,definition,handler}.py` package plus private MCP-only `_memory_revise.py` for strict parsing, projection, error mapping, result consistency, and logging; only the public handler constructs the shared service/store.
+- [x] Q13) Validate in focused domain policy/service/store tests, focused MCP adapter/settings/registry/client-policy tests, import boundaries, full suite and whitespace checks, then isolated direct MCP approval/rejection, stale/no-op/archived/refusal/atomicity checks, cleanup, and the separately approved tea-memory revision.
+
+Decision log
+- Decision (prior shared-domain Track): `MemoryService.revise()` already requires mutation enablement, exact canonical identity, expected revision, and atomic replacement through the filesystem store.
+- Decision (initial inspection): The existing `MemoryRevision` requires all replacement fields: `expected_revision`, nullable namespace/collection labels, nullable title, content, and tags.
+- Decision (initial inspection): The existing service preserves identity, scope, namespace/collection IDs, kind, language, provenance, lifecycle state, and creation time; it increments revision and updates time.
+- Decision (initial inspection): The existing service rejects a non-null collection label when the selected record has no collection, but currently permits revision of active and archived records and increments revision even for an exact no-op.
+- Decision (initial inspection): The existing shared remember-content policy is called only by `remember()` and must be deliberately reused or generalized before revision writes.
+- Decision (2026-07-19): Create this Track as DRAFT only. No implementation begins until Q1-Q13 and the Move-to-ACTIVE gate are resolved.
+- Decision (2026-07-19, Q1-Q2): Use one flat, all-fields-required complete mutable-state replacement so the exact resulting content is visible at approval time.
+- Decision (2026-07-19, Q3-Q6): Permit archived correction; treat exact no-op as `already_current`; keep language, identity, creation time, lifecycle state, and provenance immutable.
+- Decision (2026-07-19, Q7): Reuse one shared content-signature engine through distinct typed remember and revision validators; revision policy runs before reads or writes.
+- Decision (2026-07-19, Q8): Expose two minimal normal outcomes and bounded validation/policy/storage/conflict errors, including an explicit uncertain post-publication replacement outcome that requires inspection before retry.
+- Decision (2026-07-19, Q9-Q10): Add an independent default-off revise setting and exact client `ask`, preserving one startup snapshot, strict unresolved-setting file parsing, existing relative Tool order, broad denial, and irreversible forget last.
+- Decision (2026-07-19, Q11-Q13): Use a content-free `mcp.memory_revise` allowlist, a three-file public Tool package plus capability-free private adapter, and layered automated/direct validation ending with a separately approved real-memory revision.
+- Decision (2026-07-19): Q1-Q13 are resolved; Track 015 moved to ACTIVE and its activation gate was checked before implementation-driving tests.
+
+Plan (execution steps)
+- [x] S1) Resolve Q1-Q13 and record exact Tool, request/result, mutable-field, archived/no-op, content-policy, enablement, consent, error/logging, package, and validation contracts.
+- [x] S2) Move Track 015 to ACTIVE (folder, filename, title, and current path status) and check this step before implementation begins.
+- [x] S3) Execute one TDD chunk for shared-domain revision semantics and content-policy adaptation, including archived/no-op decisions and immutable-field preservation.
+- [x] S4) Execute one TDD chunk for strict `memory_revise` definition/handler, minimal projections, bounded errors/logging, package exports, and import boundaries without startup exposure.
+- [x] S5) Execute one TDD chunk for independent strict settings, startup registry discovery/dispatch, central argument compatibility, and exact client approval ordering.
+- [x] S6) Update `README.md`, `docs/ARCHITECTURE.md`, and `docs/GLOSSARY.md`; run focused/full automated validation and `git diff --check`; perform isolated direct MCP/configured-client checks and cleanup.
+- [x] S6a) Close review-discovered direct collection-label coverage, rerun focused/full validation, and record evidence before commit.
+- [ ] S7) Inspect the current tea preference, obtain exact per-call approval, revise it to include sencha and gyokuro, verify through inspection/recall, and record content-free evidence.
+- [ ] S8) Confirm acceptance and milestones, move Track 015 to COMPLETED, and record final outcomes.
+
+Current inventory
+- Baseline commit `70f86e3` (`Add schema-aware MCP argument normalization`) is synchronized on `main` and `origin/main`; the working tree was clean before this DRAFT file.
+- `MemoryRevision.from_dict()` strictly accepts exactly `expected_revision`, `namespace_label`, `collection_label`, `title`, `content`, and `tags`; it normalizes labels/title/content/tags and requires an exact positive integer revision.
+- `MemoryService.revise()` is mutation-disabled by default, checks exact current revision, preserves immutable fields and lifecycle state, updates mutable fields, increments revision once, updates `updated_at`, and atomically replaces the same canonical file.
+- Shared revision policy inspects namespace/collection labels, title, content, and tags through the same bounded signature engine as remember, before `MemoryService.revise()` reads or writes storage. Exact normalized no-ops return `already_current` only after the current revision check and do not call the clock or store replacement. Archived revision preserves archived state; focused evidence covers immutable identity, namespace/collection routing, kind, language, provenance, and creation time. Atomic replacement now distinguishes failure after publication but before confirmed directory durability as `ReplacementOutcomeUncertain`; revise and existing lifecycle MCP adapters can instruct exact inspection before any retry.
+- Shared store mutation tests cover atomic replacement, conflicts, and uncertain post-publication durability; service tests cover policy, changed/no-op, active/archived, immutable-field, and stale-revision semantics. The registered `memory_revise` package has its complete strict schema/parser, package exports, default-off direct handler, enabled shared-service execution, minimal versioned-reference/lifecycle projection, result consistency checks, bounded validation/policy/not-found/conflict/uncertainty/storage/internal mappings, and one content-free terminal log. Public documentation and isolated direct/configured-client checks now cover the implemented contract.
+- Startup settings contain a fourth independent default-off revision boolean resolved by strict `MNEMOSYNE_MEMORY_REVISE_ENABLED` or `[memory].revise_enabled`, preserving existing positional setting meanings, environment-first precedence, one read for unresolved settings, and complete-environment file bypass. Real startup selection connects the revision definition/handler only when independently enabled, orders it after remember and before irreversible forget, remains fixed until restart, and inherits central one-layer argument normalization. Project and agent OpenCode policies now ask for every exact revision after broad denial and read-only allows.
+- Central MCP argument compatibility normalizes one stringified JSON layer according to the selected Tool schema, and the registered structured revision request inherits that compatibility at dispatch.
+- The existing preference record states only that Kosta enjoys Japanese green tea; the newly stated varieties sencha and gyokuro are not yet durable memory.
+- Q1-Q13 define the complete revision contract. S3-S6a, A8-A9, and M1-M2 are complete; the next unchecked step is S7 for the separately approved motivating tea-memory revision and verification.
+
+Artifacts
+- Shared-domain prerequisite: `.backlog/COMPLETED/2026/TRACK_006_COMPLETED_shared_memory_domain_architecture.md`.
+- Remember/content-policy prerequisite: `.backlog/COMPLETED/2026/TRACK_007_COMPLETED_consent_gated_memory_remember.md`.
+- Exact inspection prerequisite: `.backlog/COMPLETED/2026/TRACK_010_COMPLETED_read_only_memory_inspection.md`.
+- Revision/lifecycle pattern: `.backlog/COMPLETED/2026/TRACK_011_COMPLETED_consent_gated_memory_archive_restore.md`.
+- Settings/forget pattern: `.backlog/COMPLETED/2026/TRACK_012_COMPLETED_consent_gated_physical_memory_deletion.md`.
+- Client compatibility prerequisite: `.backlog/COMPLETED/2026/TRACK_014_COMPLETED_schema_aware_mcp_argument_compatibility.md`.
+
+Completion notes
+- DRAFT created on 2026-07-19 after the user-approved sencha/gyokuro detail exposed the absence of public revision. Existing shared-domain code and completed mutation Tracks were inspected; no implementation or implementation-driving test was added.
+- Activated on 2026-07-19 after Q1-Q13 were resolved. S3 is proceeding one coherent TDD chunk at a time, beginning with revision content-policy reuse and refusal ordering.
+- S3 policy chunk (2026-07-19): RED — focused policy/service tests failed during collection because `validate_revision_content` did not exist. GREEN/REFACTOR — added typed revision text iteration over all mutable text fields, factored the shared signature loop, and invoked revision policy after mutation enablement but before the mutation lock/store read. Validation: `81 passed` for `tests/memory/test_policy.py tests/memory/test_service.py`; full suite `545 passed`; `git diff --check` passed. S3 remains unchecked because its archived/no-op, immutable-field, and replacement-durability chunks remain.
+- S3 semantics chunk (2026-07-19): RED — the focused no-op test failed because revision called the clock and proceeded toward replacement. GREEN/REFACTOR — compare the normalized complete mutable state after exact current-revision and collection-shape validation, returning `already_current` unchanged before clock/write; changed archived records continue through atomic replacement while retaining archived state. Tests also make immutable ID/scope/routing/kind/language/provenance/creation-time and one-source-file preservation explicit. Validation: focused `tests/memory/test_service.py` has `39 passed`; full suite `548 passed`; `git diff --check` passed. S3 remains unchecked pending the replacement-durability uncertainty chunk.
+- S3 durability chunk (2026-07-19): RED — focused store/lifecycle tests failed because no replacement-specific uncertain outcome existed and the lifecycle adapter treated it as internal failure. GREEN/REFACTOR — added `ReplacementOutcomeUncertain`, raised it only when directory sync fails after successful `os.replace`, retained temporary cleanup, and mapped archive/restore to content-free `replacement_outcome_uncertain` results instructing exact inspection before retry. Validation: focused store/archive/restore tests `57 passed`; full suite `551 passed`; `git diff --check` passed. S3 is complete.
+- S4 schema/parser chunk (2026-07-19): RED — focused tests failed during collection because `_memory_revise` and the public Tool package did not exist. GREEN/REFACTOR — added the three-file unregistered `memory_revise` package and capability-free private helper; the flat schema requires exact canonical identity, current revision, and every mutable replacement field, while strict parsing delegates canonical identity/revision and normalized replacement values to shared contracts. Direct calls remain disabled and resolve no root; production discovery/dispatch remains unchanged. Import-boundary tests enforce helper/package ownership. Validation: focused revise/boundary tests `27 passed`; full suite `567 passed`; `git diff --check` passed. S4 remains unchecked pending enabled execution, minimal result consistency, bounded errors, and complete logging.
+- S4 execution/projection chunk (2026-07-19): RED — ten focused tests failed because the handler accepted neither enablement nor an injected revision operation. GREEN/REFACTOR — added capability-free `execute_revise`, enabled public-handler delegation to the shared service, minimal versioned-reference/lifecycle results for `revised` and `already_current` in active or archived state, and strict consistency checks for status, exact identity, complete normalized replacement, and expected revision. One-file integration confirms replacement through the shared service/store without startup exposure. Validation: focused revise tests `24 passed`; full suite `577 passed`; `git diff --check` passed. S4 remains unchecked pending complete bounded domain-error mapping and reviewed content-free logging tests.
+- S4 errors/logging chunk (2026-07-19): RED — ten focused cases showed all expected domain failures were collapsed to `internal_error`. GREEN/REFACTOR — added explicit bounded mappings for flat-field validation/collection mismatch, refusal, disabled mutation, absence, stale/write conflict, uncertain replacement, storage, and unexpected failure; centralized result/error construction and a terminal-log allowlist containing only outcome, stable code/field, schema/scope, and successful lifecycle metadata. Tests prove one event, no traceback, no identity/replacement/path/exception disclosure, and no root resolution for invalid or disabled requests. Validation: focused revise tests `37 passed`; full suite `590 passed`; `git diff --check` passed. S4 is complete.
+- S5 settings chunk (2026-07-19): RED — focused settings tests failed during collection because revision enablement did not exist. GREEN/REFACTOR — appended `revise_enabled` without changing existing positional meanings, added strict environment/file parsing and accessor, independent merge/default behavior, one-read coverage, and four-variable complete-environment file bypass. Full validation initially exposed one startup test that supplied only the previous three overrides while using invalid file content; its isolated helper now clears/passes the revision override as required by the new unresolved-setting contract. Validation: focused settings tests `86 passed`; full suite `605 passed`; `git diff --check` passed. S5 remains unchecked pending registry/startup selection, argument compatibility, and client approval ordering.
+- S5 registry-seam chunk (2026-07-19): RED — six focused tests failed because `build_tool_registry` had no revision registration parameters. GREEN/REFACTOR — added a keyword-only revision gate and injectable Tool/handler pair; disabled registration remains absent, enabled registration binds discovery and dispatch together, incomplete registration fails closed, and ordering is remember, revise, then irreversible forget. No real startup wiring was added in this chunk. Validation: focused registry tests `35 passed`; full suite `611 passed`; `git diff --check` passed. S5 remains unchecked pending real startup selection, central argument compatibility evidence, and client approval ordering.
+- S5 startup/compatibility chunk (2026-07-19): RED — seven focused cases showed the startup builder and subprocess registry ignored revision enablement. GREEN/REFACTOR — imported and paired the real revision Tool/handler behind a keyword-only startup argument, selected it from the immutable startup settings snapshot, and preserved the canonical archive/restore, remember, revise, forget order. Registry tests prove one-layer normalization of stringified reference/revision/tags reaches the real service without mutating input or creating paths. Isolated subprocess tests cover file/environment enablement, default omission, invalid environment before file access, independent all-Tool ordering, and restart-fixed selection; the route test now validates ordering structurally rather than enumerating every gate combination. Removed the obsolete ambient “not yet registered” assertion. Validation: focused registry/startup/route/revise tests `109 passed`; full suite `616 passed`; `git diff --check` passed. S5 remains unchecked pending exact OpenCode approval ordering.
+- S5 client-approval chunk (2026-07-19): RED — both focused configuration tests failed because no exact revision `ask` rule existed. GREEN/REFACTOR — added `mnemosyne_memory_revise: ask` at top level and in both project agent policy sources, ordered after remember and before archive/restore/forget while preserving broad denial and read-only allows. Validation: focused OpenCode configuration tests `2 passed`; full suite `616 passed`; `git diff --check` passed. S5 and M2 are complete. OpenCode must be restarted to load the changed policy.
+- S6 documentation chunk (2026-07-19): Updated `README.md`, `docs/ARCHITECTURE.md`, and `docs/GLOSSARY.md` with the exact revision request/result, mutable and immutable dimensions, archived/no-op behavior, content policy, independent enablement and settings precedence, per-call approval/restart rules, bounded errors/logs, inspect/recall workflow, package/domain ownership, registry order, and replacement uncertainty shared by revise/archive/restore. Removed stale unregistered/three-setting claims and synchronized Track inventory. Validation: full suite `616 passed`; `git diff --check` passed; stale-claim search returned no matches. A9 is complete. S6 remains unchecked pending isolated direct/configured-client checks and cleanup.
+- S6 isolated direct MCP check (2026-07-19): Started a temporary revision-only server on loopback with isolated HOME/root and all other mutation gates false. Direct `list_tools` returned only the three read-only Tools plus `memory_revise`; direct dispatch of one valid missing-reference request returned bounded `not_found`; the isolated memory root was never created. The process and fixed temporary directory were removed, and post-cleanup `git diff --check` passed. The currently configured server's direct `tools/list` omitted `memory_revise`, so the restarted configured client cannot yet perform revision approval/rejection checks. No real memory or user configuration changed. S6 remains unchecked pending server-side revision enablement/restart and configured-client rejection/no-call evidence.
+- S6 configured-client checks (2026-07-19): The configured OpenCode client displayed the complete synthetic revision arguments. Setup calls approved once reached Mnemosyne and returned bounded `not_found`, proving configured approved dispatch without writing. An accidental session-wide approval triggered the documented safety response: revision was disabled, Mnemosyne and OpenCode were restarted, revision was re-enabled, and discovery was refreshed before continuing. On the final fresh exact call, the user selected `Reject`; OpenCode reported that permission was rejected instead of returning a server Tool result. Exact read-only inspection still returned `not_found`, and `git diff --check` passed. No memory or repository configuration changed. S6 and A8 are complete.
+- S6a collection-coverage closure (2026-07-19): Pre-commit review found that collection-label replacement and the real collectionless mismatch path lacked direct automated evidence. Added shared-service coverage proving a mutable collection label changes without changing collection ID, deterministic path, or source-file count, plus MCP integration coverage proving a non-null collection label for collectionless memory returns bounded `invalid_collection` without mutation. Corrected the stale inventory statement that still described revision dispatch as future behavior. Validation: focused service/revise tests `77 passed`; full suite `618 passed`; `git diff --check` passed. S6a is complete.

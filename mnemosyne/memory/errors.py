@@ -49,6 +49,10 @@ class DeletionOutcomeUncertain(MemoryDomainError):
     code = "deletion_outcome_uncertain"
 
 
+class ReplacementOutcomeUncertain(MemoryDomainError):
+    code = "replacement_outcome_uncertain"
+
+
 class DisallowedMemoryContent(MemoryDomainError):
     code = "disallowed_content"
 

@@ -3,8 +3,11 @@ from copy import deepcopy
 import pytest
 
 from mnemosyne.memory.errors import DisallowedMemoryContent
-from mnemosyne.memory.policy import validate_remember_content
-from mnemosyne.memory.records import MemoryDraft
+from mnemosyne.memory.policy import (
+    validate_remember_content,
+    validate_revision_content,
+)
+from mnemosyne.memory.records import MemoryDraft, MemoryRevision
 
 
 def _arguments() -> dict[str, object]:
@@ -32,6 +35,17 @@ def _draft_with_content(content: str) -> MemoryDraft:
     arguments = _arguments()
     arguments["content"] = content
     return MemoryDraft.from_dict(arguments)
+
+
+def _revision_arguments() -> dict[str, object]:
+    return {
+        "expected_revision": 1,
+        "namespace_label": "Tea",
+        "collection_label": "Favorites",
+        "title": "Japanese green tea",
+        "content": "The user enjoys Japanese green tea.",
+        "tags": ["tea", "preference"],
+    }
 
 
 @pytest.mark.parametrize(
@@ -120,3 +134,16 @@ def test_remember_policy_inspects_every_caller_owned_free_form_field(
 
     with pytest.raises(DisallowedMemoryContent):
         validate_remember_content(MemoryDraft.from_dict(arguments))
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["namespace_label", "collection_label", "title", "content", "tags"],
+)
+def test_revision_policy_inspects_every_replacement_text_field(field: str) -> None:
+    arguments = _revision_arguments()
+    signal = "sk-" + "a" * 20
+    arguments[field] = [signal] if field == "tags" else signal
+
+    with pytest.raises(DisallowedMemoryContent):
+        validate_revision_content(MemoryRevision.from_dict(arguments))

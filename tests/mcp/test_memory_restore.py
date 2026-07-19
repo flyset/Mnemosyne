@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,7 @@ from mnemosyne.mcp.tools._memory_lifecycle import parse_lifecycle_request
 from mnemosyne.mcp.tools.memory_restore import TOOL, handle
 from mnemosyne.mcp.tools.memory_restore import handler as handler_module
 from mnemosyne.mcp.tools.memory_restore.definition import TOOL as DEFINED_TOOL
+from mnemosyne.memory.errors import ReplacementOutcomeUncertain
 from mnemosyne.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
 from mnemosyne.memory.scopes import MemoryScope
 from mnemosyne.memory.service import MemoryResult
@@ -122,6 +124,36 @@ def test_memory_restore_returns_minimal_changed_and_idempotent_projections() -> 
             },
             "lifecycle": {"state": "active", "revision": revision},
         }
+
+
+def test_memory_restore_maps_uncertain_replacement_without_private_details(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="mcp.memory_restore")
+
+    def fail(reference: MemoryReference, revision: int) -> MemoryResult:
+        raise ReplacementOutcomeUncertain("private storage detail")
+
+    result = handle(
+        _arguments(),
+        mutations_enabled=True,
+        restore_operation=fail,
+    )
+
+    assert _payload(result) == {
+        "status": "uncertain",
+        "code": "replacement_outcome_uncertain",
+        "message": (
+            "memory restore outcome is uncertain; inspect the same reference "
+            "before any retry"
+        ),
+    }
+    records = [record for record in caplog.records if record.name == "mcp.memory_restore"]
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+    assert "outcome=uncertain code=replacement_outcome_uncertain" in records[0].getMessage()
+    assert "private storage detail" not in records[0].getMessage()
+    assert records[0].exc_info is None
 
 
 def test_memory_restore_returns_archived_memory_to_recall_and_inspection(

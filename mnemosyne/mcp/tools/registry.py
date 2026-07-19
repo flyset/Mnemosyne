@@ -11,6 +11,7 @@ from mnemosyne.mcp.tools import (
     memory_inspect,
     memory_recall,
     memory_remember,
+    memory_revise,
     memory_restore,
 )
 from mnemosyne.settings import get_memory_tool_settings
@@ -41,6 +42,7 @@ def build_tool_registry(
     *,
     memory_archive_restore_enabled: bool = False,
     memory_forget_enabled: bool = False,
+    memory_revise_enabled: bool = False,
     memory_inspect_tool: dict[str, Any] | None = None,
     memory_inspect_handler: ToolHandler | None = None,
     memory_archive_tool: dict[str, Any] | None = None,
@@ -49,6 +51,8 @@ def build_tool_registry(
     memory_restore_handler: ToolHandler | None = None,
     memory_remember_tool: dict[str, Any] | None = None,
     memory_remember_handler: ToolHandler | None = None,
+    memory_revise_tool: dict[str, Any] | None = None,
+    memory_revise_handler: ToolHandler | None = None,
     memory_forget_tool: dict[str, Any] | None = None,
     memory_forget_handler: ToolHandler | None = None,
 ) -> ToolRegistry:
@@ -86,6 +90,12 @@ def build_tool_registry(
         tools.append(memory_remember_tool)
         handlers[memory_remember_tool["name"]] = memory_remember_handler
 
+    if memory_revise_enabled:
+        if memory_revise_tool is None or memory_revise_handler is None:
+            raise ValueError("memory revise registration is unavailable")
+        tools.append(memory_revise_tool)
+        handlers[memory_revise_tool["name"]] = memory_revise_handler
+
     if memory_forget_enabled:
         if memory_forget_tool is None or memory_forget_handler is None:
             raise ValueError("memory forget registration is unavailable")
@@ -110,11 +120,14 @@ def build_startup_tool_registry(
     memory_remember_enabled: bool,
     memory_archive_restore_enabled: bool = False,
     memory_forget_enabled: bool = False,
+    *,
+    memory_revise_enabled: bool = False,
 ) -> ToolRegistry:
     return build_tool_registry(
         memory_remember_enabled,
         memory_archive_restore_enabled=memory_archive_restore_enabled,
         memory_forget_enabled=memory_forget_enabled,
+        memory_revise_enabled=memory_revise_enabled,
         memory_inspect_tool=memory_inspect.TOOL,
         memory_inspect_handler=memory_inspect.handle,
         memory_archive_tool=memory_archive.TOOL,
@@ -132,6 +145,11 @@ def build_startup_tool_registry(
             arguments,
             mutations_enabled=True,
         ),
+        memory_revise_tool=memory_revise.TOOL,
+        memory_revise_handler=lambda arguments: memory_revise.handle(
+            arguments,
+            mutations_enabled=True,
+        ),
         memory_forget_tool=memory_forget.TOOL,
         memory_forget_handler=lambda arguments: memory_forget.handle(
             arguments,
@@ -142,9 +160,10 @@ def build_startup_tool_registry(
 
 _MEMORY_TOOL_SETTINGS = get_memory_tool_settings()
 REGISTRY = build_startup_tool_registry(
-    _MEMORY_TOOL_SETTINGS.remember_enabled,
-    _MEMORY_TOOL_SETTINGS.archive_restore_enabled,
-    _MEMORY_TOOL_SETTINGS.forget_enabled,
+    memory_remember_enabled=_MEMORY_TOOL_SETTINGS.remember_enabled,
+    memory_archive_restore_enabled=_MEMORY_TOOL_SETTINGS.archive_restore_enabled,
+    memory_forget_enabled=_MEMORY_TOOL_SETTINGS.forget_enabled,
+    memory_revise_enabled=_MEMORY_TOOL_SETTINGS.revise_enabled,
 )
 TOOLS = REGISTRY.tools
 TOOL_HANDLERS = REGISTRY.handlers

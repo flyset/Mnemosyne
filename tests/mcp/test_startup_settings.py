@@ -12,6 +12,7 @@ REPOSITORY_ROOT = Path(__file__).parents[2]
 REMEMBER_ENABLED_ENV = "MNEMOSYNE_MEMORY_REMEMBER_ENABLED"
 ARCHIVE_RESTORE_ENABLED_ENV = "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED"
 FORGET_ENABLED_ENV = "MNEMOSYNE_MEMORY_FORGET_ENABLED"
+REVISE_ENABLED_ENV = "MNEMOSYNE_MEMORY_REVISE_ENABLED"
 MEMORY_ROOT_ENV = "MNEMOSYNE_MEMORY_ROOT"
 
 STARTUP_PROBE = """
@@ -70,6 +71,13 @@ restore = request(
         "params": {"name": "memory_restore", "arguments": {}},
     }
 )
+revise = request(
+    {
+        "id": "revise",
+        "method": "tools/call",
+        "params": {"name": "memory_revise", "arguments": {}},
+    }
+)
 forget = request(
     {
         "id": "forget",
@@ -88,6 +96,7 @@ print(
             "remember": remember,
             "archive": archive,
             "restore": restore,
+            "revise": revise,
             "forget": forget,
         },
         sort_keys=True,
@@ -110,7 +119,7 @@ def tool_names():
 
 before = tool_names()
 (Path.home() / ".mnemosyne" / "config.toml").write_text(
-    "[memory]\\nremember_enabled = false\\narchive_restore_enabled = false\\nforget_enabled = false\\n",
+    "[memory]\\nremember_enabled = false\\narchive_restore_enabled = false\\nforget_enabled = false\\nrevise_enabled = false\\n",
     encoding="utf-8",
 )
 after = tool_names()
@@ -134,6 +143,7 @@ def _isolated_environment(
     remember_override: str | None = None,
     archive_restore_override: str | None = None,
     forget_override: str | None = None,
+    revise_override: str | None = None,
 ) -> dict[str, str]:
     environment = os.environ.copy()
     environment["HOME"] = str(home)
@@ -141,12 +151,15 @@ def _isolated_environment(
     environment.pop(REMEMBER_ENABLED_ENV, None)
     environment.pop(ARCHIVE_RESTORE_ENABLED_ENV, None)
     environment.pop(FORGET_ENABLED_ENV, None)
+    environment.pop(REVISE_ENABLED_ENV, None)
     if remember_override is not None:
         environment[REMEMBER_ENABLED_ENV] = remember_override
     if archive_restore_override is not None:
         environment[ARCHIVE_RESTORE_ENABLED_ENV] = archive_restore_override
     if forget_override is not None:
         environment[FORGET_ENABLED_ENV] = forget_override
+    if revise_override is not None:
+        environment[REVISE_ENABLED_ENV] = revise_override
     existing_python_path = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = str(REPOSITORY_ROOT)
     if existing_python_path:
@@ -160,6 +173,7 @@ def _run_probe(
     remember_override: str | None = None,
     archive_restore_override: str | None = None,
     forget_override: str | None = None,
+    revise_override: str | None = None,
     probe: str = STARTUP_PROBE,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -170,6 +184,7 @@ def _run_probe(
             remember_override=remember_override,
             archive_restore_override=archive_restore_override,
             forget_override=forget_override,
+            revise_override=revise_override,
         ),
         capture_output=True,
         text=True,
@@ -246,6 +261,7 @@ def test_disabled_startup_omits_remember_and_creates_no_paths(
     }
     assert result["archive"]["error"]["message"] == "Unknown tool: memory_archive"
     assert result["restore"]["error"]["message"] == "Unknown tool: memory_restore"
+    assert result["revise"]["error"]["message"] == "Unknown tool: memory_revise"
     assert result["forget"]["error"]["message"] == "Unknown tool: memory_forget"
     if file_state == "missing":
         assert not (home / ".mnemosyne").exists()
@@ -277,6 +293,9 @@ def test_startup_environment_override_precedes_the_file(
                 "false" if file_source == "private-invalid-file-content" else None
             ),
             forget_override=(
+                "false" if file_source == "private-invalid-file-content" else None
+            ),
+            revise_override=(
                 "false" if file_source == "private-invalid-file-content" else None
             ),
         )
@@ -350,6 +369,42 @@ def test_archive_restore_and_remember_enablement_are_independent(
 
 
 @pytest.mark.parametrize("source", ["file", "environment"])
+def test_revise_enablement_exposes_both_discovery_surfaces_and_dispatch(
+    source: str,
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    override = None
+    if source == "file":
+        _write_settings(home, "[memory]\nrevise_enabled = true\n")
+    else:
+        override = "true"
+
+    result = _probe_result(_run_probe(home, revise_override=override))
+
+    assert result["tool_names"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_revise",
+    ]
+    assert result["list_tools_text"] == (
+        "Available tools: list_tools, memory_recall, memory_inspect, memory_revise"
+    )
+    revise_result = result["revise"]["result"]
+    assert revise_result["isError"] is True
+    assert json.loads(revise_result["content"][0]["text"])["code"] == (
+        "invalid_reference"
+    )
+    for operation in ("remember", "archive", "restore", "forget"):
+        assert result[operation]["error"]["message"] == (
+            f"Unknown tool: memory_{operation}"
+        )
+    assert not (home / ".mnemosyne" / "memory").exists()
+
+
+@pytest.mark.parametrize("source", ["file", "environment"])
 def test_forget_enablement_exposes_both_discovery_surfaces_and_dispatch(
     source: str,
     tmp_path: Path,
@@ -393,7 +448,7 @@ def test_all_mutation_enablement_is_independent_and_forget_is_last(
     home.mkdir()
     _write_settings(
         home,
-        "[memory]\nremember_enabled = true\narchive_restore_enabled = true\nforget_enabled = true\n",
+        "[memory]\nremember_enabled = true\narchive_restore_enabled = true\nforget_enabled = true\nrevise_enabled = true\n",
     )
 
     result = _probe_result(_run_probe(home))
@@ -405,6 +460,7 @@ def test_all_mutation_enablement_is_independent_and_forget_is_last(
         "memory_archive",
         "memory_restore",
         "memory_remember",
+        "memory_revise",
         "memory_forget",
     ]
 
@@ -442,6 +498,23 @@ def test_invalid_forget_environment_fails_before_file_access(
     output = process.stdout + process.stderr
     assert process.returncode != 0
     assert "MNEMOSYNE_MEMORY_FORGET_ENABLED must be 'true' or 'false'" in output
+    assert marker not in output
+    assert "private-invalid-file-content" not in output
+
+
+def test_invalid_revise_environment_fails_before_file_access(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    marker = "private-invalid-revise-value"
+    _write_settings(home, "private-invalid-file-content")
+
+    process = _run_probe(home, revise_override=marker)
+
+    output = process.stdout + process.stderr
+    assert process.returncode != 0
+    assert "MNEMOSYNE_MEMORY_REVISE_ENABLED must be 'true' or 'false'" in output
     assert marker not in output
     assert "private-invalid-file-content" not in output
 
@@ -557,6 +630,32 @@ def test_forget_registry_selection_remains_fixed_until_restart(
         "memory_recall",
         "memory_inspect",
         "memory_forget",
+    ]
+    assert fixed_result["after"] == fixed_result["before"]
+
+    restarted_result = _probe_result(_run_probe(home))
+    assert restarted_result["tool_names"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+    ]
+    assert not (home / ".mnemosyne" / "memory").exists()
+
+
+def test_revise_registry_selection_remains_fixed_until_restart(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    _write_settings(home, "[memory]\nrevise_enabled = true\n")
+
+    fixed_result = _probe_result(_run_probe(home, probe=STARTUP_FIXED_PROBE))
+
+    assert fixed_result["before"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_revise",
     ]
     assert fixed_result["after"] == fixed_result["before"]
 

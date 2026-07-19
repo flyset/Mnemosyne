@@ -38,10 +38,10 @@ mnemosyne/
     normalization.py  # Unicode, identifiers, language, and tags
     paths.py          # deterministic safe filesystem projection
     errors.py         # shared domain and storage errors
-    policy.py         # bounded remember-content refusal policy
+    policy.py         # bounded remember/revision content-refusal policy
     store.py          # bounded reads and atomic filesystem persistence
     retrieval.py      # eligibility, ranking, and match evidence
-    service.py        # recall and lifecycle policy
+    service.py        # recall, remember, revision, and lifecycle policy
 
   routes/
     __init__.py
@@ -60,6 +60,7 @@ mnemosyne/
       __init__.py
       registry.py     # MCP tool registry and dispatch
       _memory_lifecycle.py # private lifecycle schemas, projections, errors, logs
+      _memory_revise.py # private revise schema, parsing, projection, errors, logs
       _memory_forget.py # private forget projection, errors, and content-free logs
 
       list_tools/
@@ -79,6 +80,11 @@ mnemosyne/
         __init__.py   # public TOOL and handle re-exports
         definition.py # scope/dimension-derived mutation schema
         handler.py    # bounded validation, service adaptation, results, and logs
+
+      memory_revise/
+        __init__.py   # public TOOL and handle re-exports
+        definition.py # complete canonical revision schema
+        handler.py    # enabled service/store construction and private adapter call
 
       memory_archive/
         __init__.py   # public TOOL and handle re-exports
@@ -145,8 +151,12 @@ Owns tool-independent memory meaning and local persistence:
 - structured references and deterministic safe path projection;
 - bounded filesystem discovery and exact lookup;
 - private atomic create/replace/delete primitives and revision conflicts;
+- complete normalized revision values, mutable-field rules, and immutable
+  identity/metadata enforcement;
 - active/archived eligibility, deterministic ranking, and match evidence;
-- bounded remember-content refusal before discovery or writes;
+- bounded remember/revision content refusal before storage access;
+- active/archived revision and exact no-op semantics;
+- uncertain post-publication replacement durability;
 - mutation-disabled-by-default lifecycle policy.
 
 The shared domain imports no MCP, FastAPI, or route modules. MCP Tool handlers
@@ -209,6 +219,24 @@ reference, and lifecycle for `remembered`, `already_exists`, or
 `mcp.memory_remember` emits one content-free terminal event and never records
 submitted memory text, labels, tags, paths, exception messages, or tracebacks.
 
+`memory_revise` has the same three-file public package shape plus a private,
+capability-free `_memory_revise.py` adapter. Its flat canonical-only request
+requires the exact reference, positive expected revision, and complete
+replacement values for namespace label, collection label, title, content, and
+tags. It accepts no path, legacy identity, patch language, relocation,
+reclassification, lifecycle target, provenance replacement, timestamp, or model
+confirmation.
+
+The private adapter owns strict parsing, normalization, minimal projection,
+result consistency, bounded error mapping, and content-free logging. Only the
+public handler constructs `MemoryService` and `FilesystemMemoryStore`. The
+shared domain applies content policy before storage access, checks the exact
+revision, detects normalized no-ops, preserves immutable identity/metadata and
+lifecycle state, and atomically replaces the same file only on change. Changed
+results are `revised`; no-ops are `already_current`. Archived records remain
+archived and recall-excluded. Revision retains no patch, backup, tombstone, or
+hidden prior content.
+
 `memory_archive` and `memory_restore` are separate least-privilege Tools, each
 with the same three-file public package shape. Their shared private
 `_memory_lifecycle.py` adapter owns the canonical-only schema, strict request
@@ -230,6 +258,12 @@ state/revision. Loggers `mcp.memory_archive` and `mcp.memory_restore` emit one
 terminal event with only bounded outcome/reference/lifecycle metadata. Archive
 removes a canonical record from recall while exact inspection still returns it;
 restore makes it recall-eligible again.
+
+Archive, restore, and revise share the atomic store replacement primitive. If
+`os.replace` publishes the new record but parent-directory sync fails, the store
+raises `ReplacementOutcomeUncertain`. MCP maps this to `status: uncertain` and
+`replacement_outcome_uncertain`; callers must inspect the exact reference before
+any newly approved retry. This is distinct from deletion uncertainty.
 
 `memory_forget` is a separate least-privilege, canonical-only, archived-only
 Tool with the same three-file public package shape. It reuses only strict request
@@ -254,16 +288,18 @@ code/field, schema version, and scope. Multi-process/external last-instruction
 races and secure erasure of journals, snapshots, backups, or external copies are
 outside this local filesystem contract.
 
-Tool availability is startup-fixed. Supplied
-`MNEMOSYNE_MEMORY_REMEMBER_ENABLED` and
-`MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED`, and
-`MNEMOSYNE_MEMORY_FORGET_ENABLED` values independently override their
-matching file keys, accept only exact lowercase `true` or `false`, and fail
+Tool availability is startup-fixed. Supplied values for
+`MNEMOSYNE_MEMORY_REMEMBER_ENABLED`,
+`MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED`,
+`MNEMOSYNE_MEMORY_REVISE_ENABLED`, and `MNEMOSYNE_MEMORY_FORGET_ENABLED`
+independently override their matching file keys, accept only exact lowercase
+`true` or `false`, and fail
 startup closed before file access for every other value. Unresolved values come
 from at most one read of `Path.home() / ".mnemosyne" / "config.toml"`; the strict
 optional `[memory]` table may contain only the optional TOML booleans
-`remember_enabled`, `archive_restore_enabled`, and `forget_enabled`. All default
-false.
+`remember_enabled`, `archive_restore_enabled`, `forget_enabled`, and
+`revise_enabled`. The file is bypassed only when all four environment values are
+supplied. All default false.
 
 The settings layer performs no initialization. It bounds the file to 16 KiB of
 UTF-8 TOML, rejects unknown structure, symlinked or non-regular sources,
@@ -273,8 +309,9 @@ is used where supported, and failures expose only stable non-content-bearing
 codes/messages. The immutable startup registry always contains `list_tools`,
 `memory_recall`, and `memory_inspect`, in that order; appends archive and restore
 together when their pair gate is enabled; and appends remember when its
-independent gate is enabled; and appends forget last when its independent gate
-is enabled. Every definition and dispatch handler is connected
+independent gate is enabled; appends revise when its independent gate is
+enabled; and appends forget last when its independent gate is enabled. Every
+definition and dispatch handler is connected
 as a pair, so no placeholder Tool is advertised. The same
 startup selection drives MCP `tools/list`, the `list_tools` Tool, and dispatch
 until restart. No HTTP route or CLI entrypoint owns this policy, and server
@@ -302,7 +339,7 @@ directory and creates each missing component in parent-to-child order. Newly
 created directories use mode `0700` on POSIX, existing directories are not
 chmodded, and atomic record files retain mode `0600`. Symlink/non-directory
 conflicts and creation failures remain bounded domain errors. Settings
-resolution, startup, recall, disabled or invalid remember calls, and
+resolution, startup, recall, disabled or invalid remember/revise calls, and
 content-policy refusal do not create the root or its parents.
 
 Discovery rejects symlinks, limits nesting to four directories, limits files to
@@ -316,8 +353,8 @@ Version-2 metadata must agree with its path. JSON files are the only durable
 memory source of truth; there is no required manifest, alias database, persistent
 content index, tombstone, or hidden revision history. Atomic mutation primitives
 exist only in the shared domain and are disabled by default. Remember,
-reversible archive/restore, and archived-only physical forget are exposed through
-independent startup gates; revise remains unregistered.
+complete-state revise, reversible archive/restore, and archived-only physical
+forget are exposed through independent startup gates.
 
 Future mutation Tools must be thin adapters over the existing service/store
 contracts. Every mutation Tool requires explicit operator enablement and a
@@ -329,8 +366,9 @@ mutation Tools disabled.
 Contains stable server identity constants used across routes and MCP
 initialization, dynamic resolution of the operator-controlled memory root, and
 strict environment-first/fixed-file startup parsing for independent remember,
-archive/restore, and forget enablement. It owns the fixed local settings path, schema,
-bounded source
+archive/restore, revise, and forget enablement. Each supplied environment value
+overrides only its matching setting; unresolved values use at most one strict
+file read. It owns the fixed local settings path, schema, bounded source
 checks, and stable configuration failures without creating or editing operator
 configuration.
 

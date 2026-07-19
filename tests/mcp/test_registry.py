@@ -29,6 +29,11 @@ RESTORE_TOOL = {
     "description": "Synthetic restore registration for registry tests.",
     "inputSchema": {"type": "object", "properties": {}},
 }
+REVISE_TOOL = {
+    "name": "memory_revise",
+    "description": "Synthetic revision registration for registry tests.",
+    "inputSchema": {"type": "object", "properties": {}},
+}
 FORGET_TOOL = {
     "name": "memory_forget",
     "description": "Synthetic forget registration for registry tests.",
@@ -67,6 +72,12 @@ def _archive(arguments: dict[str, object]) -> dict[str, object]:
 def _restore(arguments: dict[str, object]) -> dict[str, object]:
     return {
         "content": [{"type": "text", "text": f"restored:{arguments.get('value')}"}]
+    }
+
+
+def _revise(arguments: dict[str, object]) -> dict[str, object]:
+    return {
+        "content": [{"type": "text", "text": f"revised:{arguments.get('value')}"}]
     }
 
 
@@ -370,6 +381,83 @@ def test_registry_fails_closed_for_incomplete_enabled_archive_restore_pair(
         )
 
 
+def test_registry_omits_disabled_revise_from_discovery_and_dispatch() -> None:
+    registry = build_tool_registry(
+        False,
+        memory_revise_enabled=False,
+        memory_revise_tool=REVISE_TOOL,
+        memory_revise_handler=_revise,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+    ]
+    assert registry.call_tool("memory_revise", {"value": "safe"}) is None
+
+
+def test_registry_injects_revise_discovery_and_dispatch_together() -> None:
+    registry = build_tool_registry(
+        False,
+        memory_revise_enabled=True,
+        memory_revise_tool=REVISE_TOOL,
+        memory_revise_handler=_revise,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_revise",
+    ]
+    assert registry.call_tool("memory_revise", {"value": "safe"}) == {
+        "content": [{"type": "text", "text": "revised:safe"}]
+    }
+
+
+@pytest.mark.parametrize(
+    "registration",
+    [
+        {},
+        {"memory_revise_tool": REVISE_TOOL},
+        {"memory_revise_handler": _revise},
+    ],
+)
+def test_registry_fails_closed_for_incomplete_enabled_revise_registration(
+    registration: dict[str, object],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="^memory revise registration is unavailable$",
+    ):
+        build_tool_registry(
+            False,
+            memory_revise_enabled=True,
+            **registration,
+        )
+
+
+def test_registry_orders_revise_after_remember_and_before_forget() -> None:
+    registry = build_tool_registry(
+        True,
+        memory_revise_enabled=True,
+        memory_forget_enabled=True,
+        memory_remember_tool=REMEMBER_TOOL,
+        memory_remember_handler=_remember,
+        memory_revise_tool=REVISE_TOOL,
+        memory_revise_handler=_revise,
+        memory_forget_tool=FORGET_TOOL,
+        memory_forget_handler=_forget,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_remember",
+        "memory_revise",
+        "memory_forget",
+    ]
+
+
 def test_registry_omits_disabled_forget_from_discovery_and_dispatch() -> None:
     registry = build_tool_registry(
         False,
@@ -442,8 +530,29 @@ def test_startup_registry_exposes_forget_only_when_independently_enabled() -> No
     assert '"code":"invalid_reference"' in result["content"][0]["text"]
 
 
+def test_startup_registry_exposes_revise_only_when_independently_enabled() -> None:
+    disabled = build_startup_tool_registry(False)
+    enabled = build_startup_tool_registry(False, memory_revise_enabled=True)
+
+    assert disabled.call_tool("memory_revise", {}) is None
+    assert [tool["name"] for tool in enabled.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_revise",
+    ]
+    result = enabled.call_tool("memory_revise", {})
+    assert result is not None
+    assert '"code":"invalid_reference"' in result["content"][0]["text"]
+
+
 def test_startup_registry_orders_forget_after_other_mutations() -> None:
-    registry = build_startup_tool_registry(True, True, True)
+    registry = build_startup_tool_registry(
+        True,
+        True,
+        True,
+        memory_revise_enabled=True,
+    )
 
     assert [tool["name"] for tool in registry.tools] == [
         "list_tools",
@@ -452,6 +561,7 @@ def test_startup_registry_orders_forget_after_other_mutations() -> None:
         "memory_archive",
         "memory_restore",
         "memory_remember",
+        "memory_revise",
         "memory_forget",
     ]
 
@@ -601,3 +711,33 @@ def test_startup_registry_normalizes_stringified_lifecycle_arguments(
 
     assert result is not None
     assert '"code":"not_found"' in result["content"][0]["text"]
+
+
+def test_startup_registry_normalizes_stringified_revise_arguments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "missing" / "memory"
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
+    registry = build_startup_tool_registry(False, memory_revise_enabled=True)
+    arguments = {
+        "reference": (
+            '{"schema_version": 2, "scope": "project", '
+            '"namespace_id": "mnemosyne", "collection_id": null, '
+            '"id": "mem_0123456789abcdef0123456789abcdef"}'
+        ),
+        "expected_revision": "3",
+        "namespace_label": None,
+        "collection_label": None,
+        "title": "Revision compatibility",
+        "content": "Synthetic revision compatibility test.",
+        "tags": '["test", "validation"]',
+    }
+    original = dict(arguments)
+
+    result = registry.call_tool("memory_revise", arguments)
+
+    assert result is not None
+    assert '"code":"not_found"' in result["content"][0]["text"]
+    assert arguments == original
+    assert not (tmp_path / "missing").exists()

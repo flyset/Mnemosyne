@@ -15,6 +15,7 @@ from mnemosyne.memory.errors import (
     MemoryNotFound,
     MemorySourceUnavailable,
     MemoryValidationError,
+    ReplacementOutcomeUncertain,
     RevisionConflict,
     UnsafeMemoryPath,
     WriteConflict,
@@ -226,6 +227,33 @@ def test_store_replace_detects_external_change_before_publication(
 
     assert store.get(_reference()).record.content == "External change"
     assert list((tmp_path / "project" / "mnemosyne" / "decisions").glob(".*.tmp")) == []
+
+
+def test_store_replace_reports_uncertain_outcome_after_publication_sync_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    original = _record()
+    stored = store.create(original)
+    path = tmp_path / stored.relative_path
+    revised = replace(
+        original,
+        content="Revised content",
+        lifecycle=MemoryLifecycle(state=LifecycleState.ACTIVE, revision=2),
+        updated_at=datetime(2026, 7, 18, 12, 0, 1, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(
+        store,
+        "_sync_directory",
+        lambda directory: (_ for _ in ()).throw(MemorySourceUnavailable()),
+    )
+
+    with pytest.raises(ReplacementOutcomeUncertain):
+        store.replace(revised, expected_revision=1)
+
+    assert store.get(_reference()).record == revised
+    assert list(path.parent.glob(".*.tmp")) == []
 
 
 def test_store_physically_deletes_current_archived_record_without_artifacts(

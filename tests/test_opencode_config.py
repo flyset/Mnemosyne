@@ -10,16 +10,20 @@ def test_opencode_requires_exact_per_call_memory_mutation_approval() -> None:
         (PROJECT_ROOT / "opencode.json").read_text(encoding="utf-8")
     )
 
-    assert config["permission"]["mnemosyne_memory_remember"] == "ask"
-    assert config["permission"]["mnemosyne_memory_archive"] == "ask"
-    assert config["permission"]["mnemosyne_memory_restore"] == "ask"
-    assert config["permission"]["mnemosyne_memory_forget"] == "ask"
+    assert list(config["permission"].items()) == [
+        ("mnemosyne_memory_remember", "ask"),
+        ("mnemosyne_memory_revise", "ask"),
+        ("mnemosyne_memory_archive", "ask"),
+        ("mnemosyne_memory_restore", "ask"),
+        ("mnemosyne_memory_forget", "ask"),
+    ]
     assert list(config["agent"]["mnemosyne"]["permission"].items()) == [
         ("mnemosyne_*", "deny"),
         ("mnemosyne_list_tools", "allow"),
         ("mnemosyne_memory_recall", "allow"),
         ("mnemosyne_memory_inspect", "allow"),
         ("mnemosyne_memory_remember", "ask"),
+        ("mnemosyne_memory_revise", "ask"),
         ("mnemosyne_memory_archive", "ask"),
         ("mnemosyne_memory_restore", "ask"),
         ("mnemosyne_memory_forget", "ask"),
@@ -47,6 +51,7 @@ def test_opencode_agent_file_does_not_override_mutation_approval() -> None:
         '"mnemosyne_memory_recall": allow',
         '"mnemosyne_memory_inspect": allow',
         '"mnemosyne_memory_remember": ask',
+        '"mnemosyne_memory_revise": ask',
         '"mnemosyne_memory_archive": ask',
         '"mnemosyne_memory_restore": ask',
         '"mnemosyne_memory_forget": ask',
