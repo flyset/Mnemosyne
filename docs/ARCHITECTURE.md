@@ -41,7 +41,8 @@ mnemosyne/
     policy.py         # bounded remember/revision content-refusal policy
     store.py          # bounded reads and atomic filesystem persistence
     retrieval.py      # eligibility, ranking, and match evidence
-    service.py        # recall, remember, revision, and lifecycle policy
+    listing.py        # selectors, ordering, pages, and authenticated cursors
+    service.py        # recall, listing, remember, revision, and lifecycle policy
 
   routes/
     __init__.py
@@ -70,6 +71,11 @@ mnemosyne/
         __init__.py   # public TOOL and handle re-exports
         definition.py # Tool schema derived from canonical shared scopes
         handler.py    # MCP validation, logging, adaptation, and Tool results
+
+      memory_list/
+        __init__.py   # public TOOL and handle re-exports
+        definition.py # strict initial and continuation selector schemas
+        handler.py    # compact projections, bounded errors, and content-free logs
 
       memory_inspect/
         __init__.py   # public TOOL and handle re-exports
@@ -139,6 +145,15 @@ second schema validator: malformed, wrong-type, ambiguous string-permitted, or
 repeatedly encoded values remain unchanged for the Tool's existing validation.
 Native arguments and legitimate text fields remain unchanged.
 
+Public Tool schemas with argument variants must keep the complete caller-visible
+field set in top-level `properties` with top-level required fields. Composition
+keywords may refine valid combinations but must not be the only place fields are
+declared. Tool and property descriptions must also explain legal combinations,
+because compatible clients may retain only the flat property bag and required
+list while discarding `oneOf`, `anyOf`, or conditional constraints. Compatibility
+tests for such Tools must exercise that reduced view as well as the complete
+schema.
+
 This is where the protocol surface should grow.
 
 ### `mnemosyne/memory/`
@@ -149,7 +164,9 @@ Owns tool-independent memory meaning and local persistence:
 - version-1 compatibility and canonical version-2 records;
 - namespace, collection, kind, language, provenance, and lifecycle dimensions;
 - structured references and deterministic safe path projection;
-- bounded filesystem discovery and exact lookup;
+- bounded scope/container discovery and exact lookup;
+- complete listing selectors, deterministic mixed-schema ordering, whole-snapshot
+  legacy ambiguity, bounded pages, and authenticated continuation cursors;
 - private atomic create/replace/delete primitives and revision conflicts;
 - complete normalized revision values, mutable-field rules, and immutable
   identity/metadata enforcement;
@@ -166,7 +183,8 @@ Import-boundary tests enforce this dependency direction.
 `memory_recall` validates a narrow query, exactly one required high-level memory
 scope, and optional bounded free-form tags. The six scopes are `self`,
 `relationship`, `preference`, `practice`, `project`, and `knowledge`; each has an
-individual model-facing description in the Tool schema.
+individual model-facing description and is exposed through one explicit string
+enum in the Tool schema for broad client compatibility.
 
 The handler constructs a read-only `MemoryService` over a
 `FilesystemMemoryStore` rooted at the configured location. The shared service
@@ -180,9 +198,48 @@ version-2 records are excluded. Missing directories and no positive match return
 `no_matches`; source and candidate-limit failures return stable Tool errors.
 
 The recall package is deliberately limited to `__init__.py`, `definition.py`,
-and `handler.py`. Its definition derives scope branches from the shared registry;
+and `handler.py`. Its definition derives the scope enum from the shared registry;
 its handler owns MCP-specific argument/result semantics. Storage and ranking do
 not live under the Tool package.
+
+`memory_list` is a separate read-only Tool with the same three-file package
+shape. Its schema publishes scope, namespace, collection, page-size, and cursor
+fields in top-level object properties so limited clients do not project an empty
+argument object. Scope uses the same explicit six-value string enum as recall.
+Four mutually exclusive presence/exclusion branches retain strict scope-wide and
+canonical namespace selection for initial and continuation requests. Collection
+selection is omission-sensitive: absent means every collection state, null means
+collectionless only, and a string means one exact collection. Initial requests
+accept an optional page size from 1 through 100; continuations repeat the exact
+selector with an opaque cursor and omit page size. The Tool accepts no query,
+path, content, cross-scope selector, or arbitrary filter.
+
+The handler validates independently before resolving the root and adapts to
+`MemoryListSelector` and `MemoryService.list_memories()`. The store narrows to
+the deterministic scope, namespace, collectionless level, or exact collection
+before applying the candidate bound. The shared listing domain orders legacy
+records by ID with an unexposed path tie-breaker, orders canonical records by
+namespace/collection/ID, marks duplicate legacy references ambiguous across the
+complete snapshot, and slices only after ordering and annotation.
+
+Listing cursors contain only a version, process marker, keyed selector/snapshot
+digests, next offset, and fixed page size under an HMAC. Relative paths and raw
+file fingerprints contribute only to the keyed snapshot digest and are never
+returned. A process-shared in-memory codec permits continuation across service
+instances in the single-process server; restart, selected snapshot changes, or
+foreign process markers make the cursor stale. Current-process authentication,
+shape, selector, and pagination failures make it invalid. There is no persistent
+cursor key, snapshot store, manifest, or index.
+
+Results are `status: ok` even when empty and contain compact list items plus page
+number, returned count, total count, total pages, truncation state, and nullable
+next cursor. Legacy items expose only reference, nullable title, and
+inspectability. Canonical items additionally expose kind and lifecycle state.
+Content, tags, labels, language, provenance, timestamps, lifecycle revision,
+paths, fingerprints, scores, and match evidence remain absent. Bounded request,
+cursor, candidate, source, and internal failures never return partial pages.
+Logger `mcp.memory_list` emits one terminal event containing only allowlisted
+outcome, selector-presence, count, page, and stable error metadata.
 
 `memory_inspect` is likewise limited to `__init__.py`, `definition.py`, and
 `handler.py`. Its strict schema accepts one reference discriminated by schema
@@ -307,10 +364,10 @@ metadata replacement during open, unreadable sources, and group/world-writable
 POSIX application directories or files. Descriptor-relative/no-follow access
 is used where supported, and failures expose only stable non-content-bearing
 codes/messages. The immutable startup registry always contains `list_tools`,
-`memory_recall`, and `memory_inspect`, in that order; appends archive and restore
-together when their pair gate is enabled; and appends remember when its
-independent gate is enabled; appends revise when its independent gate is
-enabled; and appends forget last when its independent gate is enabled. Every
+`memory_recall`, `memory_list`, and `memory_inspect`, in that order; appends
+archive and restore together when their pair gate is enabled; appends remember
+when its independent gate is enabled; appends revise when its independent gate
+is enabled; and appends forget last when its independent gate is enabled. Every
 definition and dispatch handler is connected
 as a pair, so no placeholder Tool is advertised. The same
 startup selection drives MCP `tools/list`, the `list_tools` Tool, and dispatch
@@ -326,11 +383,11 @@ the MCP layer rather than in memory-domain models or individual Tool handlers.
 ## Filesystem Retrieval
 
 The default root is `~/.mnemosyne/memory`; the operator may set
-`MNEMOSYNE_MEMORY_ROOT`. Recall and inspection never accept a path from an MCP
-request. Beneath the root, the canonical scope names are fixed top-level directories. Legacy
-version-1 files remain readable without rewriting. New canonical records use
-schema version 2 and derive their location from scope, namespace ID, optional
-collection ID, and server-generated memory ID.
+`MNEMOSYNE_MEMORY_ROOT`. Recall, listing, and inspection never accept a path from
+an MCP request. Beneath the root, the canonical scope names are fixed top-level
+directories. Legacy version-1 files remain readable without rewriting. New
+canonical records use schema version 2 and derive their location from scope,
+namespace ID, optional collection ID, and server-generated memory ID.
 
 The filesystem store initializes directories lazily only on canonical create.
 After validating that the deterministic record parent is beneath the configured
@@ -339,8 +396,9 @@ directory and creates each missing component in parent-to-child order. Newly
 created directories use mode `0700` on POSIX, existing directories are not
 chmodded, and atomic record files retain mode `0600`. Symlink/non-directory
 conflicts and creation failures remain bounded domain errors. Settings
-resolution, startup, recall, disabled or invalid remember/revise calls, and
-content-policy refusal do not create the root or its parents.
+resolution, startup, recall, listing, inspection, disabled or invalid
+remember/revise calls, and content-policy refusal do not create the root or its
+parents.
 
 Discovery rejects symlinks, limits nesting to four directories, limits files to
 64 KiB, and fails rather than returning a partial result when a scope exceeds
@@ -348,6 +406,15 @@ Discovery rejects symlinks, limits nesting to four directories, limits files to
 limited to scope and a bounded reason; candidate paths are not logged. Files
 remain the source of truth and are directly inspectable and deletable by the
 user.
+
+Complete listing adds a stricter selected-root contract without changing recall
+discovery: a selected root symlink is unsafe, a non-directory is unavailable,
+and a genuinely missing container is a successful empty inventory. Scope-wide
+listing retains the full-scope bound. Namespace-wide listing counts only that
+namespace; collectionless and exact-collection selectors scan only direct JSON
+files at their canonical level. Candidate counting occurs before record parsing,
+and canonical selectors exclude legacy records after bounded discovery as
+defense in depth.
 
 Version-2 metadata must agree with its path. JSON files are the only durable
 memory source of truth; there is no required manifest, alias database, persistent

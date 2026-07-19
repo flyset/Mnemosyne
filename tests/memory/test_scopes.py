@@ -68,16 +68,17 @@ def test_scope_registry_is_the_canonical_ordered_contract() -> None:
     )
 
 
-def test_recall_tool_scope_schema_is_derived_without_contract_changes() -> None:
+def test_recall_tool_scope_schema_is_derived_as_a_portable_enum() -> None:
     scope_schema = TOOL["inputSchema"]["properties"]["scope"]
 
-    assert scope_schema["oneOf"] == [
-        {
-            "const": definition.scope.value,
-            "description": definition.description,
-        }
-        for definition in SCOPE_DEFINITIONS
+    assert scope_schema["type"] == "string"
+    assert scope_schema["enum"] == [
+        definition.scope.value for definition in SCOPE_DEFINITIONS
     ]
+    assert all(
+        definition.description in scope_schema["description"]
+        for definition in SCOPE_DEFINITIONS
+    )
 
 
 @pytest.mark.parametrize("scope", SCOPE_VALUES)

@@ -12,6 +12,7 @@ from mnemosyne.memory.errors import (
     MemorySourceUnavailable,
     UnsafeMemoryPath,
 )
+from mnemosyne.memory.listing import MemoryCollectionSelector, MemoryListSelector
 from mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
@@ -41,6 +42,8 @@ def _v2(
     record_id: str = "mem_0123456789abcdef0123456789abcdef",
     *,
     state: str = "active",
+    namespace_id: str = "mnemosyne",
+    collection_id: str | None = "decisions",
 ) -> dict[str, object]:
     return {
         "schema_version": 2,
@@ -48,10 +51,14 @@ def _v2(
         "scope": "project",
         "namespace": {
             "kind": "project",
-            "id": "mnemosyne",
+            "id": namespace_id,
             "label": "Mnemosyne",
         },
-        "collection": {"id": "decisions", "label": "Decisions"},
+        "collection": (
+            None
+            if collection_id is None
+            else {"id": collection_id, "label": "Decisions"}
+        ),
         "kind": "decision",
         "language": "en",
         "title": "Shared ownership",
@@ -193,6 +200,190 @@ def test_store_rejects_more_than_one_thousand_candidates(tmp_path: Path) -> None
 
     with pytest.raises(CandidateLimitExceeded):
         FilesystemMemoryStore(tmp_path).discover(MemoryScope.PROJECT)
+
+
+def test_list_discovery_narrows_before_applying_the_candidate_bound(
+    tmp_path: Path,
+) -> None:
+    target_id = "mem_0123456789abcdef0123456789abcdef"
+    _write(
+        tmp_path / "project" / "mnemosyne" / "decisions" / f"{target_id}.json",
+        _v2(target_id),
+    )
+    overflow = tmp_path / "project" / "another-project" / "noise"
+    overflow.mkdir(parents=True)
+    for index in range(1_001):
+        (overflow / f"{index:04}.json").write_text("{}", encoding="utf-8")
+
+    selector = MemoryListSelector(
+        scope=MemoryScope.PROJECT,
+        namespace_id="mnemosyne",
+        collection=MemoryCollectionSelector.exact("decisions"),
+    )
+    stored = FilesystemMemoryStore(tmp_path).discover_for_list(selector)
+
+    assert [memory.record.id for memory in stored] == [target_id]
+
+
+def test_namespace_list_discovery_includes_its_containers_and_ignores_other_namespace(
+    tmp_path: Path,
+) -> None:
+    collectionless_id = "mem_11111111111111111111111111111111"
+    collected_id = "mem_22222222222222222222222222222222"
+    _write(
+        tmp_path / "project" / "mnemosyne" / f"{collectionless_id}.json",
+        _v2(collectionless_id, collection_id=None),
+    )
+    _write(
+        tmp_path / "project" / "mnemosyne" / "decisions" / f"{collected_id}.json",
+        _v2(collected_id),
+    )
+    _write(
+        tmp_path / "project" / "mnemosyne" / "legacy.json",
+        _v1("legacy"),
+    )
+    overflow = tmp_path / "project" / "another-project"
+    overflow.mkdir(parents=True)
+    for index in range(1_001):
+        (overflow / f"{index:04}.json").write_text("{}", encoding="utf-8")
+
+    stored = FilesystemMemoryStore(tmp_path).discover_for_list(
+        MemoryListSelector(
+            scope=MemoryScope.PROJECT,
+            namespace_id="mnemosyne",
+        )
+    )
+
+    assert {memory.record.id for memory in stored} == {
+        collectionless_id,
+        collected_id,
+    }
+
+
+def test_list_discovery_narrows_exact_and_collectionless_candidates(
+    tmp_path: Path,
+) -> None:
+    collectionless_id = "mem_11111111111111111111111111111111"
+    exact_id = "mem_22222222222222222222222222222222"
+    _write(
+        tmp_path / "project" / "mnemosyne" / f"{collectionless_id}.json",
+        _v2(collectionless_id, collection_id=None),
+    )
+    _write(
+        tmp_path / "project" / "mnemosyne" / "decisions" / f"{exact_id}.json",
+        _v2(exact_id),
+    )
+    overflow = tmp_path / "project" / "mnemosyne" / "other"
+    overflow.mkdir(parents=True)
+    for index in range(1_001):
+        (overflow / f"{index:04}.json").write_text("{}", encoding="utf-8")
+    store = FilesystemMemoryStore(tmp_path)
+
+    collectionless = store.discover_for_list(
+        MemoryListSelector(
+            scope=MemoryScope.PROJECT,
+            namespace_id="mnemosyne",
+            collection=MemoryCollectionSelector.collectionless(),
+        )
+    )
+    exact = store.discover_for_list(
+        MemoryListSelector(
+            scope=MemoryScope.PROJECT,
+            namespace_id="mnemosyne",
+            collection=MemoryCollectionSelector.exact("decisions"),
+        )
+    )
+
+    assert [memory.record.id for memory in collectionless] == [collectionless_id]
+    assert [memory.record.id for memory in exact] == [exact_id]
+
+
+def test_list_discovery_counts_only_the_selected_container_but_still_fails_closed(
+    tmp_path: Path,
+) -> None:
+    selected = tmp_path / "project" / "mnemosyne" / "decisions"
+    selected.mkdir(parents=True)
+    for index in range(1_001):
+        (selected / f"{index:04}.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(CandidateLimitExceeded):
+        FilesystemMemoryStore(tmp_path).discover_for_list(
+            MemoryListSelector(
+                scope=MemoryScope.PROJECT,
+                namespace_id="mnemosyne",
+                collection=MemoryCollectionSelector.exact("decisions"),
+            )
+        )
+
+
+def test_list_discovery_missing_container_is_empty_without_initialization(
+    tmp_path: Path,
+) -> None:
+    memory_root = tmp_path / "missing-memory"
+
+    stored = FilesystemMemoryStore(memory_root).discover_for_list(
+        MemoryListSelector(
+            scope=MemoryScope.PROJECT,
+            namespace_id="mnemosyne",
+            collection=MemoryCollectionSelector.exact("decisions"),
+        )
+    )
+
+    assert stored == []
+    assert not memory_root.exists()
+
+
+def test_list_discovery_rejects_selected_symlink_or_non_directory(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    scope = tmp_path / "project"
+    scope.mkdir()
+    linked = scope / "linked"
+    try:
+        linked.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are unavailable on this platform")
+    store = FilesystemMemoryStore(tmp_path)
+
+    with pytest.raises(UnsafeMemoryPath):
+        store.discover_for_list(
+            MemoryListSelector(
+                scope=MemoryScope.PROJECT,
+                namespace_id="linked",
+            )
+        )
+
+    regular_file = scope / "regular"
+    regular_file.write_text("not a directory", encoding="utf-8")
+    with pytest.raises(MemorySourceUnavailable):
+        store.discover_for_list(
+            MemoryListSelector(
+                scope=MemoryScope.PROJECT,
+                namespace_id="regular",
+            )
+        )
+
+
+def test_canonical_list_discovery_excludes_legacy_records_in_selected_container(
+    tmp_path: Path,
+) -> None:
+    canonical_id = "mem_0123456789abcdef0123456789abcdef"
+    container = tmp_path / "project" / "mnemosyne" / "decisions"
+    _write(container / f"{canonical_id}.json", _v2(canonical_id))
+    _write(container / "legacy.json", _v1("legacy"))
+    (container / "invalid.json").write_text("{", encoding="utf-8")
+
+    stored = FilesystemMemoryStore(tmp_path).discover_for_list(
+        MemoryListSelector(
+            scope=MemoryScope.PROJECT,
+            namespace_id="mnemosyne",
+            collection=MemoryCollectionSelector.exact("decisions"),
+        )
+    )
+
+    assert [memory.record.id for memory in stored] == [canonical_id]
 
 
 def test_store_gets_a_version_two_record_by_structured_reference(

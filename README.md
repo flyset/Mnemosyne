@@ -12,6 +12,7 @@ Implemented tools:
 
 - `list_tools` — lists the tools exposed by the server
 - `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope directory
+- `memory_list` — completely and deterministically inventories valid memories in one bounded scope or canonical container without returning record content
 - `memory_inspect` — returns one exact canonical or legacy memory selected by a versioned structured reference
 - `memory_remember` — when explicitly enabled, validates and atomically persists one approved canonical version-2 memory
 - `memory_revise` — when independently enabled, revision-checks and atomically replaces the complete caller-mutable state of one exact canonical version-2 memory
@@ -24,7 +25,8 @@ contains a free-form `query`, exactly one high-level scope (`self`,
 `relationship`, `preference`, `practice`, `project`, or `knowledge`), and
 optionally 1–10 unique free-form `tags`. Scope selects one fixed local directory.
 Query terms and tags rank valid records from that directory; recall never searches
-another scope or accepts a client-supplied path.
+another scope or accepts a client-supplied path. The Tool schema publishes scope
+as an explicit string enum so clients can discover the complete vocabulary.
 
 Matching calls return a normal Tool result with `status: ok` and at most five
 memory records. Results include an inspect-compatible versioned reference, the
@@ -40,6 +42,142 @@ or excessive sources return `memory_source_unavailable` or
 Recall remains read-only. It does not create, update, delete, or automatically
 extract memory, and it does not persist recall requests. Calls remain visible
 through the MCP client's existing Tool-call/session representation.
+
+## Listing Memory
+
+`memory_list` is registered by default as a read-only Tool for complete bounded
+discovery. It is distinct from both other read operations:
+
+- recall ranks records by a query, excludes non-matches and archived canonical
+  records, and returns at most five results;
+- listing enumerates every valid selected record without a query or relevance
+  score, includes archived canonical records, and returns compact metadata in
+  deterministic pages;
+- inspection retrieves the complete user-visible contents of one exact listed
+  or recalled reference.
+
+Every list request requires exactly one scope. Its Tool schema exposes `scope`,
+`namespace_id`, `collection_id`, `page_size`, and `cursor` as top-level object
+properties for clients that do not project properties nested in composition
+branches. Scope uses the same explicit six-value string enum as recall. Four
+mutually exclusive conditional branches retain the strict scope-wide/namespace
+and initial/continuation request variants. Tool and property descriptions repeat
+those combination rules for clients that retain the flat properties but discard
+composition constraints. A scope-wide request includes compatible legacy and
+canonical records:
+
+```json
+{"scope":"project"}
+```
+
+Supplying `namespace_id` selects canonical records only. With a namespace,
+collection selection is omission-sensitive:
+
+```json
+{"scope":"project","namespace_id":"mnemosyne"}
+```
+
+Omitted `collection_id` means collectionless records and every collection in
+the namespace. Native JSON null means collectionless records only:
+
+```json
+{
+  "scope": "project",
+  "namespace_id": "mnemosyne",
+  "collection_id": null
+}
+```
+
+A string selects one exact collection:
+
+```json
+{
+  "scope": "project",
+  "namespace_id": "mnemosyne",
+  "collection_id": "decisions"
+}
+```
+
+The string `"null"` is the literal collection ID `null`; clients must send an
+actual JSON null for collectionless selection. A collection selector without a
+namespace is invalid. Requests never accept a path, root, filename, query, tag,
+sort key, arbitrary filter, content field, or cross-scope selector.
+
+Initial requests may include `page_size` from 1 through 100; the default is 50.
+When more selected records remain, repeat the exact selector with the returned
+opaque cursor and omit `page_size`:
+
+```json
+{
+  "scope": "project",
+  "namespace_id": "mnemosyne",
+  "collection_id": "decisions",
+  "cursor": "<opaque cursor>"
+}
+```
+
+A successful response is always `status: ok`, including an empty inventory:
+
+```json
+{
+  "status": "ok",
+  "memories": [
+    {
+      "reference": {
+        "schema_version": 2,
+        "scope": "project",
+        "namespace_id": "mnemosyne",
+        "collection_id": "decisions",
+        "id": "mem_0123456789abcdef0123456789abcdef"
+      },
+      "title": "Discovery contract",
+      "inspectability": "exact",
+      "kind": "decision",
+      "lifecycle": {"state": "archived"}
+    }
+  ],
+  "page": {
+    "number": 1,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1,
+    "truncated": false,
+    "next_cursor": null
+  }
+}
+```
+
+Legacy items contain only their version-1 reference, nullable title, and
+`inspectability`. Canonical items additionally contain kind and lifecycle state,
+but not lifecycle revision. Listing never returns content, tags, labels,
+language, provenance, timestamps, paths, fingerprints, retrieval scores, or
+match evidence.
+
+Ordering is fixed: schema version first, then public identity. Collectionless
+canonical records precede collected records within a namespace. Duplicate
+legacy sources remain separate countable items and use their unexposed relative
+paths only as a final ordering tie-breaker. Their shared reference is marked
+`inspectability: ambiguous`; exact inspection continues to return
+`ambiguous_reference` for that reference.
+
+Cursors are authenticated, bound to the exact selector and complete selected
+valid-record snapshot, and fixed to the original page size. Selected additions,
+removals, relocations, byte rewrites, lifecycle changes, or valid/invalid
+transitions return `status: conflict`, code `stale_cursor`. Cursors also become
+stale after a server restart because their key and process marker are not
+persisted. Malformed, current-process-tampered, selector-mismatched, or otherwise
+incompatible cursors return `status: invalid_request`, code `invalid_cursor`.
+Start a fresh listing after either cursor error.
+
+Other stable errors are `invalid_request`, `invalid_scope`,
+`invalid_namespace`, `invalid_collection`, `invalid_page_size`,
+`candidate_limit_exceeded`, `memory_source_unavailable`, and `internal_error`.
+Candidate overflow and unsafe or unavailable selected sources fail without a
+partial inventory. Listing does not initialize a missing memory root, create an
+index or snapshot store, persist cursors, or change any record. Its one terminal
+log event contains only bounded outcome, selector-presence, count, page, and
+error metadata; it omits selector values, IDs, titles, cursors, content, paths,
+fingerprints, exception details, and tracebacks.
 
 ## Inspecting Memory
 
@@ -96,10 +234,11 @@ version, and scope. It omits IDs, memory text and metadata, complete arguments,
 paths, exception details, and tracebacks. Shared skipped-record warnings likewise
 contain only scope and a bounded reason.
 
-Memory scopes, records, paths, storage, retrieval, content policy, and lifecycle
-policy live in a shared `mnemosyne/memory/` domain rather than inside individual
-MCP Tools. The domain includes mutation-disabled revise, archive, restore, and
-physical-delete primitives. `memory_remember`, `memory_revise`, paired
+Memory scopes, records, paths, storage, retrieval, listing selection, ordering,
+pagination, cursor policy, content policy, and lifecycle policy live in a shared
+`mnemosyne/memory/` domain rather than inside individual MCP Tools. The domain
+includes mutation-disabled revise, archive, restore, and physical-delete
+primitives. `memory_remember`, `memory_revise`, paired
 `memory_archive` / `memory_restore`, and `memory_forget` are absent from
 discovery and dispatch unless their independent operator gates enable them.
 Enabling one gate does not enable another capability.
@@ -622,7 +761,7 @@ All record files are limited to 64 KiB, content to 4,000 characters, and titles
 to 200 characters. Invalid, oversized, too-deep, or unsafe records are skipped
 and logged without their content.
 
-Retrieval case-folds and tokenizes the query, relative path, title, content, and
+Recall retrieval case-folds and tokenizes the query, relative path, title, content, and
 record tags. Exact request-tag overlap has the strongest weight, followed by
 title, path/record-tag, and content matches. Ties are resolved deterministically.
 Symlinks are rejected, no more than 1,000 candidate files are accepted in one
@@ -630,7 +769,12 @@ scope, and no more than five records are returned. Files remain the source of
 truth: inspect them directly and delete a record by deleting its file.
 
 There is no required manifest or persistent content-bearing index. Exact
-inspection uses a structured reference and never accepts a filesystem path.
+inspection and complete listing use structured selectors and never accept a
+filesystem path. Scope-wide listing applies the same 1,000-candidate bound;
+canonical namespace and collection selectors narrow to their deterministic safe
+container before candidate counting. Collectionless and exact-collection
+discovery scan only the canonical path level. Listing fails instead of returning
+a partial inventory when the selected container exceeds the bound.
 Every mutation remains disabled unless its operator gate enables it and the MCP
 client can require approval for every exact call. A model-provided confirmation
 field is not consent.
@@ -641,7 +785,9 @@ An MCP request envelope must be an object. Otherwise the server returns
 JSON-RPC error `-32600` with the message `Invalid Request` and `id: null`.
 When present, its `params` value must also be an object. Otherwise the server
 returns JSON-RPC error `-32602` with the message `Invalid params` and preserves
-the request ID.
+the request ID. For `tools/call`, `params.arguments` must likewise be an object
+when present; non-object Tool arguments receive the same `-32602` response
+before Tool selection, schema-aware normalization, or handler dispatch.
 
 MCP notifications omit `id` and receive HTTP `202` with no JSON-RPC response
 body. `notifications/initialized` and `notifications/cancelled` are accepted;
@@ -654,7 +800,10 @@ a string and the decoded JSON value has a permitted type. Correctly typed values
 are unchanged; fields that permit strings are never decoded; malformed,
 wrong-type, or repeatedly encoded values continue to the Tool's normal bounded
 validation. The advertised Tool schemas and canonical memory formats remain
-unchanged.
+unchanged. For `memory_list`, a stringified page size can therefore normalize to
+an integer, while `collection_id` strings—including `"null"`—remain strings
+because that field legitimately permits them. Collectionless selection requires
+native JSON null.
 
 ## Intended Role
 
@@ -720,17 +869,19 @@ mnemosyne-test
 
 ## OpenCode Configuration
 
-The included `opencode.json` registers this server as a remote MCP server and
-requires approval for each exact prefixed mutation Tool. The agent-level rule is
-also explicit because per-agent permissions can override top-level rules and
-OpenCode uses the last matching Tool-name rule. It denies the broad server
-prefix first, then allows the three read-only Tools and asks for remember,
-revise, archive, restore, and forget:
+The included `opencode.json` registers this server as a remote MCP server,
+explicitly allows read-only inventory listing, and requires approval for each
+exact prefixed mutation Tool. The agent-level rules are explicit because
+per-agent permissions can override top-level rules and OpenCode uses the last
+matching Tool-name rule. They deny the broad server prefix first, allow the
+lower-breadth read-only Tools, then ask for remember, revise, archive, restore,
+and forget:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
+    "mnemosyne_memory_list": "allow",
     "mnemosyne_memory_remember": "ask",
     "mnemosyne_memory_revise": "ask",
     "mnemosyne_memory_archive": "ask",
@@ -751,6 +902,7 @@ revise, archive, restore, and forget:
         "mnemosyne_list_tools": "allow",
         "mnemosyne_memory_recall": "allow",
         "mnemosyne_memory_inspect": "allow",
+        "mnemosyne_memory_list": "allow",
         "mnemosyne_memory_remember": "ask",
         "mnemosyne_memory_revise": "ask",
         "mnemosyne_memory_archive": "ask",
@@ -768,14 +920,14 @@ server gate and restart the server. After changing `opencode.json` or agent
 policy, quit and restart OpenCode so it reloads configuration and Tool discovery.
 
 For every proposed mutation call, review the complete Tool arguments and choose
-`once`. Choosing `reject` prevents the request from reaching Mnemosyne and
-therefore produces no write. Do not choose session-wide `always`, start OpenCode
-with `--auto`, or enable interactive auto-approval while memory mutation is
-enabled: each bypasses approval on later exact calls. If any of those modes was
-used, disable server mutation and restart both the server and OpenCode before
-continuing. Any additional per-agent permission override must preserve
-this order: broad `mnemosyne_*` denial first, explicit read-only allows next,
-and the exact remember/revise/archive/restore/forget `ask` rules last.
+`once`. Rejecting a mutation prevents the request from reaching Mnemosyne and
+therefore produces no write. Do not start OpenCode with `--auto` or enable
+interactive auto-approval while memory mutation is enabled: each bypasses
+approval on later exact calls. If either mode was used, disable server mutation
+and restart both the server and OpenCode before continuing. Any additional
+per-agent permission override must preserve this order: broad `mnemosyne_*`
+denial first, explicit lower-breadth read-only allows (including `memory_list`)
+next, and the exact mutation asks last.
 
 ## Roadmap Shape
 

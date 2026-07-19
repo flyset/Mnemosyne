@@ -50,6 +50,16 @@ inspect = request(
         },
     }
 )
+listing = request(
+    {
+        "id": "list",
+        "method": "tools/call",
+        "params": {
+            "name": "memory_list",
+            "arguments": {"scope": "project"},
+        },
+    }
+)
 remember = request(
     {
         "id": "remember",
@@ -92,6 +102,7 @@ print(
                 tool["name"] for tool in tools_list["result"]["tools"]
             ],
             "list_tools_text": list_tools["result"]["content"][0]["text"],
+            "listing": listing,
             "inspect": inspect,
             "remember": remember,
             "archive": archive,
@@ -212,12 +223,17 @@ def test_file_enabled_startup_exposes_discovery_and_dispatch_without_writes(
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_remember",
     ]
     assert result["list_tools_text"] == (
-        "Available tools: list_tools, memory_recall, memory_inspect, memory_remember"
+        "Available tools: list_tools, memory_recall, memory_list, "
+        "memory_inspect, memory_remember"
     )
+    assert json.loads(result["listing"]["result"]["content"][0]["text"])[
+        "status"
+    ] == "ok"
     inspect_result = result["inspect"]["result"]
     assert inspect_result["isError"] is True
     assert json.loads(inspect_result["content"][0]["text"])["code"] == "not_found"
@@ -247,11 +263,15 @@ def test_disabled_startup_omits_remember_and_creates_no_paths(
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
     assert result["list_tools_text"] == (
-        "Available tools: list_tools, memory_recall, memory_inspect"
+        "Available tools: list_tools, memory_recall, memory_list, memory_inspect"
     )
+    assert json.loads(result["listing"]["result"]["content"][0]["text"])[
+        "status"
+    ] == "ok"
     inspect_result = result["inspect"]["result"]
     assert inspect_result["isError"] is True
     assert json.loads(inspect_result["content"][0]["text"])["code"] == "not_found"
@@ -326,13 +346,14 @@ def test_archive_restore_enablement_exposes_both_discovery_surfaces_and_dispatch
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_archive",
         "memory_restore",
     ]
     assert result["list_tools_text"] == (
-        "Available tools: list_tools, memory_recall, memory_inspect, "
-        "memory_archive, memory_restore"
+        "Available tools: list_tools, memory_recall, memory_list, "
+        "memory_inspect, memory_archive, memory_restore"
     )
     for operation in ("archive", "restore"):
         tool_result = result[operation]["result"]
@@ -361,6 +382,7 @@ def test_archive_restore_and_remember_enablement_are_independent(
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_archive",
         "memory_restore",
@@ -386,11 +408,13 @@ def test_revise_enablement_exposes_both_discovery_surfaces_and_dispatch(
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_revise",
     ]
     assert result["list_tools_text"] == (
-        "Available tools: list_tools, memory_recall, memory_inspect, memory_revise"
+        "Available tools: list_tools, memory_recall, memory_list, "
+        "memory_inspect, memory_revise"
     )
     revise_result = result["revise"]["result"]
     assert revise_result["isError"] is True
@@ -422,11 +446,13 @@ def test_forget_enablement_exposes_both_discovery_surfaces_and_dispatch(
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_forget",
     ]
     assert result["list_tools_text"] == (
-        "Available tools: list_tools, memory_recall, memory_inspect, memory_forget"
+        "Available tools: list_tools, memory_recall, memory_list, "
+        "memory_inspect, memory_forget"
     )
     forget_result = result["forget"]["result"]
     assert forget_result["isError"] is True
@@ -456,6 +482,7 @@ def test_all_mutation_enablement_is_independent_and_forget_is_last(
     assert result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_archive",
         "memory_restore",
@@ -571,6 +598,7 @@ def test_registry_selection_remains_fixed_until_a_fresh_startup(
     assert fixed_result["before"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_remember",
     ]
@@ -580,6 +608,7 @@ def test_registry_selection_remains_fixed_until_a_fresh_startup(
     assert restarted_result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
     assert not (home / ".mnemosyne" / "memory").exists()
@@ -599,6 +628,7 @@ def test_archive_restore_registry_selection_remains_fixed_until_restart(
     assert fixed_result["before"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_archive",
         "memory_restore",
@@ -609,6 +639,7 @@ def test_archive_restore_registry_selection_remains_fixed_until_restart(
     assert restarted_result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
     assert not (home / ".mnemosyne" / "memory").exists()
@@ -628,6 +659,7 @@ def test_forget_registry_selection_remains_fixed_until_restart(
     assert fixed_result["before"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_forget",
     ]
@@ -637,6 +669,7 @@ def test_forget_registry_selection_remains_fixed_until_restart(
     assert restarted_result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
     assert not (home / ".mnemosyne" / "memory").exists()
@@ -654,6 +687,7 @@ def test_revise_registry_selection_remains_fixed_until_restart(
     assert fixed_result["before"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_revise",
     ]
@@ -663,6 +697,7 @@ def test_revise_registry_selection_remains_fixed_until_restart(
     assert restarted_result["tool_names"] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
     assert not (home / ".mnemosyne" / "memory").exists()

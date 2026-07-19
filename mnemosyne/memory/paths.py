@@ -13,6 +13,38 @@ def scope_directory(memory_root: Path, scope: MemoryScope) -> Path:
     return memory_root / get_scope_definition(scope).directory
 
 
+def namespace_directory(
+    memory_root: Path,
+    scope: MemoryScope,
+    namespace_id: object,
+) -> Path:
+    normalized_namespace_id = normalize_identifier(
+        namespace_id,
+        field="namespace.id",
+    )
+    relative_path = (
+        Path(get_scope_definition(scope).directory) / normalized_namespace_id
+    )
+    _ensure_safe_relative_path(relative_path)
+    return memory_root / relative_path
+
+
+def collection_directory(
+    memory_root: Path,
+    scope: MemoryScope,
+    namespace_id: object,
+    collection_id: object,
+) -> Path:
+    normalized_collection_id = normalize_identifier(
+        collection_id,
+        field="collection.id",
+    )
+    directory = namespace_directory(memory_root, scope, namespace_id)
+    relative_path = directory.relative_to(memory_root) / normalized_collection_id
+    _ensure_safe_relative_path(relative_path)
+    return memory_root / relative_path
+
+
 def _ensure_safe_relative_path(path: Path) -> None:
     if path.is_absolute() or ".." in path.parts:
         raise UnsafeMemoryPath

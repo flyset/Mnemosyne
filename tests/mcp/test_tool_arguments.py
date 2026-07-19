@@ -4,7 +4,10 @@ import pytest
 
 from mnemosyne.mcp import tool_arguments
 from mnemosyne.mcp.tool_arguments import normalize_tool_arguments
+from mnemosyne.mcp.tools.memory_list import TOOL as MEMORY_LIST_TOOL
+from mnemosyne.mcp.tools.memory_list import handle as handle_memory_list
 from mnemosyne.mcp.tools.memory_remember import TOOL as REMEMBER_TOOL
+from mnemosyne.memory.listing import MemoryListPage, MemoryListResult
 
 
 def _remember_arguments() -> dict[str, object]:
@@ -243,3 +246,66 @@ def test_normalizer_distinguishes_boolean_and_numeric_const_types() -> None:
         "selector": True,
         "value": '{"must": "remain text"}',
     }
+
+
+def test_normalizer_preserves_memory_list_string_selectors_and_decodes_page_size() -> None:
+    arguments = {
+        "scope": "project",
+        "namespace_id": "mnemosyne",
+        "collection_id": "null",
+        "page_size": "2",
+    }
+    original = deepcopy(arguments)
+
+    normalized = normalize_tool_arguments(
+        arguments,
+        MEMORY_LIST_TOOL["inputSchema"],
+    )
+
+    assert normalized == {
+        "scope": "project",
+        "namespace_id": "mnemosyne",
+        "collection_id": "null",
+        "page_size": 2,
+    }
+    assert arguments == original
+
+
+def test_normalizer_preserves_native_null_and_cursor_text_for_memory_list() -> None:
+    arguments = {
+        "scope": "project",
+        "namespace_id": "mnemosyne",
+        "collection_id": None,
+        "cursor": '{"looks":"structured"}',
+    }
+
+    normalized = normalize_tool_arguments(
+        arguments,
+        MEMORY_LIST_TOOL["inputSchema"],
+    )
+
+    assert normalized == arguments
+
+
+def test_normalized_memory_list_arguments_reach_handler_validation() -> None:
+    normalized = normalize_tool_arguments(
+        {"scope": "project", "page_size": "2"},
+        MEMORY_LIST_TOOL["inputSchema"],
+    )
+
+    result = handle_memory_list(
+        normalized,
+        list_operation=lambda selector, page_size, cursor: MemoryListResult(
+            memories=(),
+            page=MemoryListPage(
+                number=1,
+                count=0,
+                total_count=0,
+                total_pages=0,
+                truncated=False,
+                next_cursor=None,
+            ),
+        ),
+    )
+
+    assert result.get("isError") is not True

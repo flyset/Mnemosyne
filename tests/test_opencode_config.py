@@ -5,12 +5,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_opencode_requires_exact_per_call_memory_mutation_approval() -> None:
+def test_opencode_allows_listing_and_requires_memory_mutation_approval() -> None:
     config = json.loads(
         (PROJECT_ROOT / "opencode.json").read_text(encoding="utf-8")
     )
 
     assert list(config["permission"].items()) == [
+        ("mnemosyne_memory_list", "allow"),
         ("mnemosyne_memory_remember", "ask"),
         ("mnemosyne_memory_revise", "ask"),
         ("mnemosyne_memory_archive", "ask"),
@@ -22,6 +23,7 @@ def test_opencode_requires_exact_per_call_memory_mutation_approval() -> None:
         ("mnemosyne_list_tools", "allow"),
         ("mnemosyne_memory_recall", "allow"),
         ("mnemosyne_memory_inspect", "allow"),
+        ("mnemosyne_memory_list", "allow"),
         ("mnemosyne_memory_remember", "ask"),
         ("mnemosyne_memory_revise", "ask"),
         ("mnemosyne_memory_archive", "ask"),
@@ -35,7 +37,7 @@ def test_opencode_requires_exact_per_call_memory_mutation_approval() -> None:
     }
 
 
-def test_opencode_agent_file_does_not_override_mutation_approval() -> None:
+def test_opencode_agent_file_allows_listing_and_preserves_mutation_approval() -> None:
     source = (PROJECT_ROOT / ".opencode" / "agents" / "mnemosyne.md").read_text(
         encoding="utf-8"
     )
@@ -50,6 +52,7 @@ def test_opencode_agent_file_does_not_override_mutation_approval() -> None:
         '"mnemosyne_list_tools": allow',
         '"mnemosyne_memory_recall": allow',
         '"mnemosyne_memory_inspect": allow',
+        '"mnemosyne_memory_list": allow',
         '"mnemosyne_memory_remember": ask',
         '"mnemosyne_memory_revise": ask',
         '"mnemosyne_memory_archive": ask',

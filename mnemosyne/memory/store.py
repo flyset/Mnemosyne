@@ -21,9 +21,16 @@ from mnemosyne.memory.errors import (
     WriteConflict,
 )
 from mnemosyne.memory.paths import (
+    collection_directory,
     ensure_record_path,
+    namespace_directory,
     relative_path_for_reference,
     scope_directory,
+)
+from mnemosyne.memory.listing import (
+    CollectionSelectionMode,
+    MemoryListSelector,
+    select_listable_memories,
 )
 from mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
@@ -85,6 +92,9 @@ class FilesystemMemoryStore:
         self,
         directory: Path,
         scope: MemoryScope,
+        *,
+        maximum_depth: int = MAX_DIRECTORY_DEPTH,
+        report_too_deep: bool = True,
     ) -> list[Path]:
         candidates: list[Path] = []
 
@@ -102,8 +112,9 @@ class FilesystemMemoryStore:
                         _log_skipped(scope, "symlink")
                         continue
                     if entry.is_dir(follow_symlinks=False):
-                        if depth >= MAX_DIRECTORY_DEPTH:
-                            _log_skipped(scope, "too_deep")
+                        if depth >= maximum_depth:
+                            if report_too_deep:
+                                _log_skipped(scope, "too_deep")
                         else:
                             walk(Path(entry.path), relative_path, depth + 1)
                         continue
@@ -315,6 +326,87 @@ class FilesystemMemoryStore:
             for path in self._discover_candidates(scope_path, scope)
             if (stored := self._load(path, scope, scope_path)) is not None
         ]
+
+    def _list_discovery_root(
+        self,
+        selector: MemoryListSelector,
+    ) -> tuple[Path, int, bool]:
+        if selector.namespace_id is None:
+            return (
+                scope_directory(self.memory_root, selector.scope),
+                MAX_DIRECTORY_DEPTH,
+                True,
+            )
+        if selector.collection.mode is CollectionSelectionMode.EXACT:
+            assert selector.collection.id is not None
+            return (
+                collection_directory(
+                    self.memory_root,
+                    selector.scope,
+                    selector.namespace_id,
+                    selector.collection.id,
+                ),
+                0,
+                False,
+            )
+        return (
+            namespace_directory(
+                self.memory_root,
+                selector.scope,
+                selector.namespace_id,
+            ),
+            (
+                0
+                if selector.collection.mode
+                is CollectionSelectionMode.COLLECTIONLESS
+                else 1
+            ),
+            selector.collection.mode is CollectionSelectionMode.ALL,
+        )
+
+    def _validate_list_discovery_root(self, directory: Path) -> bool:
+        try:
+            relative_directory = directory.relative_to(self.memory_root)
+        except ValueError as error:
+            raise UnsafeMemoryPath from error
+        directories = [self.memory_root]
+        current = self.memory_root
+        for part in relative_directory.parts:
+            current /= part
+            directories.append(current)
+        for current in directories:
+            if current.is_symlink():
+                raise UnsafeMemoryPath
+            if not current.exists():
+                return False
+            if not current.is_dir():
+                raise MemorySourceUnavailable
+        return True
+
+    def discover_for_list(
+        self,
+        selector: MemoryListSelector,
+    ) -> list[StoredMemory]:
+        directory, maximum_depth, report_too_deep = self._list_discovery_root(
+            selector
+        )
+        if not self._validate_list_discovery_root(directory):
+            return []
+        scope_path = scope_directory(self.memory_root, selector.scope)
+        discovered = [
+            stored
+            for path in self._discover_candidates(
+                directory,
+                selector.scope,
+                maximum_depth=maximum_depth,
+                report_too_deep=report_too_deep,
+            )
+            if (
+                stored := self._load(path, selector.scope, scope_path)
+            )
+            is not None
+        ]
+        return select_listable_memories(discovered, selector)
 
     def get(
         self,

@@ -11,6 +11,7 @@ from mnemosyne.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
 )
+from mnemosyne.memory.scopes import SCOPE_DEFINITIONS
 from mnemosyne.settings import get_memory_root
 
 
@@ -43,48 +44,17 @@ def test_memory_recall_exposes_the_selected_tool_definition() -> None:
                     "maxLength": 1000,
                 },
                 "scope": {
+                    "type": "string",
                     "description": (
                         "Select the high-level domain that best describes the requested "
-                        "memory."
+                        "memory. Allowed values: "
+                        + "; ".join(
+                            f"{definition.scope.value}: {definition.description}"
+                            for definition in SCOPE_DEFINITIONS
+                        )
                     ),
-                    "oneOf": [
-                        {
-                            "const": "self",
-                            "description": (
-                                "Who the user is and their enduring circumstances."
-                            ),
-                        },
-                        {
-                            "const": "relationship",
-                            "description": (
-                                "People, relationships, and the user's perspective about "
-                                "others."
-                            ),
-                        },
-                        {
-                            "const": "preference",
-                            "description": "Choices the user explicitly wants respected.",
-                        },
-                        {
-                            "const": "practice",
-                            "description": (
-                                "Routines, methods, habits, and actual ways of working."
-                            ),
-                        },
-                        {
-                            "const": "project",
-                            "description": (
-                                "Goals, state, decisions, and constraints of a bounded "
-                                "endeavor."
-                            ),
-                        },
-                        {
-                            "const": "knowledge",
-                            "description": (
-                                "User-approved reference material useful beyond one project, "
-                                "not ordinary general knowledge."
-                            ),
-                        },
+                    "enum": [
+                        definition.scope.value for definition in SCOPE_DEFINITIONS
                     ],
                 },
                 "tags": {

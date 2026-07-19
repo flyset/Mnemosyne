@@ -24,16 +24,17 @@ TOOL = {
                 "maxLength": 1000,
             },
             "scope": {
+                "type": "string",
                 "description": (
                     "Select the high-level domain that best describes the requested "
-                    "memory."
+                    "memory. Allowed values: "
+                    + "; ".join(
+                        f"{definition.scope.value}: {definition.description}"
+                        for definition in SCOPE_DEFINITIONS
+                    )
                 ),
-                "oneOf": [
-                    {
-                        "const": definition.scope.value,
-                        "description": definition.description,
-                    }
-                    for definition in SCOPE_DEFINITIONS
+                "enum": [
+                    definition.scope.value for definition in SCOPE_DEFINITIONS
                 ],
             },
             "tags": {

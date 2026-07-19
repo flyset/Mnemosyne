@@ -25,6 +25,14 @@ class CandidateLimitExceeded(MemoryDomainError):
     code = "candidate_limit_exceeded"
 
 
+class InvalidMemoryListCursor(MemoryDomainError):
+    code = "invalid_cursor"
+
+
+class StaleMemoryListCursor(MemoryDomainError):
+    code = "stale_cursor"
+
+
 class MemoryNotFound(MemoryDomainError):
     code = "not_found"
 

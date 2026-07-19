@@ -120,12 +120,13 @@ def test_mcp_tools_list_exposes_the_registered_tools() -> None:
 
     assert response.status_code == 200
     tool_names = [tool["name"] for tool in response.json()["result"]["tools"]]
-    assert tool_names[:3] == [
+    assert tool_names[:4] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
-    suffix = tool_names[3:]
+    suffix = tool_names[4:]
     expected_order = [
         "memory_archive",
         "memory_restore",
@@ -234,6 +235,64 @@ def test_mcp_tools_call_returns_matching_memory(
     }
 
 
+def test_mcp_tools_call_lists_memory_through_the_real_handler(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_path = tmp_path / "preference" / "legacy" / "rainy.json"
+    memory_path.parent.mkdir(parents=True)
+    memory_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "id": "rainy-day",
+                "title": "Rainy day",
+                "content": "Private memory content.",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+
+    response = client.post(
+        "/mcp",
+        json={
+            "id": "r1",
+            "method": "tools/call",
+            "params": {
+                "name": "memory_list",
+                "arguments": {"scope": "preference", "page_size": "1"},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = json.loads(response.json()["result"]["content"][0]["text"])
+    assert payload == {
+        "status": "ok",
+        "memories": [
+            {
+                "reference": {
+                    "schema_version": 1,
+                    "scope": "preference",
+                    "id": "rainy-day",
+                },
+                "title": "Rainy day",
+                "inspectability": "exact",
+            }
+        ],
+        "page": {
+            "number": 1,
+            "count": 1,
+            "total_count": 1,
+            "total_pages": 1,
+            "truncated": False,
+            "next_cursor": None,
+        },
+    }
+    assert "Private memory content" not in response.text
+
+
 def test_mcp_tools_call_returns_one_exact_inspected_memory(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -317,6 +376,24 @@ def test_mcp_rejects_non_object_request_envelopes() -> None:
 
 def test_mcp_rejects_non_object_params() -> None:
     response = client.post("/mcp", json={"id": "r1", "method": "ping", "params": []})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jsonrpc": "2.0",
+        "id": "r1",
+        "error": {"code": -32602, "message": "Invalid params"},
+    }
+
+
+def test_mcp_rejects_non_object_tool_arguments() -> None:
+    response = client.post(
+        "/mcp",
+        json={
+            "id": "r1",
+            "method": "tools/call",
+            "params": {"name": "memory_list", "arguments": []},
+        },
+    )
 
     assert response.status_code == 200
     assert response.json() == {

@@ -19,6 +19,14 @@ INSPECT_TOOL = {
     "description": "Synthetic inspection registration for registry tests.",
     "inputSchema": {"type": "object", "properties": {}},
 }
+LIST_TOOL = {
+    "name": "memory_list",
+    "description": "Synthetic listing registration for registry tests.",
+    "inputSchema": {
+        "type": "object",
+        "properties": {"page_size": {"type": "integer"}},
+    },
+}
 ARCHIVE_TOOL = {
     "name": "memory_archive",
     "description": "Synthetic archive registration for registry tests.",
@@ -58,6 +66,17 @@ def _inspect(arguments: dict[str, object]) -> dict[str, object]:
             {
                 "type": "text",
                 "text": f"inspected:{arguments.get('value')}",
+            }
+        ]
+    }
+
+
+def _list(arguments: dict[str, object]) -> dict[str, object]:
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": f"listed:{arguments.get('page_size')}",
             }
         ]
     }
@@ -137,6 +156,22 @@ def test_call_tool_dispatches_memory_inspect(
     assert not (tmp_path / "missing").exists()
 
 
+def test_call_tool_dispatches_memory_list_without_initializing_the_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "missing" / "memory"
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
+
+    result = call_tool("memory_list", {"scope": "project", "page_size": "2"})
+
+    assert result is not None
+    assert result.get("isError") is not True
+    assert '"status":"ok"' in result["content"][0]["text"]
+    assert '"total_count":0' in result["content"][0]["text"]
+    assert not (tmp_path / "missing").exists()
+
+
 def test_call_tool_normalizes_stringified_inspect_reference(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -204,6 +239,54 @@ def test_registry_connects_inspect_discovery_and_dispatch_together() -> None:
             }
         ]
     }
+
+
+def test_registry_connects_list_before_inspect_and_normalizes_arguments() -> None:
+    registry = build_tool_registry(
+        False,
+        memory_list_tool=LIST_TOOL,
+        memory_list_handler=_list,
+        memory_inspect_tool=INSPECT_TOOL,
+        memory_inspect_handler=_inspect,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_list",
+        "memory_inspect",
+    ]
+    assert registry.call_tool("memory_list", {"page_size": "2"}) == {
+        "content": [{"type": "text", "text": "listed:2"}]
+    }
+    assert registry.call_tool("list_tools", {}) == {
+        "content": [
+            {
+                "type": "text",
+                "text": (
+                    "Available tools: list_tools, memory_recall, "
+                    "memory_list, memory_inspect"
+                ),
+            }
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "registration",
+    [
+        {"memory_list_tool": LIST_TOOL},
+        {"memory_list_handler": _list},
+    ],
+)
+def test_registry_fails_closed_for_incomplete_list_registration(
+    registration: dict[str, object],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="^memory list registration is unavailable$",
+    ):
+        build_tool_registry(False, **registration)
 
 
 @pytest.mark.parametrize(
@@ -522,6 +605,7 @@ def test_startup_registry_exposes_forget_only_when_independently_enabled() -> No
     assert [tool["name"] for tool in enabled.tools] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_forget",
     ]
@@ -538,6 +622,7 @@ def test_startup_registry_exposes_revise_only_when_independently_enabled() -> No
     assert [tool["name"] for tool in enabled.tools] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_revise",
     ]
@@ -557,6 +642,7 @@ def test_startup_registry_orders_forget_after_other_mutations() -> None:
     assert [tool["name"] for tool in registry.tools] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_archive",
         "memory_restore",
@@ -596,6 +682,7 @@ def test_startup_registry_connects_inspect_and_real_remember_only_when_enabled(
     assert [tool["name"] for tool in disabled.tools] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
     disabled_inspect = disabled.call_tool("memory_inspect", inspect_arguments)
@@ -605,6 +692,7 @@ def test_startup_registry_connects_inspect_and_real_remember_only_when_enabled(
     assert [tool["name"] for tool in enabled.tools] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_remember",
     ]
@@ -656,6 +744,7 @@ def test_startup_registry_exposes_archive_and_restore_only_as_an_enabled_pair(
     assert [tool["name"] for tool in disabled.tools] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
     ]
     assert disabled.call_tool("memory_archive", {}) is None
@@ -663,6 +752,7 @@ def test_startup_registry_exposes_archive_and_restore_only_as_an_enabled_pair(
     assert [tool["name"] for tool in enabled.tools] == [
         "list_tools",
         "memory_recall",
+        "memory_list",
         "memory_inspect",
         "memory_archive",
         "memory_restore",

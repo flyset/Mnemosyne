@@ -9,6 +9,7 @@ from mnemosyne.mcp.tools import (
     memory_archive,
     memory_forget,
     memory_inspect,
+    memory_list,
     memory_recall,
     memory_remember,
     memory_revise,
@@ -43,6 +44,8 @@ def build_tool_registry(
     memory_archive_restore_enabled: bool = False,
     memory_forget_enabled: bool = False,
     memory_revise_enabled: bool = False,
+    memory_list_tool: dict[str, Any] | None = None,
+    memory_list_handler: ToolHandler | None = None,
     memory_inspect_tool: dict[str, Any] | None = None,
     memory_inspect_handler: ToolHandler | None = None,
     memory_archive_tool: dict[str, Any] | None = None,
@@ -60,6 +63,12 @@ def build_tool_registry(
     handlers: dict[str, ToolHandler] = {
         memory_recall.TOOL["name"]: memory_recall.handle,
     }
+
+    if (memory_list_tool is None) != (memory_list_handler is None):
+        raise ValueError("memory list registration is unavailable")
+    if memory_list_tool is not None and memory_list_handler is not None:
+        tools.append(memory_list_tool)
+        handlers[memory_list_tool["name"]] = memory_list_handler
 
     if (memory_inspect_tool is None) != (memory_inspect_handler is None):
         raise ValueError("memory inspect registration is unavailable")
@@ -128,6 +137,8 @@ def build_startup_tool_registry(
         memory_archive_restore_enabled=memory_archive_restore_enabled,
         memory_forget_enabled=memory_forget_enabled,
         memory_revise_enabled=memory_revise_enabled,
+        memory_list_tool=memory_list.TOOL,
+        memory_list_handler=memory_list.handle,
         memory_inspect_tool=memory_inspect.TOOL,
         memory_inspect_handler=memory_inspect.handle,
         memory_archive_tool=memory_archive.TOOL,

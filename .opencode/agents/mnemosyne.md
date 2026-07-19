@@ -7,6 +7,7 @@ permission:
   "mnemosyne_list_tools": allow
   "mnemosyne_memory_recall": allow
   "mnemosyne_memory_inspect": allow
+  "mnemosyne_memory_list": allow
   "mnemosyne_memory_remember": ask
   "mnemosyne_memory_revise": ask
   "mnemosyne_memory_archive": ask

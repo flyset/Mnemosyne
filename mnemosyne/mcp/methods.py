@@ -63,7 +63,7 @@ def handle_tools_call(message: MCPMessage) -> JSONResponse:
     tool_name = message.params.get("name")
     arguments = message.params.get("arguments", {})
     if not isinstance(arguments, dict):
-        arguments = {}
+        return mcp_error(message.request_id, -32602, "Invalid params")
 
     tool_result = call_tool(tool_name, arguments)
     if tool_result is not None:

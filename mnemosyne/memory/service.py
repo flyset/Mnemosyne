@@ -1,3 +1,4 @@
+import hmac
 import threading
 import uuid
 from collections.abc import Callable, Sequence
@@ -5,9 +6,22 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 
 from mnemosyne.memory.errors import (
+    InvalidMemoryListCursor,
     MemoryValidationError,
     MutationDisabled,
     RevisionConflict,
+    StaleMemoryListCursor,
+)
+from mnemosyne.memory.listing import (
+    _PROCESS_MEMORY_LIST_CURSOR_CODEC,
+    MemoryListCursorCodec,
+    MemoryListPage,
+    MemoryListResult,
+    MemoryListSelector,
+    build_memory_list_items,
+    order_listable_memories,
+    select_listable_memories,
+    validate_memory_list_page_size,
 )
 from mnemosyne.memory.normalization import normalize_memory_id
 from mnemosyne.memory.policy import validate_remember_content, validate_revision_content
@@ -57,11 +71,15 @@ class MemoryService:
         mutations_enabled: bool = False,
         clock: Callable[[], datetime] = _default_clock,
         id_factory: Callable[[], str] = _default_id_factory,
+        list_cursor_codec: MemoryListCursorCodec | None = None,
     ) -> None:
         self.store = store
         self.mutations_enabled = mutations_enabled
         self.clock = clock
         self.id_factory = id_factory
+        self.list_cursor_codec = (
+            list_cursor_codec or _PROCESS_MEMORY_LIST_CURSOR_CODEC
+        )
         self._mutation_lock = threading.RLock()
 
     def _require_mutations(self) -> None:
@@ -107,6 +125,71 @@ class MemoryService:
         tags: Sequence[str],
     ) -> list[MemoryMatch]:
         return rank_memories(self.store.discover(scope), query, tags)
+
+    def list_memories(
+        self,
+        selector: MemoryListSelector,
+        *,
+        page_size: object | None = None,
+        cursor: object | None = None,
+    ) -> MemoryListResult:
+        if cursor is None:
+            resolved_page_size = validate_memory_list_page_size(page_size)
+            position = None
+            offset = 0
+        else:
+            if page_size is not None:
+                raise InvalidMemoryListCursor
+            position = self.list_cursor_codec.decode(cursor, selector)
+            resolved_page_size = position.page_size
+            offset = position.offset
+
+        ordered = order_listable_memories(
+            select_listable_memories(
+                self.store.discover_for_list(selector),
+                selector,
+            )
+        )
+        snapshot_digest = self.list_cursor_codec.snapshot_digest(ordered)
+        if position is not None and not hmac.compare_digest(
+            position.snapshot_digest,
+            snapshot_digest,
+        ):
+            raise StaleMemoryListCursor
+
+        total_count = len(ordered)
+        if position is not None and offset >= total_count:
+            raise InvalidMemoryListCursor
+        total_pages = (
+            (total_count + resolved_page_size - 1) // resolved_page_size
+            if total_count
+            else 0
+        )
+        all_items = build_memory_list_items(ordered)
+        end = min(offset + resolved_page_size, total_count)
+        memories = all_items[offset:end]
+        truncated = end < total_count
+        next_cursor = (
+            self.list_cursor_codec.encode(
+                selector,
+                snapshot_digest=snapshot_digest,
+                offset=end,
+                page_size=resolved_page_size,
+            )
+            if truncated
+            else None
+        )
+        return MemoryListResult(
+            memories=memories,
+            page=MemoryListPage(
+                number=offset // resolved_page_size + 1,
+                count=len(memories),
+                total_count=total_count,
+                total_pages=total_pages,
+                truncated=truncated,
+                next_cursor=next_cursor,
+            ),
+        )
 
     def remember(self, draft: MemoryDraft) -> MemoryResult:
         self._require_mutations()
