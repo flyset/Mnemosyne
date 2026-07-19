@@ -126,6 +126,28 @@ def test_call_tool_dispatches_memory_inspect(
     assert not (tmp_path / "missing").exists()
 
 
+def test_call_tool_normalizes_stringified_inspect_reference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "missing" / "memory"
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
+
+    result = call_tool(
+        "memory_inspect",
+        {
+            "reference": (
+                '{"schema_version": 1, "scope": "project", '
+                '"id": "missing"}'
+            )
+        },
+    )
+
+    assert result is not None
+    assert '"code":"not_found"' in result["content"][0]["text"]
+    assert not (tmp_path / "missing").exists()
+
+
 def test_registry_omits_disabled_remember_from_discovery_and_dispatch() -> None:
     registry = build_tool_registry(
         False,
@@ -215,6 +237,46 @@ def test_registry_enables_remember_discovery_and_dispatch_together() -> None:
             }
         ]
     }
+
+
+def test_registry_normalizes_schema_declared_arguments_before_dispatch() -> None:
+    received: list[dict[str, object]] = []
+    tool = {
+        **REMEMBER_TOOL,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "namespace": {"type": "object", "properties": {}},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "content": {"type": "string"},
+            },
+        },
+    }
+
+    def capture(arguments: dict[str, object]) -> dict[str, object]:
+        received.append(arguments)
+        return {"content": []}
+
+    registry = build_tool_registry(
+        True,
+        memory_remember_tool=tool,
+        memory_remember_handler=capture,
+    )
+    arguments = {
+        "namespace": '{"kind": "project"}',
+        "tags": '["test"]',
+        "content": '["remains", "text"]',
+    }
+
+    assert registry.call_tool("memory_remember", arguments) == {"content": []}
+    assert received == [
+        {
+            "namespace": {"kind": "project"},
+            "tags": ["test"],
+            "content": '["remains", "text"]',
+        }
+    ]
+    assert arguments["namespace"] == '{"kind": "project"}'
 
 
 def test_registry_fails_closed_when_enabled_registration_is_unavailable() -> None:
@@ -445,6 +507,34 @@ def test_startup_registry_connects_inspect_and_real_remember_only_when_enabled(
     assert len(list(tmp_path.rglob("*.json"))) == 1
 
 
+def test_startup_registry_accepts_captured_stringified_remember_arguments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    registry = build_startup_tool_registry(True)
+    arguments = {
+        "scope": "project",
+        "namespace": (
+            '{"kind": "project", "id": "mnemosyne", '
+            '"label": "Mnemosyne"}'
+        ),
+        "collection": '{"id": "checkpoints", "label": "Checkpoints"}',
+        "kind": "state",
+        "language": "en",
+        "title": "Stringified argument compatibility",
+        "content": "Synthetic registry compatibility test.",
+        "tags": '["test", "validation"]',
+        "origin": "user_approved_proposal",
+    }
+
+    result = registry.call_tool("memory_remember", arguments)
+
+    assert result is not None
+    assert '"status":"remembered"' in result["content"][0]["text"]
+    assert len(list(tmp_path.rglob("*.json"))) == 1
+
+
 def test_startup_registry_exposes_archive_and_restore_only_as_an_enabled_pair(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -490,3 +580,24 @@ def test_startup_registry_exposes_archive_and_restore_only_as_an_enabled_pair(
     assert valid_restore is not None
     assert '"code":"not_found"' in valid_archive["content"][0]["text"]
     assert '"code":"not_found"' in valid_restore["content"][0]["text"]
+
+
+def test_startup_registry_normalizes_stringified_lifecycle_arguments(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    registry = build_startup_tool_registry(False, True)
+    reference = (
+        '{"schema_version": 2, "scope": "project", '
+        '"namespace_id": "mnemosyne", "collection_id": null, '
+        '"id": "mem_0123456789abcdef0123456789abcdef"}'
+    )
+
+    result = registry.call_tool(
+        "memory_archive",
+        {"reference": reference, "expected_revision": "1"},
+    )
+
+    assert result is not None
+    assert '"code":"not_found"' in result["content"][0]["text"]

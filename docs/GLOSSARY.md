@@ -49,6 +49,7 @@
 
 - **Public MCP contract** — the externally observable behavior of endpoints, protocol methods, tool names, input schemas, and result or error shapes.
 - **Tool schema** — the declared name, description, and input contract for an MCP tool.
+- **Tool argument compatibility normalization** — central MCP dispatch adaptation that uses the selected Tool schema to remove at most one extra JSON-stringification layer where strings are disallowed and the decoded type is allowed; it leaves native values, legitimate strings, malformed values, and repeatedly encoded values unchanged for normal Tool validation.
 - **JSON-RPC error** — a protocol-shaped error response with a stable code and explanatory message.
 - **MCP notification** — an MCP message without an `id`; it receives HTTP `202` with no JSON-RPC response body.
 - **Invalid parameters** — JSON-RPC error `-32602`, returned when a request supplies a non-object `params` value; the valid request ID is preserved.

@@ -532,6 +532,15 @@ MCP notifications omit `id` and receive HTTP `202` with no JSON-RPC response
 body. `notifications/initialized` and `notifications/cancelled` are accepted;
 cancellation is currently a no-op because tool handlers complete synchronously.
 
+For compatibility with MCP clients that stringify structured Tool arguments,
+dispatch uses the selected Tool's advertised input schema to remove at most one
+extra JSON-encoding layer. Normalization occurs only where the schema disallows
+a string and the decoded JSON value has a permitted type. Correctly typed values
+are unchanged; fields that permit strings are never decoded; malformed,
+wrong-type, or repeatedly encoded values continue to the Tool's normal bounded
+validation. The advertised Tool schemas and canonical memory formats remain
+unchanged.
+
 ## Intended Role
 
 Mnemosyne is meant to become a local-first MCP server that gives agents controlled access to:

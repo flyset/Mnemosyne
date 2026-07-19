@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
+from mnemosyne.mcp.tool_arguments import normalize_tool_arguments
 from mnemosyne.mcp.tools import (
     list_tools,
     memory_archive,
@@ -21,6 +22,7 @@ ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
 class ToolRegistry:
     tools: tuple[dict[str, Any], ...]
     handlers: Mapping[str, ToolHandler]
+    input_schemas: Mapping[str, dict[str, Any]]
 
     def call_tool(
         self,
@@ -30,7 +32,8 @@ class ToolRegistry:
         handler = self.handlers.get(tool_name)
         if handler is None:
             return None
-        return handler(arguments)
+        input_schema = self.input_schemas[tool_name]
+        return handler(normalize_tool_arguments(arguments, input_schema))
 
 
 def build_tool_registry(
@@ -97,6 +100,9 @@ def build_tool_registry(
     return ToolRegistry(
         tools=selected_tools,
         handlers=MappingProxyType(handlers),
+        input_schemas=MappingProxyType(
+            {tool["name"]: tool["inputSchema"] for tool in selected_tools}
+        ),
     )
 
 

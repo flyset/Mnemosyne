@@ -54,6 +54,7 @@ mnemosyne/
     messages.py       # MCP message parsing and normalization
     methods.py        # MCP/JSON-RPC method dispatch
     protocol.py       # JSON-RPC result/error helpers
+    tool_arguments.py # schema-aware client argument compatibility
 
     tools/
       __init__.py
@@ -122,6 +123,15 @@ Owns MCP protocol concerns:
 - MCP method dispatch
 - tool registry and dispatch
 - individual tool definitions and execution handlers
+
+Before a known Tool handler runs, the immutable registry normalizes its arguments
+against the same selected `inputSchema` used for discovery. This compatibility
+boundary removes at most one JSON-stringification layer only when a schema
+position disallows strings and the decoded JSON type is allowed. It handles the
+current object properties and `oneOf` / `anyOf` composition without becoming a
+second schema validator: malformed, wrong-type, ambiguous string-permitted, or
+repeatedly encoded values remain unchanged for the Tool's existing validation.
+Native arguments and legitimate text fields remain unchanged.
 
 This is where the protocol surface should grow.
 
@@ -269,6 +279,12 @@ as a pair, so no placeholder Tool is advertised. The same
 startup selection drives MCP `tools/list`, the `list_tools` Tool, and dispatch
 until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
+
+The registry also derives an immutable Tool-name-to-input-schema mapping from
+that same startup selection. Known Tool calls pass through the shared
+schema-aware one-layer argument normalizer before their paired handler; unknown
+Tool behavior is unchanged. This keeps client serialization compatibility in
+the MCP layer rather than in memory-domain models or individual Tool handlers.
 
 ## Filesystem Retrieval
 
