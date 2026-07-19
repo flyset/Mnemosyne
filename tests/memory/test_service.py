@@ -1,4 +1,5 @@
 import json
+import stat
 import threading
 import time
 import uuid
@@ -10,6 +11,7 @@ import pytest
 
 from mnemosyne.memory.errors import (
     DisallowedMemoryContent,
+    MemoryValidationError,
     MutationDisabled,
     RevisionConflict,
 )
@@ -269,6 +271,46 @@ def test_service_archive_and_restore_are_revisioned_and_idempotent(
     assert restored.memory.lifecycle.revision == 3
     assert already_active.status == "already_active"
     assert already_active.memory.lifecycle.revision == 3
+
+
+@pytest.mark.parametrize("invalid_revision", [True, False, 0, -1, 1.0, "1", None])
+@pytest.mark.parametrize("operation", ["archive", "restore"])
+def test_service_lifecycle_rejects_non_positive_exact_integer_revision_before_read(
+    invalid_revision: object,
+    operation: str,
+    tmp_path: Path,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    store.get = lambda reference: pytest.fail("store read must not run")
+    service = MemoryService(store, mutations_enabled=True)
+
+    with pytest.raises(MemoryValidationError) as caught:
+        getattr(service, operation)(_reference(), expected_revision=invalid_revision)
+
+    assert caught.value.field == "expected_revision"
+
+
+def test_service_lifecycle_stale_target_states_conflict_and_idempotency_does_not_write(
+    tmp_path: Path,
+) -> None:
+    clocks = iter([NOW, LATER, LATER])
+    service = _service(tmp_path, clock=lambda: next(clocks))
+    service.remember(_draft())
+    archived = service.archive(_reference(), expected_revision=1)
+    path = next(tmp_path.rglob("*.json"))
+
+    with pytest.raises(RevisionConflict):
+        service.archive(_reference(), expected_revision=1)
+    before_archive = (path.read_bytes(), stat.S_IMODE(path.stat().st_mode), path.stat().st_mtime_ns)
+    assert service.archive(_reference(), expected_revision=2).status == "already_archived"
+    assert (path.read_bytes(), stat.S_IMODE(path.stat().st_mode), path.stat().st_mtime_ns) == before_archive
+
+    restored = service.restore(_reference(), expected_revision=archived.memory.lifecycle.revision)
+    with pytest.raises(RevisionConflict):
+        service.restore(_reference(), expected_revision=2)
+    before_restore = (path.read_bytes(), stat.S_IMODE(path.stat().st_mode), path.stat().st_mtime_ns)
+    assert service.restore(_reference(), expected_revision=restored.memory.lifecycle.revision).status == "already_active"
+    assert (path.read_bytes(), stat.S_IMODE(path.stat().st_mode), path.stat().st_mtime_ns) == before_restore
 
 
 def test_service_forget_physically_deletes_current_record(tmp_path: Path) -> None:

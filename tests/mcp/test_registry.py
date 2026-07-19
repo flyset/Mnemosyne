@@ -19,6 +19,16 @@ INSPECT_TOOL = {
     "description": "Synthetic inspection registration for registry tests.",
     "inputSchema": {"type": "object", "properties": {}},
 }
+ARCHIVE_TOOL = {
+    "name": "memory_archive",
+    "description": "Synthetic archive registration for registry tests.",
+    "inputSchema": {"type": "object", "properties": {}},
+}
+RESTORE_TOOL = {
+    "name": "memory_restore",
+    "description": "Synthetic restore registration for registry tests.",
+    "inputSchema": {"type": "object", "properties": {}},
+}
 
 
 def _remember(arguments: dict[str, object]) -> dict[str, object]:
@@ -40,6 +50,18 @@ def _inspect(arguments: dict[str, object]) -> dict[str, object]:
                 "text": f"inspected:{arguments.get('value')}",
             }
         ]
+    }
+
+
+def _archive(arguments: dict[str, object]) -> dict[str, object]:
+    return {
+        "content": [{"type": "text", "text": f"archived:{arguments.get('value')}"}]
+    }
+
+
+def _restore(arguments: dict[str, object]) -> dict[str, object]:
+    return {
+        "content": [{"type": "text", "text": f"restored:{arguments.get('value')}"}]
     }
 
 
@@ -192,6 +214,89 @@ def test_registry_fails_closed_when_enabled_registration_is_unavailable() -> Non
         build_tool_registry(True)
 
 
+def test_registry_omits_disabled_archive_restore_pair() -> None:
+    registry = build_tool_registry(
+        False,
+        memory_archive_restore_enabled=False,
+        memory_archive_tool=ARCHIVE_TOOL,
+        memory_archive_handler=_archive,
+        memory_restore_tool=RESTORE_TOOL,
+        memory_restore_handler=_restore,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+    ]
+    assert registry.call_tool("memory_archive", {"value": "safe"}) is None
+    assert registry.call_tool("memory_restore", {"value": "safe"}) is None
+
+
+def test_registry_enables_archive_restore_discovery_and_dispatch_as_one_pair() -> None:
+    registry = build_tool_registry(
+        False,
+        memory_archive_restore_enabled=True,
+        memory_archive_tool=ARCHIVE_TOOL,
+        memory_archive_handler=_archive,
+        memory_restore_tool=RESTORE_TOOL,
+        memory_restore_handler=_restore,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_archive",
+        "memory_restore",
+    ]
+    assert registry.call_tool("memory_archive", {"value": "safe"}) == {
+        "content": [{"type": "text", "text": "archived:safe"}]
+    }
+    assert registry.call_tool("memory_restore", {"value": "safe"}) == {
+        "content": [{"type": "text", "text": "restored:safe"}]
+    }
+    assert registry.call_tool("list_tools", {}) == {
+        "content": [
+            {
+                "type": "text",
+                "text": (
+                    "Available tools: list_tools, memory_recall, "
+                    "memory_archive, memory_restore"
+                ),
+            }
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "registration",
+    [
+        {},
+        {"memory_archive_tool": ARCHIVE_TOOL},
+        {"memory_archive_handler": _archive},
+        {
+            "memory_archive_tool": ARCHIVE_TOOL,
+            "memory_archive_handler": _archive,
+        },
+        {
+            "memory_restore_tool": RESTORE_TOOL,
+            "memory_restore_handler": _restore,
+        },
+    ],
+)
+def test_registry_fails_closed_for_incomplete_enabled_archive_restore_pair(
+    registration: dict[str, object],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="^memory archive/restore registration is unavailable$",
+    ):
+        build_tool_registry(
+            False,
+            memory_archive_restore_enabled=True,
+            **registration,
+        )
+
+
 def test_startup_registry_connects_inspect_and_real_remember_only_when_enabled(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -241,3 +346,50 @@ def test_startup_registry_connects_inspect_and_real_remember_only_when_enabled(
     assert result is not None
     assert '"status":"remembered"' in result["content"][0]["text"]
     assert len(list(tmp_path.rglob("*.json"))) == 1
+
+
+def test_startup_registry_exposes_archive_and_restore_only_as_an_enabled_pair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    disabled = build_startup_tool_registry(False, False)
+    enabled = build_startup_tool_registry(False, True)
+
+    assert [tool["name"] for tool in disabled.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+    ]
+    assert disabled.call_tool("memory_archive", {}) is None
+    assert disabled.call_tool("memory_restore", {}) is None
+    assert [tool["name"] for tool in enabled.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_archive",
+        "memory_restore",
+    ]
+    archive = enabled.call_tool("memory_archive", {})
+    restore = enabled.call_tool("memory_restore", {})
+    assert archive is not None
+    assert restore is not None
+    assert '"code":"invalid_reference"' in archive["content"][0]["text"]
+    assert '"code":"invalid_reference"' in restore["content"][0]["text"]
+
+    valid_arguments = {
+        "reference": {
+            "schema_version": 2,
+            "scope": "project",
+            "namespace_id": "mnemosyne",
+            "collection_id": None,
+            "id": "mem_0123456789abcdef0123456789abcdef",
+        },
+        "expected_revision": 1,
+    }
+    valid_archive = enabled.call_tool("memory_archive", valid_arguments)
+    valid_restore = enabled.call_tool("memory_restore", valid_arguments)
+    assert valid_archive is not None
+    assert valid_restore is not None
+    assert '"code":"not_found"' in valid_archive["content"][0]["text"]
+    assert '"code":"not_found"' in valid_restore["content"][0]["text"]

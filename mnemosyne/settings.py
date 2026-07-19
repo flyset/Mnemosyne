@@ -2,6 +2,7 @@ import errno
 import os
 import stat
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -12,6 +13,9 @@ APP_TITLE = "Mnemosyne MCP Server"
 
 MEMORY_ROOT_ENV = "MNEMOSYNE_MEMORY_ROOT"
 MEMORY_REMEMBER_ENABLED_ENV = "MNEMOSYNE_MEMORY_REMEMBER_ENABLED"
+MEMORY_ARCHIVE_RESTORE_ENABLED_ENV = (
+    "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED"
+)
 SETTINGS_DIRECTORY_NAME = ".mnemosyne"
 SETTINGS_FILE_NAME = "config.toml"
 SETTINGS_MAX_BYTES = 16 * 1024
@@ -31,6 +35,12 @@ class SettingsError(ValueError):
     def __init__(self, code: str) -> None:
         self.code = code
         super().__init__(_SETTINGS_ERROR_MESSAGES[code])
+
+
+@dataclass(frozen=True)
+class MemoryToolSettings:
+    remember_enabled: bool = False
+    archive_restore_enabled: bool = False
 
 
 def get_memory_root() -> Path:
@@ -186,16 +196,16 @@ def _read_settings_source(
         _close_descriptor(directory_descriptor)
 
 
-def _get_file_memory_remember_enabled() -> bool:
+def _get_file_memory_tool_settings() -> MemoryToolSettings:
     application_directory = Path.home() / SETTINGS_DIRECTORY_NAME
     application_metadata = _validate_application_directory(application_directory)
     if application_metadata is None:
-        return False
+        return MemoryToolSettings()
 
     settings_path = application_directory / SETTINGS_FILE_NAME
     settings_metadata = _validate_settings_path(settings_path)
     if settings_metadata is None:
-        return False
+        return MemoryToolSettings()
 
     source = _read_settings_source(
         application_directory,
@@ -204,7 +214,7 @@ def _get_file_memory_remember_enabled() -> bool:
         settings_metadata,
     )
     if source is None:
-        return False
+        return MemoryToolSettings()
 
     try:
         document = tomllib.loads(source.decode("utf-8"))
@@ -215,27 +225,66 @@ def _get_file_memory_remember_enabled() -> bool:
         raise SettingsError("invalid_schema")
     memory_settings = document.get("memory")
     if memory_settings is None:
-        return False
+        return MemoryToolSettings()
     if not isinstance(memory_settings, dict):
         raise SettingsError("invalid_schema")
-    if set(memory_settings) - {"remember_enabled"}:
+    if set(memory_settings) - {
+        "remember_enabled",
+        "archive_restore_enabled",
+    }:
         raise SettingsError("invalid_schema")
-    remember_enabled = memory_settings.get("remember_enabled")
-    if remember_enabled is None:
+    values = {
+        "remember_enabled": memory_settings.get("remember_enabled", False),
+        "archive_restore_enabled": memory_settings.get(
+            "archive_restore_enabled",
+            False,
+        ),
+    }
+    if any(not isinstance(value, bool) for value in values.values()):
+        raise SettingsError("invalid_schema")
+    return MemoryToolSettings(**values)
+
+
+def _environment_boolean(name: str) -> bool | None:
+    value = os.getenv(name)
+    if value == "false":
         return False
-    if not isinstance(remember_enabled, bool):
-        raise SettingsError("invalid_schema")
-    return remember_enabled
+    if value == "true":
+        return True
+    if value is None:
+        return None
+    raise ValueError(f"{name} must be 'true' or 'false'")
+
+
+def get_memory_tool_settings() -> MemoryToolSettings:
+    remember_override = _environment_boolean(MEMORY_REMEMBER_ENABLED_ENV)
+    archive_restore_override = _environment_boolean(
+        MEMORY_ARCHIVE_RESTORE_ENABLED_ENV
+    )
+    if remember_override is not None and archive_restore_override is not None:
+        return MemoryToolSettings(
+            remember_enabled=remember_override,
+            archive_restore_enabled=archive_restore_override,
+        )
+
+    file_settings = _get_file_memory_tool_settings()
+    return MemoryToolSettings(
+        remember_enabled=(
+            file_settings.remember_enabled
+            if remember_override is None
+            else remember_override
+        ),
+        archive_restore_enabled=(
+            file_settings.archive_restore_enabled
+            if archive_restore_override is None
+            else archive_restore_override
+        ),
+    )
 
 
 def get_memory_remember_enabled() -> bool:
-    configured_value = os.getenv(MEMORY_REMEMBER_ENABLED_ENV)
-    if configured_value == "false":
-        return False
-    if configured_value == "true":
-        return True
-    if configured_value is None:
-        return _get_file_memory_remember_enabled()
-    raise ValueError(
-        f"{MEMORY_REMEMBER_ENABLED_ENV} must be 'true' or 'false'"
-    )
+    return get_memory_tool_settings().remember_enabled
+
+
+def get_memory_archive_restore_enabled() -> bool:
+    return get_memory_tool_settings().archive_restore_enabled

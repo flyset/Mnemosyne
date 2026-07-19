@@ -2,7 +2,7 @@
 
 - **Awareness** — read-only, least-privilege inspection of safe local environment signals.
 - **Cold memory** — durable memory retrieved only when relevant; it remains user-governed and easy to delete.
-- **Consent** — explicit user authorization for a durable memory or state-changing action; for future mutation Tools it is enforced by per-call MCP-client approval, not a model-provided field.
+- **Consent** — explicit user authorization for a durable memory or state-changing action; for mutation Tools it is enforced by per-call MCP-client approval, not a model-provided field.
 - **Hot memory** — a small, bounded working set loaded at session start from durable memory.
 - **MCP tool** — a narrowly scoped capability exposed through the Model Context Protocol.
 - **Memory** — user-approved durable context, such as a preference or stable fact; never a secret store.
@@ -16,6 +16,11 @@
 - **Memory inspection request** — exactly one versioned reference: schema version, scope, and ID for legacy memory, plus namespace ID and nullable collection ID for canonical memory.
 - **Memory inspection result** — `status: ok` with one exact user-visible record and its versioned reference; canonical results include persisted metadata and lifecycle, while legacy results contain no invented canonical fields.
 - **Memory remember** — the explicit, consent-gated MCP mutation that validates one bounded approved draft and, only when operator-enabled, atomically creates a canonical version-2 record or returns an exact duplicate outcome.
+- **Memory archive** — the explicit consent-gated MCP mutation that revision-checks one exact active canonical memory, atomically changes it to archived, and removes it from normal recall without deleting it.
+- **Memory restore** — the explicit consent-gated MCP mutation that revision-checks one exact archived canonical memory, atomically changes it to active, and returns it to normal recall.
+- **Lifecycle mutation request** — exactly one canonical version-2 reference plus its positive current `expected_revision`; it accepts no legacy identity, path, content, target state, timestamp, or model confirmation.
+- **Lifecycle mutation outcome** — `archived`, `already_archived`, `restored`, or `already_active`, with only the canonical versioned reference and lifecycle; changed outcomes increment revision once, while current-state outcomes do not write.
+- **Archive/restore enablement** — the startup-fixed reversible-lifecycle gate controlled first by exact `MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED`, otherwise by strict `[memory].archive_restore_enabled`, and finally by a disabled default; it is independent of remember enablement and MCP-client consent.
 - **Memory remember request** — the nine caller-owned scope, namespace, optional collection, kind, language, title, content, tags, and public-origin fields shown to the user before client approval; it never contains a path or server-owned operational field.
 - **Remember content policy** — bounded signature-based refusal applied by the shared domain before duplicate discovery or writes; it recognizes declared secret, credential, payment-card, and government-identifier shapes but is not complete semantic DLP.
 - **Remember enablement** — the startup-fixed, remember-only operator gate controlled first by an exact `MNEMOSYNE_MEMORY_REMEMBER_ENABLED` process override, otherwise by the optional strict `~/.mnemosyne/config.toml` `[memory].remember_enabled` boolean, and finally by a disabled default; it never establishes MCP-client consent.
@@ -31,7 +36,7 @@
 - **Recall match evidence** — the sorted terms and tags explaining which request signals matched a returned memory record; it excludes paths and internal scores.
 - **Recall reference continuity** — the inspect-compatible versioned reference included with every successful recall match so an active canonical or legacy result can be selected exactly without exposing a path.
 - **Memory recall** — read-only retrieval that validates a recall request, searches only its selected scope directory, and returns bounded approved records with inspect-compatible references without persisting the request.
-- **Memory mutation** — an explicit create, revise, archive, restore, relocate, or physical-forget operation; domain primitives are disabled by default, and remember is the only currently implemented MCP mutation behind a separate startup gate.
+- **Memory mutation** — an explicit create, revise, archive, restore, relocate, or physical-forget operation; domain primitives are disabled by default, while remember and reversible archive/restore are the implemented MCP mutations behind independent startup gates.
 - **Reflection** — operational agent configuration, such as policies, checklists, and failure-mode mitigations; not personal facts.
 - **Session context** — selectively retrieved summaries or excerpts from prior agent sessions.
 
@@ -46,3 +51,4 @@
 - **No matches** — a successful memory recall result with `status: no_matches` and an empty `memories` array when the selected scope is absent or contains no positively ranked valid record.
 - **Retrieval error** — a Tool error indicating that a validated recall request could not safely read its source or exceeded the candidate limit; it does not expose internal filesystem details.
 - **Inspection error** — a Tool error with a stable bounded code for an invalid, missing, ambiguous, excessive, unsafe/unavailable, or unexpectedly failed exact inspection; it exposes no path, record content, or underlying exception.
+- **Lifecycle mutation error** — a Tool error with a stable bounded code for invalid canonical identity/revision, disabled mutation, missing memory, stale revision, publication conflict, unsafe/unavailable storage, or unexpected failure; it exposes no submitted value, path, record content, or underlying exception.

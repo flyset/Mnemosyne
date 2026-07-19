@@ -58,6 +58,7 @@ mnemosyne/
     tools/
       __init__.py
       registry.py     # MCP tool registry and dispatch
+      _memory_lifecycle.py # private lifecycle schemas, projections, errors, logs
 
       list_tools/
         __init__.py   # list_tools tool schema and handler
@@ -76,6 +77,16 @@ mnemosyne/
         __init__.py   # public TOOL and handle re-exports
         definition.py # scope/dimension-derived mutation schema
         handler.py    # bounded validation, service adaptation, results, and logs
+
+      memory_archive/
+        __init__.py   # public TOOL and handle re-exports
+        definition.py # strict canonical reference/revision schema
+        handler.py    # archive service construction and private adapter call
+
+      memory_restore/
+        __init__.py   # public TOOL and handle re-exports
+        definition.py # strict canonical reference/revision schema
+        handler.py    # restore service construction and private adapter call
 ```
 
 ## Responsibilities
@@ -182,13 +193,36 @@ reference, and lifecycle for `remembered`, `already_exists`, or
 `mcp.memory_remember` emits one content-free terminal event and never records
 submitted memory text, labels, tags, paths, exception messages, or tracebacks.
 
-Tool availability is startup-fixed. A supplied
-`MNEMOSYNE_MEMORY_REMEMBER_ENABLED` value has precedence, accepts only exact
-lowercase `true` or `false`, and fails startup closed without file fallback for
-every other value. When absent, the settings layer consults only
-`Path.home() / ".mnemosyne" / "config.toml"`; the strict optional `[memory]`
-table may contain only the optional TOML boolean `remember_enabled`, and the
-final default is false.
+`memory_archive` and `memory_restore` are separate least-privilege Tools, each
+with the same three-file public package shape. Their shared private
+`_memory_lifecycle.py` adapter owns the canonical-only schema, strict request
+parsing, minimal result projection, bounded error mapping, result consistency
+checks, and content-free logging; it exposes no Tool or storage capability.
+
+Each public handler validates through that adapter before resolving the root,
+then constructs an enabled `MemoryService` over the configured
+`FilesystemMemoryStore` only when selected by the startup registry. Requests
+contain exactly one canonical version-2 reference and positive exact-integer
+expected revision. They accept no path, legacy identity, record content, target
+state, timestamp, or model confirmation. The shared service checks revision
+before lifecycle idempotency and atomically replaces the same file only for a
+state change. Current target state returns `already_archived` or
+`already_active` without write; stale revisions conflict.
+
+Lifecycle results contain only status, canonical versioned reference, and
+state/revision. Loggers `mcp.memory_archive` and `mcp.memory_restore` emit one
+terminal event with only bounded outcome/reference/lifecycle metadata. Archive
+removes a canonical record from recall while exact inspection still returns it;
+restore makes it recall-eligible again.
+
+Tool availability is startup-fixed. Supplied
+`MNEMOSYNE_MEMORY_REMEMBER_ENABLED` and
+`MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED` values independently override their
+matching file keys, accept only exact lowercase `true` or `false`, and fail
+startup closed before file access for every other value. Unresolved values come
+from at most one read of `Path.home() / ".mnemosyne" / "config.toml"`; the strict
+optional `[memory]` table may contain only the optional TOML booleans
+`remember_enabled` and `archive_restore_enabled`. Both default false.
 
 The settings layer performs no initialization. It bounds the file to 16 KiB of
 UTF-8 TOML, rejects unknown structure, symlinked or non-regular sources,
@@ -196,9 +230,10 @@ metadata replacement during open, unreadable sources, and group/world-writable
 POSIX application directories or files. Descriptor-relative/no-follow access
 is used where supported, and failures expose only stable non-content-bearing
 codes/messages. The immutable startup registry always contains `list_tools`,
-`memory_recall`, and `memory_inspect`, in that order, and appends the remember
-definition and handler together when enabled. Inspect definition and dispatch
-are connected as one pair, so no placeholder Tool is advertised. The same
+`memory_recall`, and `memory_inspect`, in that order; appends archive and restore
+together when their pair gate is enabled; and appends remember when its
+independent gate is enabled. Every definition and dispatch handler is connected
+as a pair, so no placeholder Tool is advertised. The same
 startup selection drives MCP `tools/list`, the `list_tools` Tool, and dispatch
 until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
@@ -232,21 +267,22 @@ user.
 Version-2 metadata must agree with its path. JSON files are the only durable
 memory source of truth; there is no required manifest, alias database, persistent
 content index, tombstone, or hidden revision history. Atomic mutation primitives
-exist only in the shared domain and are disabled by default. Remember is the
-only mutation exposed through MCP, and its Tool registration remains off unless
-the exact startup gate enables it.
+exist only in the shared domain and are disabled by default. Remember and
+reversible archive/restore are exposed through independent startup gates;
+revise and physical forget remain unregistered.
 
-Future revise/archive/restore/forget Tools must be thin adapters over the
-existing service/store contracts. Remember and every future mutation Tool
-require explicit operator enablement and a client capable of per-call approval;
-clients without that boundary must leave mutation Tools disabled.
+Future revise/forget Tools must be thin adapters over the existing service/store
+contracts. Every mutation Tool requires explicit operator enablement and a
+client capable of per-call approval; clients without that boundary must leave
+mutation Tools disabled.
 
 ### `mnemosyne/settings.py`
 
 Contains stable server identity constants used across routes and MCP
 initialization, dynamic resolution of the operator-controlled memory root, and
-strict environment-first/fixed-file startup parsing for the remember-only
-enablement gate. It owns the fixed local settings path, schema, bounded source
+strict environment-first/fixed-file startup parsing for independent remember
+and archive/restore enablement. It owns the fixed local settings path, schema,
+bounded source
 checks, and stable configuration failures without creating or editing operator
 configuration.
 

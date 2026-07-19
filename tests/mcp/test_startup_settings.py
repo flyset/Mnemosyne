@@ -10,6 +10,7 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).parents[2]
 REMEMBER_ENABLED_ENV = "MNEMOSYNE_MEMORY_REMEMBER_ENABLED"
+ARCHIVE_RESTORE_ENABLED_ENV = "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED"
 MEMORY_ROOT_ENV = "MNEMOSYNE_MEMORY_ROOT"
 
 STARTUP_PROBE = """
@@ -54,6 +55,20 @@ remember = request(
         "params": {"name": "memory_remember", "arguments": {}},
     }
 )
+archive = request(
+    {
+        "id": "archive",
+        "method": "tools/call",
+        "params": {"name": "memory_archive", "arguments": {}},
+    }
+)
+restore = request(
+    {
+        "id": "restore",
+        "method": "tools/call",
+        "params": {"name": "memory_restore", "arguments": {}},
+    }
+)
 print(
     json.dumps(
         {
@@ -63,6 +78,8 @@ print(
             "list_tools_text": list_tools["result"]["content"][0]["text"],
             "inspect": inspect,
             "remember": remember,
+            "archive": archive,
+            "restore": restore,
         },
         sort_keys=True,
     )
@@ -84,7 +101,7 @@ def tool_names():
 
 before = tool_names()
 (Path.home() / ".mnemosyne" / "config.toml").write_text(
-    "[memory]\\nremember_enabled = false\\n",
+    "[memory]\\nremember_enabled = false\\narchive_restore_enabled = false\\n",
     encoding="utf-8",
 )
 after = tool_names()
@@ -106,13 +123,17 @@ def _isolated_environment(
     home: Path,
     *,
     remember_override: str | None = None,
+    archive_restore_override: str | None = None,
 ) -> dict[str, str]:
     environment = os.environ.copy()
     environment["HOME"] = str(home)
     environment.pop(MEMORY_ROOT_ENV, None)
     environment.pop(REMEMBER_ENABLED_ENV, None)
+    environment.pop(ARCHIVE_RESTORE_ENABLED_ENV, None)
     if remember_override is not None:
         environment[REMEMBER_ENABLED_ENV] = remember_override
+    if archive_restore_override is not None:
+        environment[ARCHIVE_RESTORE_ENABLED_ENV] = archive_restore_override
     existing_python_path = environment.get("PYTHONPATH")
     environment["PYTHONPATH"] = str(REPOSITORY_ROOT)
     if existing_python_path:
@@ -124,6 +145,7 @@ def _run_probe(
     home: Path,
     *,
     remember_override: str | None = None,
+    archive_restore_override: str | None = None,
     probe: str = STARTUP_PROBE,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -132,6 +154,7 @@ def _run_probe(
         env=_isolated_environment(
             home,
             remember_override=remember_override,
+            archive_restore_override=archive_restore_override,
         ),
         capture_output=True,
         text=True,
@@ -206,6 +229,8 @@ def test_disabled_startup_omits_remember_and_creates_no_paths(
         "code": -32602,
         "message": "Unknown tool: memory_remember",
     }
+    assert result["archive"]["error"]["message"] == "Unknown tool: memory_archive"
+    assert result["restore"]["error"]["message"] == "Unknown tool: memory_restore"
     if file_state == "missing":
         assert not (home / ".mnemosyne").exists()
     assert not (home / ".mnemosyne" / "memory").exists()
@@ -229,12 +254,100 @@ def test_startup_environment_override_precedes_the_file(
     _write_settings(home, file_source)
 
     result = _probe_result(
-        _run_probe(home, remember_override=environment_value)
+        _run_probe(
+            home,
+            remember_override=environment_value,
+            archive_restore_override=(
+                "false" if file_source == "private-invalid-file-content" else None
+            ),
+        )
     )
 
     assert ("memory_remember" in result["tool_names"]) is remember_available
     assert "private-invalid-file-content" not in result["list_tools_text"]
     assert not (home / ".mnemosyne" / "memory").exists()
+
+
+@pytest.mark.parametrize("source", ["file", "environment"])
+def test_archive_restore_enablement_exposes_both_discovery_surfaces_and_dispatch(
+    source: str,
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    override = None
+    if source == "file":
+        _write_settings(home, "[memory]\narchive_restore_enabled = true\n")
+    else:
+        override = "true"
+
+    result = _probe_result(
+        _run_probe(home, archive_restore_override=override)
+    )
+
+    assert result["tool_names"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_archive",
+        "memory_restore",
+    ]
+    assert result["list_tools_text"] == (
+        "Available tools: list_tools, memory_recall, memory_inspect, "
+        "memory_archive, memory_restore"
+    )
+    for operation in ("archive", "restore"):
+        tool_result = result[operation]["result"]
+        assert tool_result["isError"] is True
+        assert json.loads(tool_result["content"][0]["text"])["code"] == (
+            "invalid_reference"
+        )
+    assert result["remember"]["error"]["message"] == (
+        "Unknown tool: memory_remember"
+    )
+    assert not (home / ".mnemosyne" / "memory").exists()
+
+
+def test_archive_restore_and_remember_enablement_are_independent(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    _write_settings(
+        home,
+        "[memory]\nremember_enabled = true\narchive_restore_enabled = true\n",
+    )
+
+    result = _probe_result(_run_probe(home))
+
+    assert result["tool_names"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_archive",
+        "memory_restore",
+        "memory_remember",
+    ]
+
+
+def test_invalid_archive_restore_environment_fails_before_file_access(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    marker = "private-invalid-archive-restore-value"
+    _write_settings(home, "private-invalid-file-content")
+
+    process = _run_probe(home, archive_restore_override=marker)
+
+    output = process.stdout + process.stderr
+    assert process.returncode != 0
+    assert (
+        "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED must be 'true' or 'false'"
+        in output
+    )
+    assert marker not in output
+    assert "private-invalid-file-content" not in output
 
 
 def test_invalid_file_fails_startup_without_exposing_content(
@@ -291,6 +404,35 @@ def test_registry_selection_remains_fixed_until_a_fresh_startup(
         "memory_recall",
         "memory_inspect",
         "memory_remember",
+    ]
+    assert fixed_result["after"] == fixed_result["before"]
+
+    restarted_result = _probe_result(_run_probe(home))
+    assert restarted_result["tool_names"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+    ]
+    assert not (home / ".mnemosyne" / "memory").exists()
+
+
+def test_archive_restore_registry_selection_remains_fixed_until_restart(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    _write_settings(home, "[memory]\narchive_restore_enabled = true\n")
+
+    fixed_result = _probe_result(
+        _run_probe(home, probe=STARTUP_FIXED_PROBE)
+    )
+
+    assert fixed_result["before"] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_archive",
+        "memory_restore",
     ]
     assert fixed_result["after"] == fixed_result["before"]
 

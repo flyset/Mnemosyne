@@ -203,6 +203,12 @@ class MemoryService:
         state: LifecycleState,
     ) -> MemoryResult:
         self._require_mutations()
+        if type(expected_revision) is not int or expected_revision < 1:
+            raise MemoryValidationError(
+                "invalid_record",
+                "expected_revision",
+                "invalid expected_revision",
+            )
         with self._mutation_lock:
             current = self._current(reference, expected_revision)
             if current.lifecycle.state is state:

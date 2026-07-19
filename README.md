@@ -14,6 +14,8 @@ Implemented tools:
 - `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope directory
 - `memory_inspect` — returns one exact canonical or legacy memory selected by a versioned structured reference
 - `memory_remember` — when explicitly enabled, validates and atomically persists one approved canonical version-2 memory
+- `memory_archive` — when explicitly enabled, revision-checks and archives one exact canonical version-2 memory
+- `memory_restore` — when explicitly enabled, revision-checks and restores one exact archived canonical version-2 memory
 
 This is not yet a full memory or awareness system. A `memory_recall` request
 contains a free-form `query`, exactly one high-level scope (`self`,
@@ -93,11 +95,90 @@ paths, exception details, and tracebacks. Shared skipped-record warnings likewis
 contain only scope and a bounded reason.
 
 Memory scopes, records, paths, storage, retrieval, content policy, and lifecycle
-policy live in a shared `mnemosyne/memory/` domain rather than inside individual MCP
-Tool. The domain includes mutation-disabled revise, archive, restore, and
-physical-delete primitives for future Tools. `memory_remember` is the only MCP
-mutation Tool and is absent from discovery and dispatch unless the operator
-enables it explicitly.
+policy live in a shared `mnemosyne/memory/` domain rather than inside individual
+MCP Tools. The domain includes mutation-disabled revise, archive, restore, and
+physical-delete primitives. `memory_remember`, `memory_archive`, and
+`memory_restore` are absent from discovery and dispatch unless their independent
+operator gates enable them explicitly.
+
+## Archiving and Restoring Memory
+
+Archive and restore are disabled by default and are enabled together. Persist
+the operator choice in the same fixed settings file:
+
+```toml
+[memory]
+archive_restore_enabled = true
+```
+
+Or use the process override:
+
+```bash
+export MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED=true
+```
+
+Only exact lowercase `true` and `false` are accepted. This gate is independent
+of `remember_enabled`; enabling either capability does not enable the other.
+Restart the server and MCP client after changing enablement.
+
+Each lifecycle request contains exactly the canonical version-2 reference from
+`memory_inspect` and its current positive revision:
+
+```json
+{
+  "reference": {
+    "schema_version": 2,
+    "scope": "project",
+    "namespace_id": "mnemosyne",
+    "collection_id": "decisions",
+    "id": "mem_0123456789abcdef0123456789abcdef"
+  },
+  "expected_revision": 1
+}
+```
+
+The request accepts no legacy reference, path, root, filename, query, content,
+target state, timestamp, or consent field. Inspect immediately before proposing
+the mutation so the complete exact reference and current revision can be shown
+for approval. A stale revision always returns `revision_conflict`, even if the
+record has since reached the requested state.
+
+Archive changes `active` to `archived`, increments revision once, updates
+`updated_at`, and atomically replaces the same file. Archived memory is excluded
+from normal recall but remains available through exact inspection. Restore
+performs the inverse transition and returns the record to recall. A
+current-revision archive of archived memory returns `already_archived`; a
+current-revision restore of active memory returns `already_active`. Idempotent
+outcomes do not write, increment revision, or update metadata.
+
+Success contains only status, canonical versioned reference, and lifecycle:
+
+```json
+{
+  "status": "archived",
+  "reference": {
+    "schema_version": 2,
+    "scope": "project",
+    "namespace_id": "mnemosyne",
+    "collection_id": "decisions",
+    "id": "mem_0123456789abcdef0123456789abcdef"
+  },
+  "lifecycle": {"state": "archived", "revision": 2}
+}
+```
+
+The four normal statuses are `archived`, `already_archived`, `restored`, and
+`already_active`. Stable bounded error codes are `invalid_reference`,
+`invalid_expected_revision`, `mutation_disabled`, `not_found`,
+`revision_conflict`, `write_conflict`, `memory_source_unavailable`, and
+`internal_error`. Results never expose record content, paths, fingerprints, or
+storage wrappers.
+
+Each server call logs one terminal event under `mcp.memory_archive` or
+`mcp.memory_restore`. Logs contain only outcome, stable code/field where
+applicable, schema version, scope, and successful lifecycle state/revision. They
+omit IDs, namespace/collection identity, labels, title, content, tags, complete
+arguments, paths, exception details, and tracebacks.
 
 ## Remembering Memory
 
@@ -120,8 +201,9 @@ The file is optional and read-only to Mnemosyne. Startup does not create or
 edit it or its parent. A missing file, empty document, absent or empty
 `[memory]` table, absent key, or TOML boolean `false` all mean disabled. The
 document may contain only the optional `[memory]` table, which may contain only
-the optional TOML boolean `remember_enabled`; strings such as `"true"`, unknown
-keys/tables, and malformed TOML fail startup closed.
+the optional TOML booleans `remember_enabled` and `archive_restore_enabled`;
+strings such as `"true"`, unknown keys/tables, and malformed TOML fail startup
+closed.
 
 For one process-level override, use:
 
@@ -349,9 +431,9 @@ Unknown fields or mismatched paths make a version-2 record invalid.
 Version-2 records are either `active` or `archived`; normal recall excludes
 archived records. Revision replaces the same file atomically without retaining
 hidden prior content. Forgetting is designed as physical deletion with no
-tombstone. Remember creation is exposed only behind its explicit gate; the other
-lifecycle operations remain domain primitives until dedicated consent-gated MCP
-Tools are implemented.
+tombstone. Remember creation and reversible archive/restore are exposed behind
+independent explicit gates; revise and physical forget remain unregistered
+domain primitives.
 
 All record files are limited to 64 KiB, content to 4,000 characters, and titles
 to 200 characters. Invalid, oversized, too-deep, or unsafe records are skipped
@@ -366,10 +448,9 @@ truth: inspect them directly and delete a record by deleting its file.
 
 There is no required manifest or persistent content-bearing index. Exact
 inspection uses a structured reference and never accepts a filesystem path.
-Remember
-remains disabled unless the operator enables it and the MCP client can require
-approval for every exact call. Future lifecycle mutation Tools remain
-unregistered. A model-provided confirmation field is not consent.
+Every mutation remains disabled unless its operator gate enables it and the MCP
+client can require approval for every exact call. A model-provided confirmation
+field is not consent.
 
 ## MCP Validation
 
@@ -448,16 +529,19 @@ mnemosyne-test
 ## OpenCode Configuration
 
 The included `opencode.json` registers this server as a remote MCP server and
-requires approval for the exact prefixed remember Tool. The agent-level rule is
+requires approval for each exact prefixed mutation Tool. The agent-level rule is
 also explicit because per-agent permissions can override top-level rules and
 OpenCode uses the last matching Tool-name rule. It denies the broad server
-prefix first, then allows the three read-only Tools and asks for remember:
+prefix first, then allows the three read-only Tools and asks for remember,
+archive, and restore:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
-    "mnemosyne_memory_remember": "ask"
+    "mnemosyne_memory_remember": "ask",
+    "mnemosyne_memory_archive": "ask",
+    "mnemosyne_memory_restore": "ask"
   },
   "mcp": {
     "mnemosyne": {
@@ -473,7 +557,9 @@ prefix first, then allows the three read-only Tools and asks for remember:
         "mnemosyne_list_tools": "allow",
         "mnemosyne_memory_recall": "allow",
         "mnemosyne_memory_inspect": "allow",
-        "mnemosyne_memory_remember": "ask"
+        "mnemosyne_memory_remember": "ask",
+        "mnemosyne_memory_archive": "ask",
+        "mnemosyne_memory_restore": "ask"
       }
     }
   }
@@ -481,11 +567,11 @@ prefix first, then allows the three read-only Tools and asks for remember:
 ```
 
 This client permission does not enable mutation on the server. The operator
-must separately set `MNEMOSYNE_MEMORY_REMEMBER_ENABLED=true` and restart the
-server. After changing `opencode.json`, quit and restart OpenCode so it reloads
-the configuration and Tool discovery.
+must separately set the applicable remember or archive/restore server gate and
+restart the server. After changing `opencode.json`, quit and restart OpenCode so
+it reloads the configuration and Tool discovery.
 
-For every proposed remember call, review the complete Tool arguments and choose
+For every proposed mutation call, review the complete Tool arguments and choose
 `once`. Choosing `reject` prevents the request from reaching Mnemosyne and
 therefore produces no write. Do not choose session-wide `always`, start OpenCode
 with `--auto`, or enable interactive auto-approval while memory mutation is
@@ -493,13 +579,13 @@ enabled: each bypasses approval on later exact calls. If any of those modes was
 used, disable server mutation and restart both the server and OpenCode before
 continuing. Any additional per-agent permission override must preserve
 this order: broad `mnemosyne_*` denial first, explicit read-only allows next,
-and `mnemosyne_memory_remember: ask` last.
+and the exact remember/archive/restore `ask` rules last.
 
 ## Roadmap Shape
 
 Likely next steps:
 
-1. Add explicit, consent-based memory deletion tools after read-only inspection.
+1. Add explicit, consent-based physical memory deletion after archive/restore.
 2. Add read-only awareness tools.
 3. Add governance rules for consent, hygiene, and no-secret handling.
 4. Refine retrieval using observed local recall behavior.

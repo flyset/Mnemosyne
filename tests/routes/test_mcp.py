@@ -125,7 +125,12 @@ def test_mcp_tools_list_exposes_the_registered_tools() -> None:
         "memory_recall",
         "memory_inspect",
     ]
-    assert tool_names[3:] in ([], ["memory_remember"])
+    assert tool_names[3:] in (
+        [],
+        ["memory_archive", "memory_restore"],
+        ["memory_remember"],
+        ["memory_archive", "memory_restore", "memory_remember"],
+    )
 
 
 def test_mcp_tools_call_returns_memory_recall_no_matches(

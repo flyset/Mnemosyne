@@ -7,7 +7,9 @@ import mnemosyne.settings as settings
 from mnemosyne.settings import (
     SETTINGS_MAX_BYTES,
     SettingsError,
+    get_memory_archive_restore_enabled,
     get_memory_remember_enabled,
+    get_memory_tool_settings,
 )
 
 
@@ -17,6 +19,10 @@ def _isolate_home(
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: home)
     monkeypatch.delenv("MNEMOSYNE_MEMORY_REMEMBER_ENABLED", raising=False)
+    monkeypatch.delenv(
+        "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED",
+        raising=False,
+    )
 
 
 def _write_settings(home: Path, source: bytes) -> Path:
@@ -56,6 +62,32 @@ def test_memory_remember_enablement_uses_strict_boolean_values(
 
 
 @pytest.mark.parametrize(
+    ("configured_value", "expected"),
+    [(None, False), ("false", False), ("true", True)],
+)
+def test_memory_archive_restore_enablement_uses_strict_boolean_values(
+    configured_value: str | None,
+    expected: bool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REMEMBER_ENABLED", "false")
+    if configured_value is None:
+        monkeypatch.delenv(
+            "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED",
+            raising=False,
+        )
+    else:
+        monkeypatch.setenv(
+            "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED",
+            configured_value,
+        )
+
+    assert get_memory_archive_restore_enabled() is expected
+
+
+@pytest.mark.parametrize(
     "configured_value",
     ["", " true", "true ", "TRUE", "False", "1", "0", "yes"],
 )
@@ -78,6 +110,33 @@ def test_memory_remember_enablement_fails_closed_without_echoing_invalid_value(
 
     assert str(error.value) == (
         "MNEMOSYNE_MEMORY_REMEMBER_ENABLED must be 'true' or 'false'"
+    )
+
+
+@pytest.mark.parametrize(
+    "configured_value",
+    ["", " true", "true ", "TRUE", "False", "1", "0", "yes"],
+)
+def test_archive_restore_enablement_fails_closed_without_file_access(
+    configured_value: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        Path,
+        "home",
+        lambda: pytest.fail("invalid environment must fail before file access"),
+    )
+    monkeypatch.delenv("MNEMOSYNE_MEMORY_REMEMBER_ENABLED", raising=False)
+    monkeypatch.setenv(
+        "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED",
+        configured_value,
+    )
+
+    with pytest.raises(ValueError) as error:
+        get_memory_tool_settings()
+
+    assert str(error.value) == (
+        "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED must be 'true' or 'false'"
     )
 
 
@@ -105,6 +164,93 @@ def test_memory_remember_enablement_uses_strict_local_toml(
     assert settings_path.stat().st_mode & 0o777 == original_mode
 
 
+@pytest.mark.parametrize(
+    ("source", "remember_enabled", "archive_restore_enabled"),
+    [
+        (b"", False, False),
+        (
+            b"[memory]\nremember_enabled = true\narchive_restore_enabled = false\n",
+            True,
+            False,
+        ),
+        (
+            b"[memory]\nremember_enabled = false\narchive_restore_enabled = true\n",
+            False,
+            True,
+        ),
+        (b"[memory]\narchive_restore_enabled = true\n", False, True),
+    ],
+)
+def test_memory_tool_settings_use_one_strict_local_document(
+    source: bytes,
+    remember_enabled: bool,
+    archive_restore_enabled: bool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _isolate_home(tmp_path, monkeypatch)
+    _write_settings(tmp_path, source)
+
+    resolved = get_memory_tool_settings()
+
+    assert resolved.remember_enabled is remember_enabled
+    assert resolved.archive_restore_enabled is archive_restore_enabled
+
+
+def test_memory_tool_settings_read_the_file_at_most_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _isolate_home(tmp_path, monkeypatch)
+    _write_settings(
+        tmp_path,
+        b"[memory]\nremember_enabled = true\narchive_restore_enabled = true\n",
+    )
+    original = settings._read_settings_source
+    calls = 0
+
+    def counted_read(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(settings, "_read_settings_source", counted_read)
+
+    assert get_memory_tool_settings() == settings.MemoryToolSettings(True, True)
+    assert calls == 1
+
+
+@pytest.mark.parametrize(
+    ("environment_name", "expected"),
+    [
+        (
+            "MNEMOSYNE_MEMORY_REMEMBER_ENABLED",
+            settings.MemoryToolSettings(False, True),
+        ),
+        (
+            "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED",
+            settings.MemoryToolSettings(True, False),
+        ),
+    ],
+)
+def test_each_environment_override_preserves_the_other_file_setting(
+    environment_name: str,
+    expected: settings.MemoryToolSettings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _isolate_home(tmp_path, monkeypatch)
+    _write_settings(
+        tmp_path,
+        b"[memory]\nremember_enabled = true\narchive_restore_enabled = true\n",
+    )
+    monkeypatch.setenv(environment_name, "false")
+
+    resolved = get_memory_tool_settings()
+
+    assert resolved == expected
+
+
 def test_missing_settings_default_off_without_creating_paths(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -116,7 +262,7 @@ def test_missing_settings_default_off_without_creating_paths(
 
 
 @pytest.mark.parametrize("configured_value", ["true", "false"])
-def test_valid_environment_override_prevents_any_file_access(
+def test_complete_valid_environment_overrides_prevent_any_file_access(
     configured_value: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -128,6 +274,10 @@ def test_valid_environment_override_prevents_any_file_access(
     monkeypatch.setenv(
         "MNEMOSYNE_MEMORY_REMEMBER_ENABLED",
         configured_value,
+    )
+    monkeypatch.setenv(
+        "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED",
+        "false",
     )
 
     assert get_memory_remember_enabled() is (configured_value == "true")
@@ -142,6 +292,8 @@ def test_valid_environment_override_prevents_any_file_access(
         b"[memory]\nunknown = true\n",
         b"[memory]\nremember_enabled = 1\n",
         b'[memory]\nremember_enabled = "true"\n',
+        b"[memory]\narchive_restore_enabled = 1\n",
+        b'[memory]\narchive_restore_enabled = "true"\n',
         b"[memory.remember_enabled]\nvalue = true\n",
     ],
 )
