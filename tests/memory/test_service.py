@@ -11,6 +11,8 @@ import pytest
 
 from mnemosyne.memory.errors import (
     DisallowedMemoryContent,
+    MemoryNotArchived,
+    MemoryNotFound,
     MemoryValidationError,
     MutationDisabled,
     RevisionConflict,
@@ -313,35 +315,69 @@ def test_service_lifecycle_stale_target_states_conflict_and_idempotency_does_not
     assert (path.read_bytes(), stat.S_IMODE(path.stat().st_mode), path.stat().st_mtime_ns) == before_restore
 
 
-def test_service_forget_physically_deletes_current_record(tmp_path: Path) -> None:
+def test_service_forget_physically_deletes_current_archived_record(tmp_path: Path) -> None:
     service = _service(tmp_path)
     service.remember(_draft())
+    archived = service.archive(_reference(), expected_revision=1)
 
-    result = service.forget(_reference(), expected_revision=1)
+    result = service.forget(
+        _reference(),
+        expected_revision=archived.memory.lifecycle.revision,
+    )
 
     assert result.status == "forgotten"
     assert result.reference == _reference()
     assert list(tmp_path.rglob("*.json")) == []
 
+    with pytest.raises(MemoryNotFound):
+        service.forget(_reference(), expected_revision=2)
 
-def test_service_forget_physically_deletes_legacy_record(tmp_path: Path) -> None:
-    path = tmp_path / "preference" / "legacy" / "old.json"
-    path.parent.mkdir(parents=True)
-    path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "id": "old",
-                "content": "Legacy memory",
-            }
-        ),
-        encoding="utf-8",
-    )
+
+
+def test_service_forget_requires_current_archived_record(tmp_path: Path) -> None:
     service = _service(tmp_path)
-    reference = LegacyMemoryReference(scope=MemoryScope.PREFERENCE, id="old")
+    service.remember(_draft())
 
-    result = service.forget(reference, expected_revision=None)
+    with pytest.raises(RevisionConflict):
+        service.forget(_reference(), expected_revision=2)
 
-    assert result.status == "forgotten"
-    assert result.reference == reference
-    assert not path.exists()
+    with pytest.raises(MemoryNotArchived):
+        service.forget(_reference(), expected_revision=1)
+
+    assert service.inspect(_reference()).lifecycle.state is LifecycleState.ACTIVE
+
+
+@pytest.mark.parametrize("invalid_revision", [True, False, 0, -1, 1.0, "1", None])
+def test_service_forget_rejects_invalid_revision_before_read(
+    invalid_revision: object,
+    tmp_path: Path,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    store.delete = lambda reference, expected_revision: pytest.fail(
+        "store delete must not run"
+    )
+    service = MemoryService(store, mutations_enabled=True)
+
+    with pytest.raises(MemoryValidationError) as caught:
+        service.forget(_reference(), expected_revision=invalid_revision)
+
+    assert caught.value.field == "expected_revision"
+
+
+def test_service_forget_rejects_legacy_reference_before_store_access(
+    tmp_path: Path,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    store.delete = lambda reference, expected_revision: pytest.fail(
+        "store delete must not run"
+    )
+    service = MemoryService(store, mutations_enabled=True)
+
+    with pytest.raises(MemoryValidationError) as caught:
+        service.forget(
+            LegacyMemoryReference(scope=MemoryScope.PREFERENCE, id="old"),
+            expected_revision=1,
+        )
+
+    assert caught.value.code == "invalid_reference"
+    assert caught.value.field == "reference"

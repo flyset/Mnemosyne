@@ -13,6 +13,7 @@ def test_opencode_requires_exact_per_call_memory_mutation_approval() -> None:
     assert config["permission"]["mnemosyne_memory_remember"] == "ask"
     assert config["permission"]["mnemosyne_memory_archive"] == "ask"
     assert config["permission"]["mnemosyne_memory_restore"] == "ask"
+    assert config["permission"]["mnemosyne_memory_forget"] == "ask"
     assert list(config["agent"]["mnemosyne"]["permission"].items()) == [
         ("mnemosyne_*", "deny"),
         ("mnemosyne_list_tools", "allow"),
@@ -21,9 +22,32 @@ def test_opencode_requires_exact_per_call_memory_mutation_approval() -> None:
         ("mnemosyne_memory_remember", "ask"),
         ("mnemosyne_memory_archive", "ask"),
         ("mnemosyne_memory_restore", "ask"),
+        ("mnemosyne_memory_forget", "ask"),
     ]
     assert config["mcp"]["mnemosyne"] == {
         "type": "remote",
         "url": "http://127.0.0.1:8000/mcp",
         "enabled": True,
     }
+
+
+def test_opencode_agent_file_does_not_override_mutation_approval() -> None:
+    source = (PROJECT_ROOT / ".opencode" / "agents" / "mnemosyne.md").read_text(
+        encoding="utf-8"
+    )
+    permission_lines = [
+        line.strip()
+        for line in source.split("---", 2)[1].splitlines()
+        if line.strip().startswith('"mnemosyne_')
+    ]
+
+    assert permission_lines == [
+        '"mnemosyne_*": deny',
+        '"mnemosyne_list_tools": allow',
+        '"mnemosyne_memory_recall": allow',
+        '"mnemosyne_memory_inspect": allow',
+        '"mnemosyne_memory_remember": ask',
+        '"mnemosyne_memory_archive": ask',
+        '"mnemosyne_memory_restore": ask',
+        '"mnemosyne_memory_forget": ask',
+    ]

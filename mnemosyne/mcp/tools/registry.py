@@ -6,6 +6,7 @@ from typing import Any
 from mnemosyne.mcp.tools import (
     list_tools,
     memory_archive,
+    memory_forget,
     memory_inspect,
     memory_recall,
     memory_remember,
@@ -36,6 +37,7 @@ def build_tool_registry(
     memory_remember_enabled: bool,
     *,
     memory_archive_restore_enabled: bool = False,
+    memory_forget_enabled: bool = False,
     memory_inspect_tool: dict[str, Any] | None = None,
     memory_inspect_handler: ToolHandler | None = None,
     memory_archive_tool: dict[str, Any] | None = None,
@@ -44,6 +46,8 @@ def build_tool_registry(
     memory_restore_handler: ToolHandler | None = None,
     memory_remember_tool: dict[str, Any] | None = None,
     memory_remember_handler: ToolHandler | None = None,
+    memory_forget_tool: dict[str, Any] | None = None,
+    memory_forget_handler: ToolHandler | None = None,
 ) -> ToolRegistry:
     tools = [list_tools.TOOL, memory_recall.TOOL]
     handlers: dict[str, ToolHandler] = {
@@ -79,6 +83,12 @@ def build_tool_registry(
         tools.append(memory_remember_tool)
         handlers[memory_remember_tool["name"]] = memory_remember_handler
 
+    if memory_forget_enabled:
+        if memory_forget_tool is None or memory_forget_handler is None:
+            raise ValueError("memory forget registration is unavailable")
+        tools.append(memory_forget_tool)
+        handlers[memory_forget_tool["name"]] = memory_forget_handler
+
     selected_tools = tuple(tools)
     handlers[list_tools.TOOL["name"]] = lambda arguments: list_tools.handle(
         arguments,
@@ -93,10 +103,12 @@ def build_tool_registry(
 def build_startup_tool_registry(
     memory_remember_enabled: bool,
     memory_archive_restore_enabled: bool = False,
+    memory_forget_enabled: bool = False,
 ) -> ToolRegistry:
     return build_tool_registry(
         memory_remember_enabled,
         memory_archive_restore_enabled=memory_archive_restore_enabled,
+        memory_forget_enabled=memory_forget_enabled,
         memory_inspect_tool=memory_inspect.TOOL,
         memory_inspect_handler=memory_inspect.handle,
         memory_archive_tool=memory_archive.TOOL,
@@ -114,6 +126,11 @@ def build_startup_tool_registry(
             arguments,
             mutations_enabled=True,
         ),
+        memory_forget_tool=memory_forget.TOOL,
+        memory_forget_handler=lambda arguments: memory_forget.handle(
+            arguments,
+            mutations_enabled=True,
+        ),
     )
 
 
@@ -121,6 +138,7 @@ _MEMORY_TOOL_SETTINGS = get_memory_tool_settings()
 REGISTRY = build_startup_tool_registry(
     _MEMORY_TOOL_SETTINGS.remember_enabled,
     _MEMORY_TOOL_SETTINGS.archive_restore_enabled,
+    _MEMORY_TOOL_SETTINGS.forget_enabled,
 )
 TOOLS = REGISTRY.tools
 TOOL_HANDLERS = REGISTRY.handlers

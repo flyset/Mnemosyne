@@ -46,7 +46,7 @@ class MemoryResult:
 @dataclass(frozen=True)
 class ForgetResult:
     status: str
-    reference: MemoryReference | LegacyMemoryReference
+    reference: MemoryReference
 
 
 class MemoryService:
@@ -257,11 +257,23 @@ class MemoryService:
 
     def forget(
         self,
-        reference: MemoryReference | LegacyMemoryReference,
+        reference: MemoryReference,
         *,
-        expected_revision: int | None,
+        expected_revision: int,
     ) -> ForgetResult:
         self._require_mutations()
+        if not isinstance(reference, MemoryReference):
+            raise MemoryValidationError(
+                "invalid_reference",
+                "reference",
+                "reference does not identify a version-2 memory",
+            )
+        if type(expected_revision) is not int or expected_revision < 1:
+            raise MemoryValidationError(
+                "invalid_record",
+                "expected_revision",
+                "invalid expected_revision",
+            )
         with self._mutation_lock:
             self.store.delete(reference, expected_revision=expected_revision)
             return ForgetResult(status="forgotten", reference=reference)

@@ -16,6 +16,7 @@ Implemented tools:
 - `memory_remember` — when explicitly enabled, validates and atomically persists one approved canonical version-2 memory
 - `memory_archive` — when explicitly enabled, revision-checks and archives one exact canonical version-2 memory
 - `memory_restore` — when explicitly enabled, revision-checks and restores one exact archived canonical version-2 memory
+- `memory_forget` — when independently enabled, permanently deletes one exact archived canonical version-2 memory at its expected revision
 
 This is not yet a full memory or awareness system. A `memory_recall` request
 contains a free-form `query`, exactly one high-level scope (`self`,
@@ -97,9 +98,9 @@ contain only scope and a bounded reason.
 Memory scopes, records, paths, storage, retrieval, content policy, and lifecycle
 policy live in a shared `mnemosyne/memory/` domain rather than inside individual
 MCP Tools. The domain includes mutation-disabled revise, archive, restore, and
-physical-delete primitives. `memory_remember`, `memory_archive`, and
-`memory_restore` are absent from discovery and dispatch unless their independent
-operator gates enable them explicitly.
+physical-delete primitives. `memory_remember`, paired `memory_archive` /
+`memory_restore`, and `memory_forget` are absent from discovery and dispatch
+unless their independent operator gates enable them explicitly.
 
 ## Archiving and Restoring Memory
 
@@ -180,6 +181,72 @@ applicable, schema version, scope, and successful lifecycle state/revision. They
 omit IDs, namespace/collection identity, labels, title, content, tags, complete
 arguments, paths, exception details, and tracebacks.
 
+## Permanently Forgetting Memory
+
+Forget is disabled by default and has its own gate. It is not enabled by
+remember or archive/restore. Persist the operator choice in the fixed settings
+file:
+
+```toml
+[memory]
+forget_enabled = true
+```
+
+Or use the exact process override:
+
+```bash
+export MNEMOSYNE_MEMORY_FORGET_ENABLED=true
+```
+
+Only lowercase `true` and `false` are accepted. Restart the server and MCP
+client after changing either source. Clients that cannot require approval for
+every exact call must leave forget disabled.
+
+Forget accepts the same exact canonical version-2 reference and positive
+`expected_revision` request shape shown above for lifecycle mutation. It accepts
+no legacy reference, path, content, fingerprint, target state, timestamp, or
+confirmation field. The record must already be archived at that current
+revision. A stale request returns `revision_conflict` before state eligibility;
+a current active record returns `not_archived` unchanged. Inspect immediately
+before proposing forget so the complete record, archived state, reference, and
+current revision can be reviewed for per-call approval.
+
+Success physically removes the one source file, leaves organizational
+directories intact, creates no tombstone, hidden history, backup, retained hash,
+or deletion manifest, and returns only:
+
+```json
+{
+  "status": "forgotten",
+  "reference": {
+    "schema_version": 2,
+    "scope": "project",
+    "namespace_id": "mnemosyne",
+    "collection_id": "decisions",
+    "id": "mem_0123456789abcdef0123456789abcdef"
+  }
+}
+```
+
+A second call returns `not_found`; Mnemosyne cannot fabricate idempotent proof
+without a tombstone. Stable bounded codes are `invalid_reference`,
+`invalid_expected_revision`, `mutation_disabled`, `not_archived`, `not_found`,
+`revision_conflict`, `write_conflict`, `memory_source_unavailable`,
+`deletion_outcome_uncertain`, and `internal_error`.
+
+`deletion_outcome_uncertain` means unlink may have succeeded but directory
+durability was not confirmed. Do not retry blindly. Inspect the same reference:
+if it is absent, do not retry; if it is present, review it again, require it to
+remain archived, use its current revision, and obtain new per-call approval. If
+inspection is unavailable, the outcome remains uncertain.
+
+Forgetting is irreversible within Mnemosyne: restore cannot recover a forgotten
+record. Physical source deletion is not secure erasure and does not remove
+filesystem journal data, snapshots, backups, MCP-client history, logs outside
+Mnemosyne, or external copies. Logger `mcp.memory_forget` emits one terminal
+content-free event with only bounded outcome/code/field, schema version, and
+scope metadata.
+
 ## Remembering Memory
 
 Remember is disabled by default. With no setting, an accepted disabled setting,
@@ -201,7 +268,8 @@ The file is optional and read-only to Mnemosyne. Startup does not create or
 edit it or its parent. A missing file, empty document, absent or empty
 `[memory]` table, absent key, or TOML boolean `false` all mean disabled. The
 document may contain only the optional `[memory]` table, which may contain only
-the optional TOML booleans `remember_enabled` and `archive_restore_enabled`;
+the optional TOML booleans `remember_enabled`, `archive_restore_enabled`, and
+`forget_enabled`;
 strings such as `"true"`, unknown keys/tables, and malformed TOML fail startup
 closed.
 
@@ -430,10 +498,10 @@ Unknown fields or mismatched paths make a version-2 record invalid.
 
 Version-2 records are either `active` or `archived`; normal recall excludes
 archived records. Revision replaces the same file atomically without retaining
-hidden prior content. Forgetting is designed as physical deletion with no
-tombstone. Remember creation and reversible archive/restore are exposed behind
-independent explicit gates; revise and physical forget remain unregistered
-domain primitives.
+hidden prior content. Forgetting is physical deletion with no tombstone.
+Remember creation, reversible archive/restore, and archived-only physical forget
+are exposed behind independent explicit gates; revise remains an unregistered
+domain primitive.
 
 All record files are limited to 64 KiB, content to 4,000 characters, and titles
 to 200 characters. Invalid, oversized, too-deep, or unsafe records are skipped
@@ -533,7 +601,7 @@ requires approval for each exact prefixed mutation Tool. The agent-level rule is
 also explicit because per-agent permissions can override top-level rules and
 OpenCode uses the last matching Tool-name rule. It denies the broad server
 prefix first, then allows the three read-only Tools and asks for remember,
-archive, and restore:
+archive, restore, and forget:
 
 ```json
 {
@@ -541,7 +609,8 @@ archive, and restore:
   "permission": {
     "mnemosyne_memory_remember": "ask",
     "mnemosyne_memory_archive": "ask",
-    "mnemosyne_memory_restore": "ask"
+    "mnemosyne_memory_restore": "ask",
+    "mnemosyne_memory_forget": "ask"
   },
   "mcp": {
     "mnemosyne": {
@@ -559,7 +628,8 @@ archive, and restore:
         "mnemosyne_memory_inspect": "allow",
         "mnemosyne_memory_remember": "ask",
         "mnemosyne_memory_archive": "ask",
-        "mnemosyne_memory_restore": "ask"
+        "mnemosyne_memory_restore": "ask",
+        "mnemosyne_memory_forget": "ask"
       }
     }
   }
@@ -567,7 +637,7 @@ archive, and restore:
 ```
 
 This client permission does not enable mutation on the server. The operator
-must separately set the applicable remember or archive/restore server gate and
+must separately set the applicable remember, archive/restore, or forget server gate and
 restart the server. After changing `opencode.json`, quit and restart OpenCode so
 it reloads the configuration and Tool discovery.
 
@@ -579,17 +649,16 @@ enabled: each bypasses approval on later exact calls. If any of those modes was
 used, disable server mutation and restart both the server and OpenCode before
 continuing. Any additional per-agent permission override must preserve
 this order: broad `mnemosyne_*` denial first, explicit read-only allows next,
-and the exact remember/archive/restore `ask` rules last.
+and the exact remember/archive/restore/forget `ask` rules last.
 
 ## Roadmap Shape
 
 Likely next steps:
 
-1. Add explicit, consent-based physical memory deletion after archive/restore.
-2. Add read-only awareness tools.
-3. Add governance rules for consent, hygiene, and no-secret handling.
-4. Refine retrieval using observed local recall behavior.
-5. Continue automated MCP coverage supplemented by direct protocol checks.
+1. Add read-only awareness tools.
+2. Add governance rules for consent, hygiene, and no-secret handling.
+3. Refine retrieval using observed local recall behavior.
+4. Continue automated MCP coverage supplemented by direct protocol checks.
 
 See `VISION.md` for the broader scope and boundaries.
 

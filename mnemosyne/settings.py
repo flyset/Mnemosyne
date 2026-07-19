@@ -16,6 +16,7 @@ MEMORY_REMEMBER_ENABLED_ENV = "MNEMOSYNE_MEMORY_REMEMBER_ENABLED"
 MEMORY_ARCHIVE_RESTORE_ENABLED_ENV = (
     "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED"
 )
+MEMORY_FORGET_ENABLED_ENV = "MNEMOSYNE_MEMORY_FORGET_ENABLED"
 SETTINGS_DIRECTORY_NAME = ".mnemosyne"
 SETTINGS_FILE_NAME = "config.toml"
 SETTINGS_MAX_BYTES = 16 * 1024
@@ -41,6 +42,7 @@ class SettingsError(ValueError):
 class MemoryToolSettings:
     remember_enabled: bool = False
     archive_restore_enabled: bool = False
+    forget_enabled: bool = False
 
 
 def get_memory_root() -> Path:
@@ -231,6 +233,7 @@ def _get_file_memory_tool_settings() -> MemoryToolSettings:
     if set(memory_settings) - {
         "remember_enabled",
         "archive_restore_enabled",
+        "forget_enabled",
     }:
         raise SettingsError("invalid_schema")
     values = {
@@ -239,6 +242,7 @@ def _get_file_memory_tool_settings() -> MemoryToolSettings:
             "archive_restore_enabled",
             False,
         ),
+        "forget_enabled": memory_settings.get("forget_enabled", False),
     }
     if any(not isinstance(value, bool) for value in values.values()):
         raise SettingsError("invalid_schema")
@@ -261,10 +265,16 @@ def get_memory_tool_settings() -> MemoryToolSettings:
     archive_restore_override = _environment_boolean(
         MEMORY_ARCHIVE_RESTORE_ENABLED_ENV
     )
-    if remember_override is not None and archive_restore_override is not None:
+    forget_override = _environment_boolean(MEMORY_FORGET_ENABLED_ENV)
+    if (
+        remember_override is not None
+        and archive_restore_override is not None
+        and forget_override is not None
+    ):
         return MemoryToolSettings(
             remember_enabled=remember_override,
             archive_restore_enabled=archive_restore_override,
+            forget_enabled=forget_override,
         )
 
     file_settings = _get_file_memory_tool_settings()
@@ -279,6 +289,11 @@ def get_memory_tool_settings() -> MemoryToolSettings:
             if archive_restore_override is None
             else archive_restore_override
         ),
+        forget_enabled=(
+            file_settings.forget_enabled
+            if forget_override is None
+            else forget_override
+        ),
     )
 
 
@@ -288,3 +303,7 @@ def get_memory_remember_enabled() -> bool:
 
 def get_memory_archive_restore_enabled() -> bool:
     return get_memory_tool_settings().archive_restore_enabled
+
+
+def get_memory_forget_enabled() -> bool:
+    return get_memory_tool_settings().forget_enabled

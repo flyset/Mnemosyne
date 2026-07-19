@@ -9,6 +9,8 @@ REMEMBER_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_rememb
 INSPECT_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_inspect"
 ARCHIVE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_archive"
 RESTORE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_restore"
+FORGET_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_forget"
+FORGET_HELPER = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_forget.py"
 LIFECYCLE_HELPER = (
     PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_lifecycle.py"
 )
@@ -164,3 +166,41 @@ def test_memory_lifecycle_adapters_preserve_shared_domain_ownership() -> None:
         assert "mnemosyne.memory.service" in imports
         assert "mnemosyne.memory.store" in imports
         assert "mnemosyne.settings" in imports
+
+
+def test_memory_forget_package_contains_only_mcp_adapter_modules() -> None:
+    assert sorted(path.name for path in FORGET_PACKAGE.glob("*.py")) == [
+        "__init__.py",
+        "definition.py",
+        "handler.py",
+    ]
+
+
+def test_memory_forget_adapter_preserves_shared_domain_ownership() -> None:
+    helper_imports = _imports(FORGET_HELPER)
+    package_imports = {
+        imported
+        for path in FORGET_PACKAGE.glob("*.py")
+        for imported in _imports(path)
+    }
+
+    assert "mnemosyne.mcp.tools._memory_lifecycle" in helper_imports
+    assert "mnemosyne.memory.records" in helper_imports
+    assert "mnemosyne.memory.service" in helper_imports
+    assert "mnemosyne.memory.store" not in helper_imports
+    assert "mnemosyne.mcp.tools._memory_forget" in package_imports
+    assert "mnemosyne.memory.records" in package_imports
+    assert "mnemosyne.memory.service" in package_imports
+    assert "mnemosyne.memory.store" in package_imports
+    assert "mnemosyne.settings" in package_imports
+    assert all(
+        not imported.startswith(
+            (
+                "mnemosyne.mcp.tools.memory_archive",
+                "mnemosyne.mcp.tools.memory_restore",
+                "mnemosyne.routes",
+                "fastapi",
+            )
+        )
+        for imported in helper_imports | package_imports
+    )

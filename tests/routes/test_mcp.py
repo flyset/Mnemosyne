@@ -129,7 +129,16 @@ def test_mcp_tools_list_exposes_the_registered_tools() -> None:
         [],
         ["memory_archive", "memory_restore"],
         ["memory_remember"],
+        ["memory_forget"],
         ["memory_archive", "memory_restore", "memory_remember"],
+        ["memory_archive", "memory_restore", "memory_forget"],
+        ["memory_remember", "memory_forget"],
+        [
+            "memory_archive",
+            "memory_restore",
+            "memory_remember",
+            "memory_forget",
+        ],
     )
 
 

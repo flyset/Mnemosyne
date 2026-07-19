@@ -10,6 +10,8 @@ from pathlib import Path
 from mnemosyne.memory.errors import (
     AmbiguousMemoryReference,
     CandidateLimitExceeded,
+    DeletionOutcomeUncertain,
+    MemoryNotArchived,
     MemoryNotFound,
     MemorySourceUnavailable,
     MemoryValidationError,
@@ -25,6 +27,7 @@ from mnemosyne.memory.paths import (
 from mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
+    LifecycleState,
     MemoryRecordV2,
     MemoryReference,
     parse_memory_record,
@@ -65,9 +68,17 @@ def _log_skipped(scope: MemoryScope, reason: str) -> None:
 
 
 class FilesystemMemoryStore:
+    _lock_registry_guard = threading.Lock()
+    _mutation_locks: dict[Path, threading.RLock] = {}
+
     def __init__(self, memory_root: Path) -> None:
         self.memory_root = memory_root
-        self._mutation_lock = threading.RLock()
+        lock_key = memory_root.absolute()
+        with self._lock_registry_guard:
+            self._mutation_lock = self._mutation_locks.setdefault(
+                lock_key,
+                threading.RLock(),
+            )
 
     def _discover_candidates(
         self,
@@ -216,9 +227,13 @@ class FilesystemMemoryStore:
 
     def _fingerprint(self, path: Path) -> str:
         try:
-            return hashlib.sha256(path.read_bytes()).hexdigest()
+            with path.open("rb") as source:
+                raw_record = source.read(MAX_FILE_BYTES + 1)
         except OSError as error:
             raise MemorySourceUnavailable from error
+        if len(raw_record) > MAX_FILE_BYTES:
+            raise MemorySourceUnavailable
+        return hashlib.sha256(raw_record).hexdigest()
 
     def _sync_directory(self, directory: Path) -> None:
         if os.name != "posix":
@@ -434,20 +449,43 @@ class FilesystemMemoryStore:
 
     def delete(
         self,
-        reference: MemoryReference | LegacyMemoryReference,
+        reference: MemoryReference,
         *,
-        expected_revision: int | None,
-    ) -> StoredMemory:
+        expected_revision: int,
+    ) -> None:
+        if not isinstance(reference, MemoryReference):
+            raise MemoryValidationError(
+                "invalid_reference",
+                "reference",
+                "reference does not identify a version-2 memory",
+            )
+        if type(expected_revision) is not int or expected_revision < 1:
+            raise MemoryValidationError(
+                "invalid_record",
+                "expected_revision",
+                "invalid expected_revision",
+            )
         with self._mutation_lock:
             stored = self.get(reference)
-            if isinstance(stored.record, MemoryRecordV2):
-                if stored.record.lifecycle.revision != expected_revision:
-                    raise RevisionConflict
-            elif expected_revision is not None:
+            if not isinstance(stored.record, MemoryRecordV2):
+                raise MemoryValidationError(
+                    "invalid_reference",
+                    "reference",
+                    "reference does not identify a version-2 memory",
+                )
+            if stored.record.lifecycle.revision != expected_revision:
                 raise RevisionConflict
+            if stored.record.lifecycle.state is not LifecycleState.ARCHIVED:
+                raise MemoryNotArchived
 
             path = self.memory_root / stored.relative_path
-            if self._fingerprint(path) != stored.fingerprint:
+            scope_path = scope_directory(self.memory_root, reference.scope)
+            self._reject_symlink_components(scope_path, path)
+            try:
+                fingerprint = self._fingerprint(path)
+            except MemorySourceUnavailable as error:
+                raise WriteConflict from error
+            if fingerprint != stored.fingerprint:
                 raise WriteConflict
             try:
                 path.unlink()
@@ -455,5 +493,7 @@ class FilesystemMemoryStore:
                 raise WriteConflict from error
             except OSError as error:
                 raise MemorySourceUnavailable from error
-            self._sync_directory(path.parent)
-            return stored
+            try:
+                self._sync_directory(path.parent)
+            except Exception as error:
+                raise DeletionOutcomeUncertain from error

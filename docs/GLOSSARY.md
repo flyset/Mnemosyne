@@ -18,6 +18,11 @@
 - **Memory remember** — the explicit, consent-gated MCP mutation that validates one bounded approved draft and, only when operator-enabled, atomically creates a canonical version-2 record or returns an exact duplicate outcome.
 - **Memory archive** — the explicit consent-gated MCP mutation that revision-checks one exact active canonical memory, atomically changes it to archived, and removes it from normal recall without deleting it.
 - **Memory restore** — the explicit consent-gated MCP mutation that revision-checks one exact archived canonical memory, atomically changes it to active, and returns it to normal recall.
+- **Memory forget** — the independently enabled, irreversible MCP mutation that revision-checks one exact archived canonical version-2 memory and physically removes its source file without creating a tombstone.
+- **Memory forget request** — exactly one canonical version-2 reference plus its positive current `expected_revision`; it accepts no legacy identity, path, content, fingerprint, target state, timestamp, or model confirmation.
+- **Memory forget outcome** — `forgotten` with only the same canonical versioned reference; a later call returns `not_found` because no tombstone exists.
+- **Forget enablement** — the startup-fixed forget-only gate controlled first by exact `MNEMOSYNE_MEMORY_FORGET_ENABLED`, otherwise by strict `[memory].forget_enabled`, and finally by a disabled default; it is independent of remember, archive/restore, and MCP-client consent.
+- **Uncertain deletion outcome** — unlink may have succeeded but parent-directory durability was not confirmed; the caller must inspect the same reference before any newly reviewed and approved retry, without treating absence as tombstone-backed secure-erasure proof.
 - **Lifecycle mutation request** — exactly one canonical version-2 reference plus its positive current `expected_revision`; it accepts no legacy identity, path, content, target state, timestamp, or model confirmation.
 - **Lifecycle mutation outcome** — `archived`, `already_archived`, `restored`, or `already_active`, with only the canonical versioned reference and lifecycle; changed outcomes increment revision once, while current-state outcomes do not write.
 - **Archive/restore enablement** — the startup-fixed reversible-lifecycle gate controlled first by exact `MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED`, otherwise by strict `[memory].archive_restore_enabled`, and finally by a disabled default; it is independent of remember enablement and MCP-client consent.
@@ -36,7 +41,7 @@
 - **Recall match evidence** — the sorted terms and tags explaining which request signals matched a returned memory record; it excludes paths and internal scores.
 - **Recall reference continuity** — the inspect-compatible versioned reference included with every successful recall match so an active canonical or legacy result can be selected exactly without exposing a path.
 - **Memory recall** — read-only retrieval that validates a recall request, searches only its selected scope directory, and returns bounded approved records with inspect-compatible references without persisting the request.
-- **Memory mutation** — an explicit create, revise, archive, restore, relocate, or physical-forget operation; domain primitives are disabled by default, while remember and reversible archive/restore are the implemented MCP mutations behind independent startup gates.
+- **Memory mutation** — an explicit create, revise, archive, restore, relocate, or physical-forget operation; domain primitives are disabled by default, while remember, reversible archive/restore, and archived-only forget are implemented MCP mutations behind independent startup gates.
 - **Reflection** — operational agent configuration, such as policies, checklists, and failure-mode mitigations; not personal facts.
 - **Session context** — selectively retrieved summaries or excerpts from prior agent sessions.
 
@@ -52,3 +57,4 @@
 - **Retrieval error** — a Tool error indicating that a validated recall request could not safely read its source or exceeded the candidate limit; it does not expose internal filesystem details.
 - **Inspection error** — a Tool error with a stable bounded code for an invalid, missing, ambiguous, excessive, unsafe/unavailable, or unexpectedly failed exact inspection; it exposes no path, record content, or underlying exception.
 - **Lifecycle mutation error** — a Tool error with a stable bounded code for invalid canonical identity/revision, disabled mutation, missing memory, stale revision, publication conflict, unsafe/unavailable storage, or unexpected failure; it exposes no submitted value, path, record content, or underlying exception.
+- **Memory forget error** — a bounded Tool error for invalid canonical identity/revision, disabled mutation, active state, absence, stale revision, changed storage, unsafe/unavailable storage, uncertain deletion, or unexpected failure; it exposes no record content, path, fingerprint, complete arguments, or exception detail.

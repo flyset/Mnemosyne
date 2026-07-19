@@ -41,6 +41,14 @@ class WriteConflict(MemoryDomainError):
     code = "write_conflict"
 
 
+class MemoryNotArchived(MemoryDomainError):
+    code = "not_archived"
+
+
+class DeletionOutcomeUncertain(MemoryDomainError):
+    code = "deletion_outcome_uncertain"
+
+
 class DisallowedMemoryContent(MemoryDomainError):
     code = "disallowed_content"
 

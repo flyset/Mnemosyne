@@ -3,7 +3,8 @@
   "permission": {
     "mnemosyne_memory_remember": "ask",
     "mnemosyne_memory_archive": "ask",
-    "mnemosyne_memory_restore": "ask"
+    "mnemosyne_memory_restore": "ask",
+    "mnemosyne_memory_forget": "ask"
   },
   "mcp": {
     "mnemosyne": {
@@ -21,7 +22,8 @@
         "mnemosyne_memory_inspect": "allow",
         "mnemosyne_memory_remember": "ask",
         "mnemosyne_memory_archive": "ask",
-        "mnemosyne_memory_restore": "ask"
+        "mnemosyne_memory_restore": "ask",
+        "mnemosyne_memory_forget": "ask"
       }
     }
   }

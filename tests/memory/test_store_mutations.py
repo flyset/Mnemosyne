@@ -1,6 +1,8 @@
 import json
 import os
 import stat
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,6 +10,9 @@ from pathlib import Path
 import pytest
 
 from mnemosyne.memory.errors import (
+    DeletionOutcomeUncertain,
+    MemoryNotArchived,
+    MemoryNotFound,
     MemorySourceUnavailable,
     MemoryValidationError,
     RevisionConflict,
@@ -29,7 +34,12 @@ from mnemosyne.memory.store import FilesystemMemoryStore
 MEMORY_ID = "mem_0123456789abcdef0123456789abcdef"
 
 
-def _payload(*, content: str = "Original content", revision: int = 1) -> dict[str, object]:
+def _payload(
+    *,
+    content: str = "Original content",
+    revision: int = 1,
+    state: str = "active",
+) -> dict[str, object]:
     return {
         "schema_version": 2,
         "id": MEMORY_ID,
@@ -49,14 +59,21 @@ def _payload(*, content: str = "Original content", revision: int = 1) -> dict[st
             "origin": "explicit_user_statement",
             "recorded_via": "memory_remember",
         },
-        "lifecycle": {"state": "active", "revision": revision},
+        "lifecycle": {"state": state, "revision": revision},
         "created_at": "2026-07-18T12:00:00Z",
         "updated_at": f"2026-07-18T12:00:0{revision - 1}Z",
     }
 
 
-def _record(*, content: str = "Original content", revision: int = 1) -> MemoryRecordV2:
-    record = parse_memory_record(_payload(content=content, revision=revision))
+def _record(
+    *,
+    content: str = "Original content",
+    revision: int = 1,
+    state: str = "active",
+) -> MemoryRecordV2:
+    record = parse_memory_record(
+        _payload(content=content, revision=revision, state=state)
+    )
     assert isinstance(record, MemoryRecordV2)
     return record
 
@@ -211,18 +228,37 @@ def test_store_replace_detects_external_change_before_publication(
     assert list((tmp_path / "project" / "mnemosyne" / "decisions").glob(".*.tmp")) == []
 
 
-def test_store_physically_deletes_current_record_and_leaves_directories(
+def test_store_physically_deletes_current_archived_record_without_artifacts(
+    tmp_path: Path,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    stored = store.create(_record(revision=2, state="archived"))
+    path = tmp_path / stored.relative_path
+    unrelated = path.parent / "unrelated.txt"
+    unrelated.write_bytes(b"unrelated")
+
+    result = store.delete(_reference(), expected_revision=2)
+
+    assert result is None
+    assert not path.exists()
+    assert path.parent.is_dir()
+    assert list(tmp_path.rglob("*.json")) == []
+    assert unrelated.read_bytes() == b"unrelated"
+    assert sorted(item.name for item in path.parent.iterdir()) == ["unrelated.txt"]
+
+
+def test_store_delete_rejects_current_active_record_without_changing_it(
     tmp_path: Path,
 ) -> None:
     store = FilesystemMemoryStore(tmp_path)
     stored = store.create(_record())
     path = tmp_path / stored.relative_path
+    before = (path.read_bytes(), path.stat().st_mtime_ns)
 
-    store.delete(_reference(), expected_revision=1)
+    with pytest.raises(MemoryNotArchived):
+        store.delete(_reference(), expected_revision=1)
 
-    assert not path.exists()
-    assert path.parent.is_dir()
-    assert list(tmp_path.rglob("*.json")) == []
+    assert (path.read_bytes(), path.stat().st_mtime_ns) == before
 
 
 def test_store_delete_rejects_revision_mismatch(tmp_path: Path) -> None:
@@ -233,7 +269,125 @@ def test_store_delete_rejects_revision_mismatch(tmp_path: Path) -> None:
         store.delete(_reference(), expected_revision=2)
 
 
-def test_store_physically_deletes_unique_legacy_record(tmp_path: Path) -> None:
+@pytest.mark.parametrize("invalid_revision", [True, False, 0, -1, 1.0, "1", None])
+def test_store_delete_rejects_invalid_revision_before_read(
+    invalid_revision: object,
+    tmp_path: Path,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    store.get = lambda reference: pytest.fail("store read must not run")
+
+    with pytest.raises(MemoryValidationError) as caught:
+        store.delete(_reference(), expected_revision=invalid_revision)
+
+    assert caught.value.field == "expected_revision"
+
+
+def test_store_delete_rejects_legacy_reference_before_discovery(tmp_path: Path) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    store.discover = lambda scope: pytest.fail("legacy discovery must not run")
+
+    with pytest.raises(MemoryValidationError) as caught:
+        store.delete(
+            LegacyMemoryReference(scope=MemoryScope.PREFERENCE, id="legacy"),
+            expected_revision=1,
+        )
+
+    assert caught.value.code == "invalid_reference"
+    assert caught.value.field == "reference"
+
+
+def test_store_delete_detects_external_change_and_preserves_changed_record(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    stored = store.create(_record(revision=2, state="archived"))
+    path = tmp_path / stored.relative_path
+
+    def tamper_then_fingerprint(selected: Path) -> str:
+        selected.write_text(
+            json.dumps(_payload(content="External change", revision=2, state="archived")),
+            encoding="utf-8",
+        )
+        return FilesystemMemoryStore._fingerprint(store, selected)
+
+    monkeypatch.setattr(store, "_fingerprint", tamper_then_fingerprint)
+
+    with pytest.raises(WriteConflict):
+        store.delete(_reference(), expected_revision=2)
+
+    assert path.exists()
+    assert store.get(_reference()).record.content == "External change"
+
+
+def test_store_delete_reports_uncertain_outcome_after_unlink_sync_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    stored = store.create(_record(revision=2, state="archived"))
+    path = tmp_path / stored.relative_path
+    monkeypatch.setattr(
+        store,
+        "_sync_directory",
+        lambda directory: (_ for _ in ()).throw(MemorySourceUnavailable()),
+    )
+
+    with pytest.raises(DeletionOutcomeUncertain):
+        store.delete(_reference(), expected_revision=2)
+
+    assert not path.exists()
+    assert path.parent.is_dir()
+
+
+def test_store_mutations_share_a_lock_across_instances(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deleting_store = FilesystemMemoryStore(tmp_path)
+    replacing_store = FilesystemMemoryStore(tmp_path)
+    original = _record(revision=2, state="archived")
+    deleting_store.create(original)
+    replacement = replace(
+        original,
+        lifecycle=MemoryLifecycle(state=LifecycleState.ACTIVE, revision=3),
+        updated_at=datetime(2026, 7, 18, 12, 0, 2, tzinfo=timezone.utc),
+    )
+    fingerprint_read = threading.Event()
+    continue_delete = threading.Event()
+    original_fingerprint = deleting_store._fingerprint
+
+    def pause_after_fingerprint(path: Path) -> str:
+        fingerprint = original_fingerprint(path)
+        fingerprint_read.set()
+        assert continue_delete.wait(timeout=2)
+        return fingerprint
+
+    monkeypatch.setattr(deleting_store, "_fingerprint", pause_after_fingerprint)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        deleting = executor.submit(
+            deleting_store.delete,
+            _reference(),
+            expected_revision=2,
+        )
+        assert fingerprint_read.wait(timeout=2)
+        replacing = executor.submit(
+            replacing_store.replace,
+            replacement,
+            expected_revision=2,
+        )
+        assert not replacing.done()
+        continue_delete.set()
+        assert deleting.result(timeout=2) is None
+        with pytest.raises(MemoryNotFound):
+            replacing.result(timeout=2)
+
+
+def test_store_legacy_records_remain_readable_but_are_not_deletable(
+    tmp_path: Path,
+) -> None:
     path = tmp_path / "preference" / "leisure" / "legacy.json"
     path.parent.mkdir(parents=True)
     path.write_text(
@@ -247,11 +401,11 @@ def test_store_physically_deletes_unique_legacy_record(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     store = FilesystemMemoryStore(tmp_path)
+    reference = LegacyMemoryReference(scope=MemoryScope.PREFERENCE, id="legacy")
 
-    store.delete(
-        LegacyMemoryReference(scope=MemoryScope.PREFERENCE, id="legacy"),
-        expected_revision=None,
-    )
+    assert store.get(reference).record.content == "Legacy content"
+    with pytest.raises(MemoryValidationError):
+        store.delete(reference, expected_revision=1)
 
-    assert not path.exists()
+    assert path.exists()
     assert path.parent.is_dir()

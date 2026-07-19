@@ -29,6 +29,11 @@ RESTORE_TOOL = {
     "description": "Synthetic restore registration for registry tests.",
     "inputSchema": {"type": "object", "properties": {}},
 }
+FORGET_TOOL = {
+    "name": "memory_forget",
+    "description": "Synthetic forget registration for registry tests.",
+    "inputSchema": {"type": "object", "properties": {}},
+}
 
 
 def _remember(arguments: dict[str, object]) -> dict[str, object]:
@@ -62,6 +67,12 @@ def _archive(arguments: dict[str, object]) -> dict[str, object]:
 def _restore(arguments: dict[str, object]) -> dict[str, object]:
     return {
         "content": [{"type": "text", "text": f"restored:{arguments.get('value')}"}]
+    }
+
+
+def _forget(arguments: dict[str, object]) -> dict[str, object]:
+    return {
+        "content": [{"type": "text", "text": f"forgotten:{arguments.get('value')}"}]
     }
 
 
@@ -295,6 +306,92 @@ def test_registry_fails_closed_for_incomplete_enabled_archive_restore_pair(
             memory_archive_restore_enabled=True,
             **registration,
         )
+
+
+def test_registry_omits_disabled_forget_from_discovery_and_dispatch() -> None:
+    registry = build_tool_registry(
+        False,
+        memory_forget_enabled=False,
+        memory_forget_tool=FORGET_TOOL,
+        memory_forget_handler=_forget,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+    ]
+    assert registry.call_tool("memory_forget", {"value": "safe"}) is None
+
+
+def test_registry_injects_forget_discovery_and_dispatch_together() -> None:
+    registry = build_tool_registry(
+        False,
+        memory_forget_enabled=True,
+        memory_forget_tool=FORGET_TOOL,
+        memory_forget_handler=_forget,
+    )
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_forget",
+    ]
+    assert registry.call_tool("memory_forget", {"value": "safe"}) == {
+        "content": [{"type": "text", "text": "forgotten:safe"}]
+    }
+
+
+@pytest.mark.parametrize(
+    "registration",
+    [
+        {},
+        {"memory_forget_tool": FORGET_TOOL},
+        {"memory_forget_handler": _forget},
+    ],
+)
+def test_registry_fails_closed_for_incomplete_enabled_forget_registration(
+    registration: dict[str, object],
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="^memory forget registration is unavailable$",
+    ):
+        build_tool_registry(
+            False,
+            memory_forget_enabled=True,
+            **registration,
+        )
+
+
+def test_startup_registry_exposes_forget_only_when_independently_enabled() -> None:
+    disabled = build_startup_tool_registry(False, False, False)
+    enabled = build_startup_tool_registry(False, False, True)
+
+    assert "memory_forget" not in [tool["name"] for tool in disabled.tools]
+    assert disabled.call_tool("memory_forget", {}) is None
+    assert [tool["name"] for tool in enabled.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_forget",
+    ]
+    result = enabled.call_tool("memory_forget", {})
+    assert result is not None
+    assert '"code":"invalid_reference"' in result["content"][0]["text"]
+
+
+def test_startup_registry_orders_forget_after_other_mutations() -> None:
+    registry = build_startup_tool_registry(True, True, True)
+
+    assert [tool["name"] for tool in registry.tools] == [
+        "list_tools",
+        "memory_recall",
+        "memory_inspect",
+        "memory_archive",
+        "memory_restore",
+        "memory_remember",
+        "memory_forget",
+    ]
 
 
 def test_startup_registry_connects_inspect_and_real_remember_only_when_enabled(
