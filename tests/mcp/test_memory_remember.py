@@ -238,6 +238,18 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
     ]
 
 
+def test_memory_remember_description_explains_safe_refusal_recovery() -> None:
+    description = TOOL["description"]
+
+    assert "disallowed_content" in description
+    assert "bounded field and reason" in description
+    assert "Do not obfuscate suspected sensitive data" in description
+    assert (
+        "retry only when the user confirms that the formatting is benign and "
+        "approves the exact revised call"
+    ) in description
+
+
 def test_memory_remember_schema_renders_canonical_kind_guidance() -> None:
     schema = TOOL["inputSchema"]
     branches_by_scope = {
@@ -631,7 +643,84 @@ def test_memory_remember_refuses_disallowed_content_without_writing(
     assert _payload(result) == {
         "status": "refused",
         "code": "disallowed_content",
-        "message": "memory contains content that Mnemosyne does not store",
+        "field": "content",
+        "reason": "credential_shape",
+        "message": (
+            "memory field resembles content that Mnemosyne does not store; "
+            "review the named field and retry only if the user confirms that "
+            "the formatting is benign"
+        ),
+    }
+    assert not memory_root.parent.exists()
+
+
+@pytest.mark.parametrize(
+    ("domain_field", "expected_public_field"),
+    [
+        ("namespace.id", "namespace"),
+        ("namespace.label", "namespace"),
+        ("collection.id", "collection"),
+        ("collection.label", "collection"),
+        ("title", "title"),
+        ("content", "content"),
+        ("tags", "tags"),
+    ],
+)
+def test_memory_remember_maps_refusal_to_bounded_public_field(
+    domain_field: str,
+    expected_public_field: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_root = tmp_path / "application" / "memory"
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(memory_root))
+    arguments = _arguments()
+    rejected = "sk-" + "a" * 20
+    if domain_field == "namespace.id":
+        arguments["namespace"]["id"] = rejected
+    elif domain_field == "namespace.label":
+        arguments["namespace"]["label"] = rejected
+    elif domain_field == "collection.id":
+        arguments["collection"]["id"] = rejected
+    elif domain_field == "collection.label":
+        arguments["collection"]["label"] = rejected
+    elif domain_field == "tags":
+        arguments["tags"] = [rejected]
+    else:
+        arguments[domain_field] = rejected
+
+    result = handle(arguments, mutations_enabled=True)
+    payload = _payload(result)
+
+    assert result["isError"] is True
+    assert payload["field"] == expected_public_field
+    assert payload["reason"] == "credential_shape"
+    assert rejected not in result["content"][0]["text"]
+    assert not memory_root.parent.exists()
+
+
+def test_memory_remember_classifies_dotted_version_without_source_access(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    memory_root = tmp_path / "application" / "memory"
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(memory_root))
+    arguments = _arguments()
+    arguments["content"] = "Compatibility build 0.1.0"
+
+    result = handle(arguments, mutations_enabled=True)
+
+    assert result["isError"] is True
+    assert _payload(result) == {
+        "status": "refused",
+        "code": "disallowed_content",
+        "field": "content",
+        "reason": "compact_token_shape",
+        "message": (
+            "memory field resembles content that Mnemosyne does not store; "
+            "review the named field and retry only if the user confirms that "
+            "the formatting is benign"
+        ),
     }
     assert not memory_root.parent.exists()
 
@@ -766,6 +855,8 @@ def test_memory_remember_logs_refusal_without_rejected_value_or_path(
         "collection_present=True origin=user_approved_proposal"
     ]
     assert rejected not in caplog.messages[0]
+    assert "field=" not in caplog.messages[0]
+    assert "credential_shape" not in caplog.messages[0]
     assert str(tmp_path) not in caplog.messages[0]
 
 

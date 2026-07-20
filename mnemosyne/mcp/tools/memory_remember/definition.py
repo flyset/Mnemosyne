@@ -249,7 +249,10 @@ TOOL = {
         "call. Never include secrets, credentials, private keys, payment-card or "
         "government-identifier values, unrelated personal details, paths, or "
         "server-owned record fields. Do not call when the client cannot require "
-        "approval for this exact invocation."
+        "approval for this exact invocation. A disallowed_content refusal returns "
+        "only a bounded field and reason for reviewing the original arguments. Do "
+        "not obfuscate suspected sensitive data; retry only when the user confirms "
+        "that the formatting is benign and approves the exact revised call."
     ),
     "inputSchema": {
         "type": "object",

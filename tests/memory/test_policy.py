@@ -2,7 +2,10 @@ from copy import deepcopy
 
 import pytest
 
-from mnemosyne.memory.errors import DisallowedMemoryContent
+from mnemosyne.memory.errors import (
+    ContentRefusalReason,
+    DisallowedMemoryContent,
+)
 from mnemosyne.memory.policy import (
     validate_remember_content,
     validate_revision_content,
@@ -49,34 +52,53 @@ def _revision_arguments() -> dict[str, object]:
 
 
 @pytest.mark.parametrize(
-    "disallowed",
+    ("disallowed", "expected_reason"),
     [
-        "-----BEGIN PRIVATE KEY-----",
-        "-----BEGIN RSA PRIVATE KEY-----",
-        "-----BEGIN PGP PRIVATE KEY BLOCK-----",
-        "AKIA" + "A" * 16,
-        "ASIA" + "1" * 16,
-        "ghp_" + "a" * 20,
-        "github_pat_" + "a" * 20,
-        "xoxb-" + "a" * 10,
-        "sk_live_" + "a" * 16,
-        "rk_live_" + "a" * 16,
-        "AIza" + "a" * 35,
-        "sk-" + "a" * 20,
-        "Authorization: Bearer synthetic-token",
-        "authorization: basic synthetic-token",
-        "client_secret=synthetic-value",
-        "postgresql://user:synthetic-password@localhost/db",
-        "eyJhbGciOiJub25lIn0.c3ludGhldGlj.c2lnbmF0dXJl",
-        "4242 4242 4242 4242",
-        "123-45-6789",
+        ("-----BEGIN PRIVATE KEY-----", ContentRefusalReason.PRIVATE_KEY_SHAPE),
+        ("-----BEGIN RSA PRIVATE KEY-----", ContentRefusalReason.PRIVATE_KEY_SHAPE),
+        (
+            "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+            ContentRefusalReason.PRIVATE_KEY_SHAPE,
+        ),
+        ("AKIA" + "A" * 16, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("ASIA" + "1" * 16, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("ghp_" + "a" * 20, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("github_pat_" + "a" * 20, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("xoxb-" + "a" * 10, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("sk_live_" + "a" * 16, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("rk_live_" + "a" * 16, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("AIza" + "a" * 35, ContentRefusalReason.CREDENTIAL_SHAPE),
+        ("sk-" + "a" * 20, ContentRefusalReason.CREDENTIAL_SHAPE),
+        (
+            "Authorization: Bearer synthetic-token",
+            ContentRefusalReason.CREDENTIAL_SHAPE,
+        ),
+        (
+            "authorization: basic synthetic-token",
+            ContentRefusalReason.CREDENTIAL_SHAPE,
+        ),
+        ("client_secret=synthetic-value", ContentRefusalReason.CREDENTIAL_SHAPE),
+        (
+            "postgresql://user:synthetic-password@localhost/db",
+            ContentRefusalReason.CREDENTIAL_SHAPE,
+        ),
+        (
+            "eyJhbGciOiJub25lIn0.c3ludGhldGlj.c2lnbmF0dXJl",
+            ContentRefusalReason.COMPACT_TOKEN_SHAPE,
+        ),
+        ("4242 4242 4242 4242", ContentRefusalReason.PAYMENT_CARD_SHAPE),
+        ("123-45-6789", ContentRefusalReason.GOVERNMENT_IDENTIFIER_SHAPE),
     ],
 )
 def test_remember_policy_rejects_declared_sensitive_signatures(
     disallowed: str,
+    expected_reason: ContentRefusalReason,
 ) -> None:
-    with pytest.raises(DisallowedMemoryContent):
+    with pytest.raises(DisallowedMemoryContent) as caught:
         validate_remember_content(_draft_with_content(disallowed))
+
+    assert caught.value.field == "content"
+    assert caught.value.reason is expected_reason
 
 
 @pytest.mark.parametrize(
@@ -100,6 +122,30 @@ def test_remember_policy_rejects_declared_sensitive_signatures(
 )
 def test_remember_policy_allows_near_misses(allowed: str) -> None:
     validate_remember_content(_draft_with_content(allowed))
+
+
+def test_remember_policy_classifies_dotted_version_as_compact_token_shape() -> None:
+    with pytest.raises(DisallowedMemoryContent) as caught:
+        validate_remember_content(_draft_with_content("Compatibility build 0.1.0"))
+
+    assert caught.value.field == "content"
+    assert caught.value.reason is ContentRefusalReason.COMPACT_TOKEN_SHAPE
+
+
+def test_remember_policy_reports_only_first_match_without_retaining_value() -> None:
+    rejected = "client_secret=aaa.bbb.ccc"
+
+    with pytest.raises(DisallowedMemoryContent) as caught:
+        validate_remember_content(_draft_with_content(rejected))
+
+    assert caught.value.field == "content"
+    assert caught.value.reason is ContentRefusalReason.CREDENTIAL_SHAPE
+    assert caught.value.args == ("disallowed_content",)
+    assert vars(caught.value) == {
+        "field": "content",
+        "reason": ContentRefusalReason.CREDENTIAL_SHAPE,
+    }
+    assert rejected not in repr(caught.value)
 
 
 @pytest.mark.parametrize(
@@ -132,18 +178,33 @@ def test_remember_policy_inspects_every_caller_owned_free_form_field(
     else:
         arguments[field] = signal
 
-    with pytest.raises(DisallowedMemoryContent):
+    with pytest.raises(DisallowedMemoryContent) as caught:
         validate_remember_content(MemoryDraft.from_dict(arguments))
+
+    assert caught.value.field == field
+    assert caught.value.reason is ContentRefusalReason.CREDENTIAL_SHAPE
 
 
 @pytest.mark.parametrize(
-    "field",
-    ["namespace_label", "collection_label", "title", "content", "tags"],
+    ("field", "expected_domain_field"),
+    [
+        ("namespace_label", "namespace.label"),
+        ("collection_label", "collection.label"),
+        ("title", "title"),
+        ("content", "content"),
+        ("tags", "tags"),
+    ],
 )
-def test_revision_policy_inspects_every_replacement_text_field(field: str) -> None:
+def test_revision_policy_inspects_every_replacement_text_field(
+    field: str,
+    expected_domain_field: str,
+) -> None:
     arguments = _revision_arguments()
     signal = "sk-" + "a" * 20
     arguments[field] = [signal] if field == "tags" else signal
 
-    with pytest.raises(DisallowedMemoryContent):
+    with pytest.raises(DisallowedMemoryContent) as caught:
         validate_revision_content(MemoryRevision.from_dict(arguments))
+
+    assert caught.value.field == expected_domain_field
+    assert caught.value.reason is ContentRefusalReason.CREDENTIAL_SHAPE

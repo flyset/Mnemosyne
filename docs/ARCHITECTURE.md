@@ -60,6 +60,7 @@ mnemosyne/
     tools/
       __init__.py
       registry.py     # MCP tool registry and dispatch
+      _memory_content_refusal.py # shared non-content remediation message
       _memory_lifecycle.py # private lifecycle schemas, projections, errors, logs
       _memory_revise.py # private revise schema, parsing, projection, errors, logs
       _memory_forget.py # private forget projection, errors, and content-free logs
@@ -175,7 +176,9 @@ Owns tool-independent memory meaning and local persistence:
 - project-event occurrence validation, duplicate identity, and immutable
   replacement enforcement;
 - active/archived eligibility, deterministic ranking, and match evidence;
-- bounded remember/revision content refusal before storage access;
+- bounded remember/revision first-match content refusal, canonical source field,
+  broad reason classification, and no retained rejected value before storage
+  access;
 - active/archived revision and exact no-op semantics;
 - uncertain post-publication replacement durability;
 - mutation-disabled-by-default lifecycle policy.
@@ -300,6 +303,10 @@ reference, and lifecycle for `remembered`, `already_exists`, or
 `existing_archived`; failures are bounded Tool errors. Logger
 `mcp.memory_remember` emits one content-free terminal event and never records
 submitted memory text, labels, tags, paths, exception messages, or tracebacks.
+For content refusal, the handler maps canonical namespace/collection source
+fields to bounded top-level caller-visible names and returns that field, one
+broad reason, and stable safe-retry guidance. It does not add refusal field or
+reason to the minimized log event.
 
 Event is a kind under `project`, not a seventh scope or a separate temporal
 resource family. There is no timeline/membership model, chronological query,
@@ -329,6 +336,15 @@ lifecycle state, and atomically replaces the same file only on change. Changed
 results are `revised`; no-ops are `already_current`. Archived records remain
 archived and recall-excluded. Revision retains no patch, backup, tombstone, or
 hidden prior content.
+
+`_memory_content_refusal.py` is a private capability-free MCP helper containing
+only the stable remediation message shared by remember and revision. The revise
+adapter maps canonical `namespace.label` and `collection.label` refusal fields
+to `namespace_label` and `collection_label`; direct title/content/tag fields are
+unchanged. Both Tools expose only the deterministic first field and one of the
+five broad public reasons. They never expose or retain the match, offset, regex,
+provider-specific detector, fingerprint, or tag index, and their refusal logs do
+not add field or reason metadata.
 
 `memory_archive` and `memory_restore` are separate least-privilege Tools, each
 with the same three-file public package shape. Their shared private

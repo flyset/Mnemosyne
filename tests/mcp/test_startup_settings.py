@@ -228,7 +228,7 @@ def test_file_enabled_startup_exposes_discovery_and_dispatch_without_writes(
         "memory_remember",
     ]
     assert result["list_tools_text"] == (
-        "Server: mnemosyne 0.1.2. Available tools: "
+        "Server: mnemosyne 0.1.3. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_remember"
     )
@@ -268,7 +268,7 @@ def test_disabled_startup_omits_remember_and_creates_no_paths(
         "memory_inspect",
     ]
     assert result["list_tools_text"] == (
-        "Server: mnemosyne 0.1.2. Available tools: "
+        "Server: mnemosyne 0.1.3. Available tools: "
         "list_tools, memory_recall, memory_list, memory_inspect"
     )
     assert json.loads(result["listing"]["result"]["content"][0]["text"])[
@@ -354,7 +354,7 @@ def test_archive_restore_enablement_exposes_both_discovery_surfaces_and_dispatch
         "memory_restore",
     ]
     assert result["list_tools_text"] == (
-        "Server: mnemosyne 0.1.2. Available tools: "
+        "Server: mnemosyne 0.1.3. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_archive, memory_restore"
     )
@@ -416,7 +416,7 @@ def test_revise_enablement_exposes_both_discovery_surfaces_and_dispatch(
         "memory_revise",
     ]
     assert result["list_tools_text"] == (
-        "Server: mnemosyne 0.1.2. Available tools: "
+        "Server: mnemosyne 0.1.3. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_revise"
     )
@@ -455,7 +455,7 @@ def test_forget_enablement_exposes_both_discovery_surfaces_and_dispatch(
         "memory_forget",
     ]
     assert result["list_tools_text"] == (
-        "Server: mnemosyne 0.1.2. Available tools: "
+        "Server: mnemosyne 0.1.3. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_forget"
     )

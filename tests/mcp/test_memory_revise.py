@@ -13,6 +13,7 @@ from mnemosyne.mcp.tools.memory_revise import TOOL, handle
 from mnemosyne.mcp.tools.memory_revise import handler as handler_module
 from mnemosyne.mcp.tools.memory_revise.definition import TOOL as DEFINED_TOOL
 from mnemosyne.memory.errors import (
+    ContentRefusalReason,
     DisallowedMemoryContent,
     MemoryNotFound,
     MemorySourceUnavailable,
@@ -160,6 +161,18 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
         "maxLength": 200,
         "pattern": "\\S",
     }
+
+
+def test_memory_revise_description_explains_safe_refusal_recovery() -> None:
+    description = TOOL["description"]
+
+    assert "disallowed_content" in description
+    assert "bounded field and reason" in description
+    assert "Do not obfuscate suspected sensitive data" in description
+    assert (
+        "retry only when the user confirms that the formatting is benign and "
+        "approves the exact revised call"
+    ) in description
 
 
 def test_memory_revise_package_reexports_definition_and_handler() -> None:
@@ -589,14 +602,63 @@ def test_memory_revise_maps_collection_mismatch_to_public_flat_field(
 
 
 @pytest.mark.parametrize(
+    ("domain_field", "expected_public_field"),
+    [
+        ("namespace.label", "namespace_label"),
+        ("collection.label", "collection_label"),
+        ("title", "title"),
+        ("content", "content"),
+        ("tags", "tags"),
+    ],
+)
+def test_memory_revise_maps_refusal_to_bounded_flat_public_field(
+    domain_field: str,
+    expected_public_field: str,
+) -> None:
+    def fail(reference: MemoryReference, revision: MemoryRevision) -> MemoryResult:
+        raise DisallowedMemoryContent(
+            domain_field,
+            ContentRefusalReason.CREDENTIAL_SHAPE,
+        )
+
+    result = handle(
+        _arguments(),
+        mutations_enabled=True,
+        revise_operation=fail,
+    )
+
+    assert result["isError"] is True
+    assert _payload(result) == {
+        "status": "refused",
+        "code": "disallowed_content",
+        "field": expected_public_field,
+        "reason": "credential_shape",
+        "message": (
+            "memory field resembles content that Mnemosyne does not store; "
+            "review the named field and retry only if the user confirms that "
+            "the formatting is benign"
+        ),
+    }
+
+
+@pytest.mark.parametrize(
     ("error", "expected", "level", "outcome"),
     [
         (
-            DisallowedMemoryContent(),
+            DisallowedMemoryContent(
+                "content",
+                ContentRefusalReason.COMPACT_TOKEN_SHAPE,
+            ),
             {
                 "status": "refused",
                 "code": "disallowed_content",
-                "message": "memory contains content that Mnemosyne does not store",
+                "field": "content",
+                "reason": "compact_token_shape",
+                "message": (
+                    "memory field resembles content that Mnemosyne does not store; "
+                    "review the named field and retry only if the user confirms that "
+                    "the formatting is benign"
+                ),
             },
             logging.WARNING,
             "refused",
@@ -724,6 +786,9 @@ def test_memory_revise_maps_failures_and_logs_one_content_free_event(
     assert f"event=memory_revise outcome={outcome}" in message
     assert "schema_version=2 scope=preference" in message
     assert record.exc_info is None
+    if isinstance(error, DisallowedMemoryContent):
+        assert " field=" not in message
+        assert error.reason.value not in message
     assert all(
         value not in message
         for value in (

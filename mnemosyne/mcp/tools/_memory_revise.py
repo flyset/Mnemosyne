@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from mnemosyne.mcp.tools._memory_content_refusal import CONTENT_REFUSAL_MESSAGE
 from mnemosyne.mcp.tools._memory_lifecycle import (
     lifecycle_input_schema,
     parse_lifecycle_request,
@@ -46,6 +47,13 @@ REQUIRED_REPLACEMENT_FIELDS = (
     "content",
     "tags",
 )
+REFUSAL_FIELDS = {
+    "namespace.label": "namespace_label",
+    "collection.label": "collection_label",
+    "title": "title",
+    "content": "content",
+    "tags": "tags",
+}
 
 
 def _nullable_text(
@@ -306,10 +314,13 @@ def _error_result(
     code: str,
     message: str,
     field: str | None = None,
+    reason: str | None = None,
 ) -> dict[str, Any]:
     payload = {"status": status, "code": code}
     if field is not None:
         payload["field"] = field
+    if reason is not None:
+        payload["reason"] = reason
     payload["message"] = message
     return text_result(payload, is_error=True)
 
@@ -396,12 +407,14 @@ def execute_revise(
             field=field,
             message=message,
         )
-    except DisallowedMemoryContent:
+    except DisallowedMemoryContent as error:
         _log_outcome(logger, logging.WARNING, "refused", code="disallowed_content", request=request)
         return _error_result(
             status="refused",
             code="disallowed_content",
-            message="memory contains content that Mnemosyne does not store",
+            field=REFUSAL_FIELDS.get(error.field, "revision"),
+            reason=error.reason.value,
+            message=CONTENT_REFUSAL_MESSAGE,
         )
     except MutationDisabled:
         _log_outcome(logger, logging.WARNING, "policy_error", code="mutation_disabled", request=request)

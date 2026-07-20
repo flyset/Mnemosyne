@@ -10,7 +10,11 @@ TOOL = {
         "creation time. Never include secrets, sensitive personal data, paths, "
         "legacy identities, immutable fields, lifecycle targets, or model-provided "
         "confirmation. Omit collection_label only when reference.collection_id is "
-        "null; otherwise provide its complete string-or-null replacement."
+        "null; otherwise provide its complete string-or-null replacement. A "
+        "disallowed_content refusal returns only a bounded field and reason for "
+        "reviewing the original arguments. Do not obfuscate suspected sensitive "
+        "data; retry only when the user confirms that the formatting is benign and "
+        "approves the exact revised call."
     ),
     "inputSchema": revise_input_schema(),
 }

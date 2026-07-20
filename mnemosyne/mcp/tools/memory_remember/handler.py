@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any
 
+from mnemosyne.mcp.tools._memory_content_refusal import CONTENT_REFUSAL_MESSAGE
 from mnemosyne.memory.errors import (
     CandidateLimitExceeded,
     DisallowedMemoryContent,
@@ -48,6 +49,15 @@ VALIDATION_MESSAGES = {
     "invalid_kind": "kind is invalid for scope",
     "invalid_record": "memory field is invalid",
 }
+REFUSAL_FIELDS = {
+    "namespace.id": "namespace",
+    "namespace.label": "namespace",
+    "collection.id": "collection",
+    "collection.label": "collection",
+    "title": "title",
+    "content": "content",
+    "tags": "tags",
+}
 
 
 def _text_content(payload: dict[str, Any]) -> list[dict[str, str]]:
@@ -65,6 +75,7 @@ def _error(
     code: str,
     message: str,
     field: str | None = None,
+    reason: str | None = None,
 ) -> dict[str, Any]:
     payload = {
         "status": status,
@@ -72,6 +83,8 @@ def _error(
     }
     if field is not None:
         payload["field"] = field
+    if reason is not None:
+        payload["reason"] = reason
     payload["message"] = message
     return {
         "content": _text_content(payload),
@@ -223,7 +236,7 @@ def handle(
             field=field,
             message=message,
         )
-    except DisallowedMemoryContent:
+    except DisallowedMemoryContent as error:
         _log_outcome(
             logging.WARNING,
             "refused",
@@ -233,7 +246,9 @@ def handle(
         return _error(
             status="refused",
             code="disallowed_content",
-            message="memory contains content that Mnemosyne does not store",
+            field=REFUSAL_FIELDS.get(error.field, "memory"),
+            reason=error.reason.value,
+            message=CONTENT_REFUSAL_MESSAGE,
         )
     except MutationDisabled:
         _log_outcome(

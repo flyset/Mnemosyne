@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from mnemosyne.memory.errors import (
+    ContentRefusalReason,
     DisallowedMemoryContent,
     MemoryNotArchived,
     MemoryNotFound,
@@ -162,9 +163,11 @@ def test_service_remember_refuses_disallowed_content_before_discovery_or_write(
         "origin": "explicit_user_statement",
     }
 
-    with pytest.raises(DisallowedMemoryContent):
+    with pytest.raises(DisallowedMemoryContent) as caught:
         service.remember(MemoryDraft.from_dict(arguments))
 
+    assert caught.value.field == "content"
+    assert caught.value.reason is ContentRefusalReason.CREDENTIAL_SHAPE
     assert not tmp_path.exists() or list(tmp_path.iterdir()) == []
 
 
@@ -491,9 +494,11 @@ def test_service_revise_refuses_disallowed_replacement_before_read_or_write(
         }
     )
 
-    with pytest.raises(DisallowedMemoryContent):
+    with pytest.raises(DisallowedMemoryContent) as caught:
         service.revise(_reference(), revision)
 
+    assert caught.value.field == "content"
+    assert caught.value.reason is ContentRefusalReason.CREDENTIAL_SHAPE
     assert not tmp_path.exists() or list(tmp_path.iterdir()) == []
 
 

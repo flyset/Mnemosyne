@@ -344,6 +344,35 @@ credential, authorization-header, JWT-shaped, payment-card, and SSN-shaped
 values with `disallowed_content`. This is signature detection, not complete
 semantic DLP; secrets and sensitive personal data remain prohibited.
 
+Both `memory_revise` and `memory_remember` make a content refusal actionable
+without echoing the rejected value. The Tool error contains the first bounded
+caller-visible field, one broad reason, and stable remediation guidance:
+
+```json
+{
+  "status": "refused",
+  "code": "disallowed_content",
+  "field": "content",
+  "reason": "compact_token_shape",
+  "message": "memory field resembles content that Mnemosyne does not store; review the named field and retry only if the user confirms that the formatting is benign"
+}
+```
+
+The fixed reason vocabulary is `private_key_shape`, `credential_shape`,
+`compact_token_shape`, `payment_card_shape`, and
+`government_identifier_shape`. Remember maps namespace IDs/labels to
+`field: namespace`, collection IDs/labels to `field: collection`, and reports
+`title`, `content`, or `tags` directly. Revision reports its flat replacement
+fields: `namespace_label`, `collection_label`, `title`, `content`, or `tags`.
+Tags never expose an index.
+
+Only the deterministic first match is reported. Results and logs never include
+the matched value, offset, regular expression, provider-specific detector,
+fingerprint, or rejected content. The metadata is diagnostic, not permission to
+evade policy: do not obfuscate suspected sensitive data. Retry only after the
+user verifies that the formatting is benign—such as an ordinary dotted version
+that resembles a compact token—and approves the complete revised call.
+
 Stable bounded error codes are `invalid_reference`,
 `invalid_expected_revision`, `invalid_record`, `invalid_collection`,
 `disallowed_content`, `mutation_disabled`, `not_found`, `revision_conflict`,
@@ -366,7 +395,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mnemosyne 0.1.2.`. Restart the server and reconnect the client after an
+`Server: mnemosyne 0.1.3.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -678,7 +707,8 @@ An exact active duplicate returns `already_exists`; an archived duplicate
 returns `existing_archived`. Both identify the existing reference/lifecycle and
 write no second file. Validation, content refusal, disabled mutation, candidate
 overflow, generated-ID conflict, storage failure, and unexpected failure return
-bounded Tool errors with stable codes and no path or submitted content.
+bounded Tool errors with stable codes and no path or submitted content. Content
+refusal uses the bounded field/reason contract documented under revision above.
 Validation uses `invalid_scope`, `invalid_namespace`, `invalid_collection`,
 `invalid_kind`, `invalid_record`, or `invalid_origin`; policy refusal uses
 `disallowed_content`; disabled mutation uses `mutation_disabled`; bounded
