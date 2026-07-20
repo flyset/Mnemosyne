@@ -35,25 +35,29 @@ def _payload(result: dict[str, Any]) -> dict[str, Any]:
     return json.loads(result["content"][0]["text"])
 
 
-def _record(*, state: str = "active", revision: int = 3):
-    return parse_memory_record(
-        {
-            "schema_version": 2,
-            "id": CANONICAL_ID,
-            "scope": "project",
-            "namespace": {"kind": "project", "id": "mnemosyne", "label": None},
-            "collection": None,
-            "kind": "state",
-            "language": "en",
-            "title": None,
-            "content": "Restore lifecycle context.",
-            "tags": [],
-            "provenance": {"origin": "explicit_user_statement", "recorded_via": "memory_remember"},
-            "lifecycle": {"state": state, "revision": revision},
-            "created_at": "2026-07-18T12:00:00Z",
-            "updated_at": "2026-07-19T12:00:00Z",
-        }
-    )
+def _record(*, state: str = "active", revision: int = 3, event: bool = False):
+    payload = {
+        "schema_version": 2,
+        "id": CANONICAL_ID,
+        "scope": "project",
+        "namespace": {"kind": "project", "id": "mnemosyne", "label": None},
+        "collection": None,
+        "kind": "event" if event else "state",
+        "language": "en",
+        "title": None,
+        "content": "Restore lifecycle context.",
+        "tags": [],
+        "provenance": {
+            "origin": "explicit_user_statement",
+            "recorded_via": "memory_remember",
+        },
+        "lifecycle": {"state": state, "revision": revision},
+        "created_at": "2026-07-18T12:00:00Z",
+        "updated_at": "2026-07-19T12:00:00Z",
+    }
+    if event:
+        payload["occurred_at"] = "2026-07-17T09:30:00Z"
+    return parse_memory_record(payload)
 
 
 def test_memory_restore_uses_the_same_strict_request_contract() -> None:
@@ -160,7 +164,7 @@ def test_memory_restore_returns_archived_memory_to_recall_and_inspection(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    record = _record(state="archived", revision=2)
+    record = _record(state="archived", revision=2, event=True)
     path = tmp_path / "project" / "mnemosyne" / f"{CANONICAL_ID}.json"
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps(serialize_memory_record(record)), encoding="utf-8")
@@ -175,3 +179,4 @@ def test_memory_restore_returns_archived_memory_to_recall_and_inspection(
     assert recalled["status"] == "ok"
     inspected = _payload(inspect({"reference": _arguments()["reference"]}))
     assert inspected["memory"]["lifecycle"] == {"state": "active", "revision": 3}
+    assert inspected["memory"]["occurred_at"] == "2026-07-17T09:30:00Z"

@@ -229,6 +229,7 @@ class MemoryService:
                 ),
                 created_at=now,
                 updated_at=now,
+                occurred_at=draft.occurred_at,
             )
             stored = self.store.create(record)
             assert isinstance(stored.record, MemoryRecordV2)

@@ -1,7 +1,12 @@
 from typing import Any
 
-from mnemosyne.memory.records import ALLOWED_KINDS, MemoryOrigin
-from mnemosyne.memory.scopes import SCOPE_DEFINITIONS, ScopeDefinition
+from mnemosyne.memory.records import (
+    ALLOWED_KINDS,
+    KIND_DEFINITIONS,
+    KindDefinition,
+    MemoryOrigin,
+)
+from mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS, ScopeDefinition
 
 
 IDENTIFIER_SCHEMA = {
@@ -40,6 +45,30 @@ REQUIRED_FIELDS = [
     "tags",
     "origin",
 ]
+
+
+def _format_kind_guidance(definitions: tuple[KindDefinition, ...]) -> str:
+    return "; ".join(
+        f"{definition.kind.value}: {definition.guidance}"
+        for definition in definitions
+    )
+
+
+def _kind_description(definition: ScopeDefinition | None) -> str:
+    if definition is not None:
+        return (
+            f"Writing guidance for {definition.scope.value} memory kinds: "
+            f"{_format_kind_guidance(KIND_DEFINITIONS[definition.scope])}"
+        )
+    groups = " | ".join(
+        f"{scope_definition.scope.value}: "
+        f"{_format_kind_guidance(KIND_DEFINITIONS[scope_definition.scope])}"
+        for scope_definition in SCOPE_DEFINITIONS
+    )
+    return (
+        "Memory kind must match scope; the complete schema narrows this enum for "
+        f"each scope. Writing guidance by scope: {groups}"
+    )
 
 
 def _nullable_text(maximum_length: int) -> dict[str, Any]:
@@ -134,13 +163,9 @@ def _properties(
     kind_schema: dict[str, Any] = {
         "type": "string",
         "enum": memory_kinds,
+        "description": _kind_description(definition),
     }
-    if definition is None:
-        kind_schema["description"] = (
-            "Memory kind must match scope; the complete schema narrows this enum for "
-            "each scope."
-        )
-    properties = {
+    properties: dict[str, Any] = {
         "scope": scope_schema,
         "namespace": _namespace_schema(definition),
         "collection": _collection_schema(),
@@ -180,6 +205,15 @@ def _properties(
             "enum": PUBLIC_ORIGINS,
         },
     }
+    if definition is None or definition.scope is MemoryScope.PROJECT:
+        properties["occurred_at"] = {
+            "type": "string",
+            "description": (
+                "Required exactly for project event memory; omit it for every other "
+                "memory kind. Use strict UTC-second form YYYY-MM-DDTHH:MM:SSZ."
+            ),
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+        }
     if definition is None:
         properties["origin"]["description"] = (
             "Caller-supplied provenance context, not consent. Use "
@@ -190,12 +224,21 @@ def _properties(
 
 
 def _scope_branch(definition: ScopeDefinition) -> dict[str, Any]:
-    return {
+    branch: dict[str, Any] = {
         "type": "object",
         "properties": _properties(definition),
         "required": REQUIRED_FIELDS,
         "additionalProperties": False,
     }
+    if definition.scope is MemoryScope.PROJECT:
+        branch["allOf"] = [
+            {
+                "if": {"properties": {"kind": {"const": "event"}}},
+                "then": {"required": ["occurred_at"]},
+                "else": {"not": {"required": ["occurred_at"]}},
+            }
+        ]
+    return branch
 
 
 TOOL = {

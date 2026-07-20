@@ -362,7 +362,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mnemosyne 0.1.1.`. Restart the server and reconnect the client after an
+`Server: mnemosyne 0.1.2.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -569,11 +569,12 @@ Configuration failures use stable bounded messages and do not expose supplied
 values, file contents, parser details, underlying exception text, or the
 absolute settings path.
 
-All nine caller-owned fields are required, including nullable values. The Tool
-schema publishes all nine in top-level `properties`, with the same top-level
-required list, so clients that retain only a flat object schema can still
-construct a complete call. Six scope-specific `oneOf` branches additionally
-narrow namespace kind and memory kind for clients that support composition:
+Nine caller-owned fields are always required, including nullable values. The
+Tool schema publishes those nine plus optional `occurred_at` in top-level
+`properties`, while retaining the nine-field top-level required list, so clients
+that keep only a flat object schema can construct both ordinary memories and
+events. Six scope-specific `oneOf` branches additionally narrow namespace kind
+and memory kind for clients that support composition:
 
 ```json
 {
@@ -596,6 +597,30 @@ narrow namespace kind and memory kind for clients that support composition:
 }
 ```
 
+For a completed project occurrence, use `kind: "event"` and include its known
+occurrence instant separately from persistence time:
+
+```json
+{
+  "scope": "project",
+  "namespace": {"kind": "project", "id": "mnemosyne", "label": "Mnemosyne"},
+  "collection": {"id": "events", "label": "Events"},
+  "kind": "event",
+  "language": "en",
+  "title": "Track activated",
+  "content": "Track 021 moved to active execution.",
+  "tags": ["track-021"],
+  "origin": "explicit_user_statement",
+  "occurred_at": "2026-07-20T15:00:00Z"
+}
+```
+
+`occurred_at` is required exactly for `event`, rejected for every other kind,
+and uses strict UTC-second form `YYYY-MM-DDTHH:MM:SSZ`. It is immutable after
+creation: revision has no occurrence replacement field, and archive/restore
+preserve it. Existing non-event version-2 records remain valid without the
+field and serialize without an invented null value.
+
 `namespace.label`, `collection`, `collection.label`, `language`, and `title`
 may be null, but their keys remain required. Tags are a required zero-to-ten
 item array. Namespace/collection IDs are 1–64 safe identifier characters,
@@ -609,16 +634,23 @@ every level. The allowed dimensions are derived from the shared domain:
 | `relationship` | `person`, `group`, `relationship` | `perspective`, `summary` |
 | `preference` | `domain` | `preference` |
 | `practice` | `domain` | `practice` |
-| `project` | `project` | `decision`, `constraint`, `state`, `question`, `reference`, `summary` |
+| `project` | `project` | `decision`, `constraint`, `state`, `event`, `question`, `reference`, `summary` |
 | `knowledge` | `topic` | `reference`, `summary` |
+
+The shared domain defines writing guidance for every allowed `(scope, kind)`
+pair. Complete scope branches publish only their applicable guidance, while the
+top-level `kind` description groups all guidance by scope for clients that
+discard schema composition. Shared kinds such as `summary` and `reference`
+therefore retain scope-specific meaning.
 
 Public `origin` is caller-supplied provenance context: use
 `explicit_user_statement` for a direct user statement or
 `user_approved_proposal` for an approved proposed memory. Origin is not consent;
 consent remains the MCP client's approval of the complete exact call.
 `recorded_via` is instead server-assigned. Callers cannot supply a filesystem
-path, record ID, timestamp, lifecycle state, revision, `recorded_via`, or
-model-authored confirmation/consent field.
+path, record ID, persistence timestamps, lifecycle state, revision,
+`recorded_via`, or model-authored confirmation/consent field. The event-only
+`occurred_at` value is the sole caller-owned structural time.
 
 A new memory returns only its status, structured reference, and lifecycle:
 
@@ -650,6 +682,10 @@ discovery uses `candidate_limit_exceeded`; publication conflict uses
 `write_conflict`; storage/path failures use `memory_source_unavailable`; and an
 unexpected failure uses `internal_error`.
 
+Event duplicate identity includes `occurred_at`: otherwise-equal events at the
+same occurrence instant are duplicates, while events at different instants are
+distinct. Existing non-event duplicate identity is unchanged.
+
 Before duplicate discovery or directory creation, the shared policy rejects
 recognized private-key blocks, declared provider token/API-key prefixes,
 Basic/Bearer authorization headers, credential assignments and
@@ -664,9 +700,9 @@ arguments before approval.
 Remember logs one terminal event containing only outcome, stable error
 code/field where applicable, scope, namespace kind, memory kind,
 collection-present state, origin, and generated ID/lifecycle after a domain
-result. Logs never include labels, title, content, tags, language, complete
-arguments, rejected values, filesystem paths, exception messages, or
-tracebacks.
+result. Logs never include labels, title, content, tags, language,
+`occurred_at`, complete arguments, rejected values, filesystem paths, exception
+messages, or tracebacks.
 
 ## Filesystem Memory
 
@@ -768,9 +804,18 @@ project/mnemosyne/decisions/mem_0123456789abcdef0123456789abcdef.json
 ```
 
 Scope, namespace, optional collection, kind, language, content, tags,
-provenance, timestamps, and lifecycle are separate dimensions. IDs determine
-paths; mutable labels do not. Record metadata must agree with its location.
-Unknown fields or mismatched paths make a version-2 record invalid.
+provenance, persistence timestamps, optional event occurrence time, and
+lifecycle are separate dimensions. IDs determine paths; mutable labels do not.
+Record metadata must agree with its location. Unknown fields or mismatched paths
+make a version-2 record invalid.
+
+Canonical project events persist `"kind": "event"` and a strict
+`"occurred_at"` value. Exact inspection returns that field; recall and listing
+retain their existing relevance and identity ordering rather than becoming
+chronological views. Mnemosyne does not create timeline resources, infer
+causality, automatically supersede state, or make event records fully
+append-only. A first-class many-to-many temporal model remains deferred until a
+concrete usage need demonstrates it.
 
 Version-2 records are either `active` or `archived`; normal recall excludes
 archived records. Revision replaces the same file atomically without retaining

@@ -30,8 +30,10 @@ from mnemosyne.memory.store import FilesystemMemoryStore
 
 
 MEMORY_ID = "mem_0123456789abcdef0123456789abcdef"
+SECOND_MEMORY_ID = "mem_fedcba9876543210fedcba9876543210"
 NOW = datetime(2026, 7, 18, 12, 0, tzinfo=timezone.utc)
 LATER = datetime(2026, 7, 18, 13, 0, tzinfo=timezone.utc)
+OCCURRED_AT = datetime(2026, 7, 17, 9, 30, tzinfo=timezone.utc)
 
 
 def _draft() -> MemoryDraft:
@@ -70,6 +72,27 @@ def _collection_draft() -> MemoryDraft:
             "content": "The user prefers museums on rainy weekends.",
             "tags": ["leisure", "rainy-day"],
             "origin": "explicit_user_statement",
+        }
+    )
+
+
+def _event_draft(occurred_at: str = "2026-07-17T09:30:00Z") -> MemoryDraft:
+    return MemoryDraft.from_dict(
+        {
+            "scope": "project",
+            "namespace": {
+                "kind": "project",
+                "id": "mnemosyne",
+                "label": "Mnemosyne",
+            },
+            "collection": {"id": "events", "label": "Events"},
+            "kind": "event",
+            "language": "en",
+            "title": "Track activated",
+            "content": "Track 021 moved to active execution.",
+            "tags": ["track-021"],
+            "origin": "explicit_user_statement",
+            "occurred_at": occurred_at,
         }
     )
 
@@ -210,6 +233,57 @@ def test_service_remember_returns_existing_archived_duplicate(tmp_path: Path) ->
     assert duplicate.memory.id == remembered.memory.id
     assert duplicate.memory.lifecycle.state is LifecycleState.ARCHIVED
     assert len(list(tmp_path.rglob("*.json"))) == 1
+
+
+def test_service_event_identity_and_mutations_preserve_occurrence_time(
+    tmp_path: Path,
+) -> None:
+    ids = iter([MEMORY_ID, SECOND_MEMORY_ID])
+    clocks = iter([NOW, NOW, LATER, LATER, LATER])
+    service = MemoryService(
+        FilesystemMemoryStore(tmp_path),
+        mutations_enabled=True,
+        clock=lambda: next(clocks),
+        id_factory=lambda: next(ids),
+    )
+
+    first = service.remember(_event_draft())
+    duplicate = service.remember(_event_draft())
+    later_event = service.remember(_event_draft("2026-07-17T09:31:00Z"))
+    reference = MemoryReference(
+        scope=MemoryScope.PROJECT,
+        namespace_id="mnemosyne",
+        collection_id="events",
+        id=MEMORY_ID,
+    )
+
+    assert first.memory.occurred_at == OCCURRED_AT
+    assert duplicate.status == "already_exists"
+    assert duplicate.memory.id == MEMORY_ID
+    assert later_event.status == "remembered"
+    assert later_event.memory.id == SECOND_MEMORY_ID
+    assert len(list(tmp_path.rglob("*.json"))) == 2
+
+    revised = service.revise(
+        reference,
+        MemoryRevision.from_dict(
+            {
+                "expected_revision": 1,
+                "namespace_label": "Mnemosyne",
+                "collection_label": "Events",
+                "title": "Track activation",
+                "content": first.memory.content,
+                "tags": list(first.memory.tags),
+            }
+        ),
+    )
+    archived = service.archive(reference, expected_revision=2)
+    restored = service.restore(reference, expected_revision=3)
+
+    assert revised.memory.occurred_at == OCCURRED_AT
+    assert archived.memory.occurred_at == OCCURRED_AT
+    assert restored.memory.occurred_at == OCCURRED_AT
+    assert service.inspect(reference).occurred_at == OCCURRED_AT
 
 
 def test_service_inspect_is_available_when_mutations_are_disabled(tmp_path: Path) -> None:

@@ -15,13 +15,13 @@ from mnemosyne.memory.errors import (
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mnemosyne.memory.records import ALLOWED_KINDS, MemoryReference
+from mnemosyne.memory.records import KIND_DEFINITIONS, MemoryReference
 from mnemosyne.memory.scopes import SCOPE_DEFINITIONS
 from mnemosyne.memory.service import MemoryService
 from mnemosyne.memory.store import FilesystemMemoryStore
 
 
-FIELDS = {
+REQUIRED_FIELDS = {
     "scope",
     "namespace",
     "collection",
@@ -32,6 +32,36 @@ FIELDS = {
     "tags",
     "origin",
 }
+TOP_LEVEL_FIELDS = REQUIRED_FIELDS | {"occurred_at"}
+EXPECTED_KIND_ENUMS = {
+    "self": ["attribute"],
+    "relationship": ["perspective", "summary"],
+    "preference": ["preference"],
+    "practice": ["practice"],
+    "project": [
+        "decision",
+        "constraint",
+        "state",
+        "event",
+        "question",
+        "reference",
+        "summary",
+    ],
+    "knowledge": ["reference", "summary"],
+}
+EXPECTED_FLAT_KIND_ENUM = [
+    "attribute",
+    "perspective",
+    "summary",
+    "preference",
+    "practice",
+    "decision",
+    "constraint",
+    "state",
+    "event",
+    "question",
+    "reference",
+]
 
 
 def _arguments() -> dict[str, object]:
@@ -55,6 +85,23 @@ def _arguments() -> dict[str, object]:
     }
 
 
+def _event_arguments(
+    occurred_at: str = "2026-07-17T09:30:00Z",
+) -> dict[str, object]:
+    arguments = _arguments()
+    arguments.update(
+        {
+            "collection": {"id": "events", "label": "Events"},
+            "kind": "event",
+            "title": "Track activated",
+            "content": "Track 021 moved to active execution.",
+            "tags": ["track-021"],
+            "occurred_at": occurred_at,
+        }
+    )
+    return arguments
+
+
 def _payload(result: dict[str, object]) -> dict[str, object]:
     content = result["content"]
     assert isinstance(content, list)
@@ -72,13 +119,14 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
         "oneOf",
     }
     assert schema["type"] == "object"
-    assert set(schema["properties"]) == FIELDS
-    assert set(schema["required"]) == FIELDS
+    assert set(schema["properties"]) == TOP_LEVEL_FIELDS
+    assert set(schema["required"]) == REQUIRED_FIELDS
     assert schema["additionalProperties"] is False
     assert schema["properties"]["scope"]["type"] == "string"
     assert schema["properties"]["scope"]["enum"] == [
         definition.scope.value for definition in SCOPE_DEFINITIONS
     ]
+    assert schema["properties"]["kind"]["enum"] == EXPECTED_FLAT_KIND_ENUM
     assert schema["properties"]["origin"] == {
         "type": "string",
         "enum": [
@@ -100,8 +148,13 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
     for definition in SCOPE_DEFINITIONS:
         branch = branches_by_scope[definition.scope.value]
         properties = branch["properties"]
-        assert set(properties) == FIELDS
-        assert set(branch["required"]) == FIELDS
+        expected_properties = (
+            TOP_LEVEL_FIELDS
+            if definition.scope.value == "project"
+            else REQUIRED_FIELDS
+        )
+        assert set(properties) == expected_properties
+        assert set(branch["required"]) == REQUIRED_FIELDS
         assert branch["additionalProperties"] is False
         assert properties["scope"] == {
             "const": definition.scope.value,
@@ -110,8 +163,8 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
         assert properties["namespace"]["properties"]["kind"]["enum"] == list(
             definition.namespace_kinds
         )
-        assert properties["kind"]["enum"] == [
-            kind.value for kind in ALLOWED_KINDS[definition.scope]
+        assert properties["kind"]["enum"] == EXPECTED_KIND_ENUMS[
+            definition.scope.value
         ]
         assert properties["origin"]["enum"] == [
             "explicit_user_statement",
@@ -168,6 +221,48 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
     assert project["tags"]["maxItems"] == 10
     assert project["tags"]["uniqueItems"] is True
     assert project["tags"]["items"]["maxLength"] == 50
+    assert project["occurred_at"] == {
+        "type": "string",
+        "description": (
+            "Required exactly for project event memory; omit it for every other "
+            "memory kind. Use strict UTC-second form YYYY-MM-DDTHH:MM:SSZ."
+        ),
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+    }
+    assert branches_by_scope["project"]["allOf"] == [
+        {
+            "if": {"properties": {"kind": {"const": "event"}}},
+            "then": {"required": ["occurred_at"]},
+            "else": {"not": {"required": ["occurred_at"]}},
+        }
+    ]
+
+
+def test_memory_remember_schema_renders_canonical_kind_guidance() -> None:
+    schema = TOOL["inputSchema"]
+    branches_by_scope = {
+        branch["properties"]["scope"]["const"]: branch
+        for branch in schema["oneOf"]
+    }
+
+    expected_groups: list[str] = []
+    for scope_definition in SCOPE_DEFINITIONS:
+        pairs = "; ".join(
+            f"{definition.kind.value}: {definition.guidance}"
+            for definition in KIND_DEFINITIONS[scope_definition.scope]
+        )
+        expected_groups.append(f"{scope_definition.scope.value}: {pairs}")
+        assert branches_by_scope[scope_definition.scope.value]["properties"][
+            "kind"
+        ]["description"] == (
+            f"Writing guidance for {scope_definition.scope.value} memory kinds: "
+            f"{pairs}"
+        )
+
+    assert schema["properties"]["kind"]["description"] == (
+        "Memory kind must match scope; the complete schema narrows this enum for "
+        "each scope. Writing guidance by scope: " + " | ".join(expected_groups)
+    )
 
 
 def test_memory_remember_remains_callable_through_top_level_only_projection() -> None:
@@ -176,19 +271,71 @@ def test_memory_remember_remains_callable_through_top_level_only_projection() ->
         "properties": schema["properties"],
         "required": schema["required"],
     }
-    arguments = _arguments()
+    arguments = _event_arguments()
     projected = {
         name: value
         for name, value in arguments.items()
         if name in flattened["properties"]
     }
 
-    assert set(flattened["required"]) == FIELDS
+    assert set(flattened["required"]) == REQUIRED_FIELDS
     assert projected == arguments
     assert _payload(handle(projected)) == {
         "status": "policy_error",
         "code": "mutation_disabled",
         "message": "memory remember is disabled",
+    }
+
+
+@pytest.mark.parametrize(
+    ("arguments", "code", "field"),
+    [
+        (
+            {
+                key: value
+                for key, value in _event_arguments().items()
+                if key != "occurred_at"
+            },
+            "invalid_record",
+            "occurred_at",
+        ),
+        (
+            _event_arguments("2026-07-17T09:30:00+00:00"),
+            "invalid_record",
+            "occurred_at",
+        ),
+        (
+            {**_arguments(), "occurred_at": "2026-07-17T09:30:00Z"},
+            "invalid_record",
+            "occurred_at",
+        ),
+        (
+            {
+                **_event_arguments(),
+                "scope": "preference",
+                "namespace": {"kind": "domain", "id": "leisure", "label": None},
+            },
+            "invalid_kind",
+            "kind",
+        ),
+    ],
+)
+def test_memory_remember_enforces_project_event_occurrence_contract(
+    arguments: dict[str, object],
+    code: str,
+    field: str,
+) -> None:
+    result = handle(arguments)
+
+    assert _payload(result) == {
+        "status": "invalid_request",
+        "code": code,
+        "field": field,
+        "message": (
+            "memory field is invalid"
+            if code == "invalid_record"
+            else "kind is invalid for scope"
+        ),
     }
 
 
@@ -391,6 +538,27 @@ def test_memory_remember_persists_canonical_record_with_minimal_result(
     assert stored["id"] == reference["id"]
     assert stored["provenance"]["recorded_via"] == "memory_remember"
     assert stored["lifecycle"] == {"state": "active", "revision": 1}
+
+
+def test_memory_remember_persists_event_occurrence_without_returning_or_logging_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    caplog.set_level(logging.INFO, logger="mcp.memory_remember")
+    arguments = _event_arguments()
+
+    result = handle(arguments, mutations_enabled=True)
+
+    payload = _payload(result)
+    assert set(payload) == {"status", "reference", "lifecycle"}
+    stored = json.loads(next(tmp_path.rglob("*.json")).read_text(encoding="utf-8"))
+    assert stored["kind"] == "event"
+    assert stored["occurred_at"] == arguments["occurred_at"]
+    assert len(caplog.messages) == 1
+    assert "memory_kind=event" in caplog.messages[0]
+    assert arguments["occurred_at"] not in caplog.messages[0]
 
 
 def test_memory_remember_initializes_an_absent_default_memory_root(

@@ -40,8 +40,10 @@ def _payload(
     content: str = "Original content",
     revision: int = 1,
     state: str = "active",
+    kind: str = "decision",
+    occurred_at: str | None = None,
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "schema_version": 2,
         "id": MEMORY_ID,
         "scope": "project",
@@ -51,7 +53,7 @@ def _payload(
             "label": "Mnemosyne",
         },
         "collection": {"id": "decisions", "label": "Decisions"},
-        "kind": "decision",
+        "kind": kind,
         "language": "en",
         "title": "Shared ownership",
         "content": content,
@@ -64,6 +66,9 @@ def _payload(
         "created_at": "2026-07-18T12:00:00Z",
         "updated_at": f"2026-07-18T12:00:0{revision - 1}Z",
     }
+    if occurred_at is not None:
+        payload["occurred_at"] = occurred_at
+    return payload
 
 
 def _record(
@@ -71,9 +76,17 @@ def _record(
     content: str = "Original content",
     revision: int = 1,
     state: str = "active",
+    kind: str = "decision",
+    occurred_at: str | None = None,
 ) -> MemoryRecordV2:
     record = parse_memory_record(
-        _payload(content=content, revision=revision, state=state)
+        _payload(
+            content=content,
+            revision=revision,
+            state=state,
+            kind=kind,
+            occurred_at=occurred_at,
+        )
     )
     assert isinstance(record, MemoryRecordV2)
     return record
@@ -195,6 +208,25 @@ def test_store_replace_rejects_revision_mismatch(tmp_path: Path) -> None:
 
     with pytest.raises(RevisionConflict):
         store.replace(revised, expected_revision=2)
+
+
+def test_store_replace_rejects_changed_event_occurrence_time(tmp_path: Path) -> None:
+    store = FilesystemMemoryStore(tmp_path)
+    original = _record(kind="event", occurred_at="2026-07-17T09:30:00Z")
+    stored = store.create(original)
+    path = tmp_path / stored.relative_path
+    before = path.read_bytes()
+    replacement = replace(
+        original,
+        occurred_at=datetime(2026, 7, 17, 9, 31, tzinfo=timezone.utc),
+        lifecycle=MemoryLifecycle(state=LifecycleState.ACTIVE, revision=2),
+        updated_at=datetime(2026, 7, 18, 12, 0, 1, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(WriteConflict):
+        store.replace(replacement, expected_revision=1)
+
+    assert path.read_bytes() == before
 
 
 def test_store_replace_detects_external_change_before_publication(

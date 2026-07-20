@@ -212,7 +212,7 @@ def test_registry_omits_disabled_remember_from_discovery_and_dispatch() -> None:
             {
                 "type": "text",
                 "text": (
-                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "Server: mnemosyne 0.1.2. Available tools: "
                     "list_tools, memory_recall"
                 ),
             }
@@ -240,7 +240,7 @@ def test_registry_connects_inspect_discovery_and_dispatch_together() -> None:
             {
                 "type": "text",
                 "text": (
-                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "Server: mnemosyne 0.1.2. Available tools: "
                     "list_tools, memory_recall, memory_inspect"
                 ),
             }
@@ -271,7 +271,7 @@ def test_registry_connects_list_before_inspect_and_normalizes_arguments() -> Non
             {
                 "type": "text",
                 "text": (
-                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "Server: mnemosyne 0.1.2. Available tools: "
                     "list_tools, memory_recall, "
                     "memory_list, memory_inspect"
                 ),
@@ -334,7 +334,7 @@ def test_registry_enables_remember_discovery_and_dispatch_together() -> None:
             {
                 "type": "text",
                 "text": (
-                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "Server: mnemosyne 0.1.2. Available tools: "
                     "list_tools, memory_recall, memory_remember"
                 ),
             }
@@ -435,7 +435,7 @@ def test_registry_enables_archive_restore_discovery_and_dispatch_as_one_pair() -
             {
                 "type": "text",
                 "text": (
-                    "Server: mnemosyne 0.1.1. Available tools: "
+                    "Server: mnemosyne 0.1.2. Available tools: "
                     "list_tools, memory_recall, "
                     "memory_archive, memory_restore"
                 ),

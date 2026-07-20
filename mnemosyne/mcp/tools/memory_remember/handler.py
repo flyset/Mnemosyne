@@ -34,6 +34,7 @@ PUBLIC_FIELDS = {
     "collection.id",
     "collection.label",
     "kind",
+    "occurred_at",
     "language",
     "title",
     "content",

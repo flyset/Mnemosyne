@@ -243,6 +243,12 @@ def test_revise_request_parser_adapts_identity_and_normalized_replacement() -> N
             "revision request is invalid",
         ),
         (
+            lambda value: value.update({"occurred_at": "2026-07-17T09:30:00Z"}),
+            "invalid_record",
+            "revision",
+            "revision request is invalid",
+        ),
+        (
             lambda value: value["reference"].update({"schema_version": 1}),
             "invalid_reference",
             "reference",

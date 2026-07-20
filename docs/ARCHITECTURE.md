@@ -162,7 +162,9 @@ Owns tool-independent memory meaning and local persistence:
 
 - canonical scope definitions and scope-specific namespace kinds;
 - version-1 compatibility and canonical version-2 records;
-- namespace, collection, kind, language, provenance, and lifecycle dimensions;
+- namespace, collection, kind, language, provenance, occurrence-time, and
+  lifecycle dimensions;
+- canonical per-(scope, kind) definitions and model-facing writing guidance;
 - structured references and deterministic safe path projection;
 - bounded scope/container discovery and exact lookup;
 - complete listing selectors, deterministic mixed-schema ordering, whole-snapshot
@@ -170,6 +172,8 @@ Owns tool-independent memory meaning and local persistence:
 - private atomic create/replace/delete primitives and revision conflicts;
 - complete normalized revision values, mutable-field rules, and immutable
   identity/metadata enforcement;
+- project-event occurrence validation, duplicate identity, and immutable
+  replacement enforcement;
 - active/archived eligibility, deterministic ranking, and match evidence;
 - bounded remember/revision content refusal before storage access;
 - active/archived revision and exact no-op semantics;
@@ -259,30 +263,49 @@ the root or change files. Logger `mcp.memory_inspect` emits one content-free
 terminal event containing only allowlisted outcome/reference metadata; shared
 skip warnings omit candidate paths.
 
-`memory_remember` is also limited to `__init__.py`, `definition.py`, and
-`handler.py`. Its schema derives six scope branches, namespace kinds, and memory
-kinds from the shared domain and accepts only scope, namespace, optional
-collection, kind, language, title, content, tags, and one of the two public
-origins. It accepts no path or server-owned identity, provenance-mechanism,
-timestamp, or lifecycle field.
+For a canonical project event, the complete inspection projection includes its
+strict structural `occurred_at`. Inspection remains exact and does not add a
+chronological selector or ordering mode.
 
-The schema also publishes those same nine required caller-visible fields in
-top-level `properties` and rejects additional properties there. This preserves a
-complete flat field bag for clients that discard composition, while the six full
-`oneOf` branches retain strict scope-specific namespace-kind and memory-kind
-constraints. Public origin is caller-supplied provenance context, not consent;
-the MCP client supplies the separate enforceable per-call approval boundary and
-the server assigns `recorded_via`.
+`memory_remember` is also limited to `__init__.py`, `definition.py`, and
+`handler.py`. Its schema derives six scope branches, namespace kinds, memory
+kinds, and per-(scope, kind) writing guidance from the shared domain. It accepts
+the nine unconditional scope, namespace, optional collection, kind, language,
+title, content, tags, and public-origin fields, plus structural `occurred_at`
+exactly for project events. It accepts no path or server-owned identity,
+provenance mechanism, persistence timestamp, or lifecycle field.
+
+The schema publishes ten caller-visible top-level properties—nine unconditionally
+required fields plus optional `occurred_at`—and rejects additional properties.
+This preserves a complete flat field bag for clients that discard composition.
+The six full `oneOf` branches retain strict scope-specific namespace-kind and
+memory-kind constraints; only the project branch admits occurrence time and its
+condition requires it for event while rejecting it for every project non-event.
+Each complete branch renders its ordered canonical kind guidance, and the flat
+top-level kind description groups all guidance by scope. Public origin is
+caller-supplied provenance context, not consent; the MCP client supplies the
+separate enforceable per-call approval boundary and the server assigns
+`recorded_via`.
 
 The remember handler validates a `MemoryDraft`, then—only when selected by the
 enabled startup registry—constructs an enabled `MemoryService` over the
 configured `FilesystemMemoryStore`. The service applies the shared content
-policy before duplicate discovery, generates all operational fields, and uses
-the existing atomic store. The handler returns only status, structured
+policy before duplicate discovery, generates all operational fields, copies an
+event's parsed occurrence time, and uses the existing atomic store. Event
+duplicate identity includes occurrence time; non-events use a null internal key
+position without changing their prior equality. Store replacement treats
+occurrence time as immutable, while revision and lifecycle replacements preserve
+it. The handler returns only status, structured
 reference, and lifecycle for `remembered`, `already_exists`, or
 `existing_archived`; failures are bounded Tool errors. Logger
 `mcp.memory_remember` emits one content-free terminal event and never records
 submitted memory text, labels, tags, paths, exception messages, or tracebacks.
+
+Event is a kind under `project`, not a seventh scope or a separate temporal
+resource family. There is no timeline/membership model, chronological query,
+causal inference, automatic state supersession, or append-only-event guarantee.
+The larger many-to-many temporal model remains deferred until demonstrated by a
+concrete workflow.
 
 `memory_revise` has the same three-file public package shape plus a private,
 capability-free `_memory_revise.py` adapter. Its flat canonical-only request

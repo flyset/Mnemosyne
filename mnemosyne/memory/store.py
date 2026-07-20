@@ -512,6 +512,7 @@ class FilesystemMemoryStore:
                 current.record.language,
                 current.record.provenance,
                 current.record.created_at,
+                current.record.occurred_at,
             )
             immutable_replacement = (
                 record.id,
@@ -523,6 +524,7 @@ class FilesystemMemoryStore:
                 record.language,
                 record.provenance,
                 record.created_at,
+                record.occurred_at,
             )
             if immutable_current != immutable_replacement:
                 raise WriteConflict

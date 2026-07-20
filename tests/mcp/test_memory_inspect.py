@@ -39,8 +39,10 @@ def _v2(
     namespace_id: str = "mnemosyne",
     state: str = "active",
     revision: int = 1,
+    kind: str = "decision",
+    occurred_at: str | None = None,
 ) -> dict[str, object]:
-    return {
+    record: dict[str, object] = {
         "schema_version": 2,
         "id": memory_id,
         "scope": "project",
@@ -50,7 +52,7 @@ def _v2(
             "label": "Private project label",
         },
         "collection": {"id": "decisions", "label": "Private collection label"},
-        "kind": "decision",
+        "kind": kind,
         "language": "en",
         "title": "Private inspection title",
         "content": "Private inspection content.",
@@ -63,6 +65,9 @@ def _v2(
         "created_at": "2026-07-18T12:00:00Z",
         "updated_at": "2026-07-18T13:00:00Z",
     }
+    if occurred_at is not None:
+        record["occurred_at"] = occurred_at
+    return record
 
 
 def _canonical_arguments(
@@ -368,6 +373,27 @@ def test_memory_inspect_returns_complete_canonical_memory(
     assert "path" not in serialized
     assert "fingerprint" not in serialized
     assert "score" not in serialized
+
+
+def test_memory_inspect_returns_event_occurrence_without_logging_it(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    occurred_at = "2026-07-17T09:30:00Z"
+    record = _v2(kind="event", occurred_at=occurred_at)
+    _write_memory(
+        tmp_path / "project" / "mnemosyne" / "decisions" / f"{CANONICAL_ID}.json",
+        record,
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    caplog.set_level(logging.INFO, logger="mcp.memory_inspect")
+
+    result = handle(_canonical_arguments())
+
+    assert _payload(result)["memory"]["occurred_at"] == occurred_at
+    assert len(caplog.messages) == 1
+    assert occurred_at not in caplog.messages[0]
 
 
 def test_memory_inspect_returns_a_stable_legacy_projection(

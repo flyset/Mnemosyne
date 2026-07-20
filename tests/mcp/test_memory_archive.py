@@ -44,25 +44,29 @@ def _payload(result: dict[str, Any]) -> dict[str, Any]:
     return json.loads(result["content"][0]["text"])
 
 
-def _record(*, state: str = "archived", revision: int = 4):
-    return parse_memory_record(
-        {
-            "schema_version": 2,
-            "id": CANONICAL_ID,
-            "scope": "project",
-            "namespace": {"kind": "project", "id": "mnemosyne", "label": "Private"},
-            "collection": {"id": "decisions", "label": "Private"},
-            "kind": "decision",
-            "language": "en",
-            "title": "Private title",
-            "content": "Archive lifecycle context.",
-            "tags": ["private-tag"],
-            "provenance": {"origin": "explicit_user_statement", "recorded_via": "memory_remember"},
-            "lifecycle": {"state": state, "revision": revision},
-            "created_at": "2026-07-18T12:00:00Z",
-            "updated_at": "2026-07-19T12:00:00Z",
-        }
-    )
+def _record(*, state: str = "archived", revision: int = 4, event: bool = False):
+    payload = {
+        "schema_version": 2,
+        "id": CANONICAL_ID,
+        "scope": "project",
+        "namespace": {"kind": "project", "id": "mnemosyne", "label": "Private"},
+        "collection": {"id": "decisions", "label": "Private"},
+        "kind": "event" if event else "decision",
+        "language": "en",
+        "title": "Private title",
+        "content": "Archive lifecycle context.",
+        "tags": ["private-tag"],
+        "provenance": {
+            "origin": "explicit_user_statement",
+            "recorded_via": "memory_remember",
+        },
+        "lifecycle": {"state": state, "revision": revision},
+        "created_at": "2026-07-18T12:00:00Z",
+        "updated_at": "2026-07-19T12:00:00Z",
+    }
+    if event:
+        payload["occurred_at"] = "2026-07-17T09:30:00Z"
+    return parse_memory_record(payload)
 
 
 def test_memory_archive_exposes_a_strict_canonical_revision_definition() -> None:
@@ -312,7 +316,7 @@ def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspectio
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    record = _record(state="active", revision=1)
+    record = _record(state="active", revision=1, event=True)
     path = tmp_path / "project" / "mnemosyne" / "decisions" / f"{CANONICAL_ID}.json"
     path.parent.mkdir(parents=True)
     from mnemosyne.memory.records import serialize_memory_record
@@ -332,3 +336,4 @@ def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspectio
     assert _payload(recall({"query": "archive lifecycle context", "scope": "project"}))["status"] == "no_matches"
     inspected = _payload(inspect({"reference": _arguments()["reference"]}))
     assert inspected["memory"]["lifecycle"] == {"state": "archived", "revision": 2}
+    assert inspected["memory"]["occurred_at"] == "2026-07-17T09:30:00Z"

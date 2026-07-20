@@ -29,9 +29,16 @@ class MemoryKind(StrEnum):
     DECISION = "decision"
     CONSTRAINT = "constraint"
     STATE = "state"
+    EVENT = "event"
     QUESTION = "question"
     REFERENCE = "reference"
     SUMMARY = "summary"
+
+
+@dataclass(frozen=True)
+class KindDefinition:
+    kind: MemoryKind
+    guidance: str
 
 
 class MemoryOrigin(StrEnum):
@@ -53,26 +60,123 @@ class LifecycleState(StrEnum):
     ARCHIVED = "archived"
 
 
-ALLOWED_KINDS = {
-    MemoryScope.SELF: (MemoryKind.ATTRIBUTE,),
-    MemoryScope.RELATIONSHIP: (
-        MemoryKind.PERSPECTIVE,
-        MemoryKind.SUMMARY,
+KIND_DEFINITIONS: dict[MemoryScope, tuple[KindDefinition, ...]] = {
+    MemoryScope.SELF: (
+        KindDefinition(
+            kind=MemoryKind.ATTRIBUTE,
+            guidance=(
+                "Record a stable fact about who the user is or an enduring "
+                "circumstance; do not use it for preferences or temporary project "
+                "state."
+            ),
+        ),
     ),
-    MemoryScope.PREFERENCE: (MemoryKind.PREFERENCE,),
-    MemoryScope.PRACTICE: (MemoryKind.PRACTICE,),
+    MemoryScope.RELATIONSHIP: (
+        KindDefinition(
+            kind=MemoryKind.PERSPECTIVE,
+            guidance=(
+                "Record the user's viewpoint, feeling, or assessment about a person, "
+                "group, or relationship."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.SUMMARY,
+            guidance=(
+                "Summarize durable context about a person, group, or relationship "
+                "from the user's perspective; do not present it as objective biography."
+            ),
+        ),
+    ),
+    MemoryScope.PREFERENCE: (
+        KindDefinition(
+            kind=MemoryKind.PREFERENCE,
+            guidance=(
+                "Record a choice the user explicitly wants respected, including what "
+                "they prefer or avoid."
+            ),
+        ),
+    ),
+    MemoryScope.PRACTICE: (
+        KindDefinition(
+            kind=MemoryKind.PRACTICE,
+            guidance=(
+                "Record a routine, method, habit, or actual way the user works; "
+                "describe stated or observed practice rather than an aspiration."
+            ),
+        ),
+    ),
     MemoryScope.PROJECT: (
-        MemoryKind.DECISION,
-        MemoryKind.CONSTRAINT,
-        MemoryKind.STATE,
-        MemoryKind.QUESTION,
-        MemoryKind.REFERENCE,
-        MemoryKind.SUMMARY,
+        KindDefinition(
+            kind=MemoryKind.DECISION,
+            guidance=(
+                "Record a choice made for the project and the rationale or "
+                "consequences that should guide later work."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.CONSTRAINT,
+            guidance=(
+                "Record a project boundary, requirement, limitation, or "
+                "non-negotiable that restricts valid choices."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.STATE,
+            guidance=(
+                "Record the project's current condition or status; revise it when "
+                "that condition changes."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.EVENT,
+            guidance=(
+                "Record a completed project occurrence at its known occurrence time; "
+                "use state for a current condition."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.QUESTION,
+            guidance=(
+                "Record an unresolved project question whose answer could change "
+                "direction or implementation."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.REFERENCE,
+            guidance=(
+                "Record project-specific approved reference material needed to "
+                "execute or understand this project."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.SUMMARY,
+            guidance=(
+                "Summarize the project's durable context, progress, or design "
+                "without replacing more precise decisions, constraints, states, or "
+                "questions."
+            ),
+        ),
     ),
     MemoryScope.KNOWLEDGE: (
-        MemoryKind.REFERENCE,
-        MemoryKind.SUMMARY,
+        KindDefinition(
+            kind=MemoryKind.REFERENCE,
+            guidance=(
+                "Record user-approved reusable reference material for a topic beyond "
+                "one project; do not store ordinary general knowledge."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.SUMMARY,
+            guidance=(
+                "Summarize user-approved reusable material about a topic beyond one "
+                "project; do not store ordinary general knowledge."
+            ),
+        ),
     ),
+}
+ALLOWED_KINDS = {
+    scope: tuple(definition.kind for definition in definitions)
+    for scope, definitions in KIND_DEFINITIONS.items()
 }
 
 V1_FIELDS = {"schema_version", "id", "title", "content", "tags"}
@@ -91,8 +195,9 @@ V2_FIELDS = {
     "lifecycle",
     "created_at",
     "updated_at",
+    "occurred_at",
 }
-V2_REQUIRED_FIELDS = V2_FIELDS
+V2_REQUIRED_FIELDS = V2_FIELDS - {"occurred_at"}
 TIMESTAMP_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 EnumValue = TypeVar("EnumValue", bound=StrEnum)
 
@@ -182,6 +287,7 @@ DuplicateKey = tuple[
     str,
     str | None,
     str,
+    datetime | None,
     str | None,
     str,
     tuple[str, ...],
@@ -194,6 +300,7 @@ def _duplicate_key(
     namespace: MemoryNamespace,
     collection: MemoryCollection | None,
     kind: MemoryKind,
+    occurred_at: datetime | None,
     title: str | None,
     content: str,
     tags: tuple[str, ...],
@@ -204,6 +311,7 @@ def _duplicate_key(
         namespace.id,
         collection.id if collection is not None else None,
         kind.value,
+        occurred_at,
         title,
         content,
         normalized_tag_key(tags),
@@ -225,6 +333,7 @@ class MemoryRecordV2:
     lifecycle: MemoryLifecycle
     created_at: datetime
     updated_at: datetime
+    occurred_at: datetime | None = None
 
     def duplicate_key(self) -> DuplicateKey:
         return _duplicate_key(
@@ -232,6 +341,7 @@ class MemoryRecordV2:
             namespace=self.namespace,
             collection=self.collection,
             kind=self.kind,
+            occurred_at=self.occurred_at,
             title=self.title,
             content=self.content,
             tags=self.tags,
@@ -301,6 +411,7 @@ class MemoryDraft:
     content: str
     tags: tuple[str, ...]
     origin: MemoryOrigin
+    occurred_at: datetime | None = None
 
     @classmethod
     def from_dict(cls, value: object) -> "MemoryDraft":
@@ -317,6 +428,7 @@ class MemoryDraft:
                 "content",
                 "tags",
                 "origin",
+                "occurred_at",
             },
             required={
                 "scope",
@@ -335,6 +447,7 @@ class MemoryDraft:
         collection = _parse_collection(payload["collection"])
         kind = _parse_kind(payload["kind"])
         _validate_scope_dimensions(scope, namespace, kind)
+        occurred_at = _parse_occurrence(payload, kind)
         origin = _parse_enum(MemoryOrigin, payload["origin"], "origin")
         return cls(
             scope=scope,
@@ -350,6 +463,7 @@ class MemoryDraft:
             ),
             tags=normalize_tags(payload["tags"]),
             origin=origin,
+            occurred_at=occurred_at,
         )
 
     def duplicate_key(self) -> DuplicateKey:
@@ -358,6 +472,7 @@ class MemoryDraft:
             namespace=self.namespace,
             collection=self.collection,
             kind=self.kind,
+            occurred_at=self.occurred_at,
             title=self.title,
             content=self.content,
             tags=self.tags,
@@ -469,6 +584,20 @@ def _parse_kind(value: object) -> MemoryKind:
         ) from error
 
 
+def _parse_occurrence(
+    payload: dict[str, Any],
+    kind: MemoryKind,
+) -> datetime | None:
+    present = "occurred_at" in payload
+    if kind is MemoryKind.EVENT:
+        if not present:
+            raise _invalid("occurred_at")
+        return _parse_timestamp(payload["occurred_at"], "occurred_at")
+    if present:
+        raise _invalid("occurred_at")
+    return None
+
+
 def _validate_scope_dimensions(
     scope: MemoryScope,
     namespace: MemoryNamespace,
@@ -522,13 +651,14 @@ def _parse_v1(payload: dict[str, Any]) -> LegacyMemoryRecordV1:
 
 
 def _parse_v2(payload: dict[str, Any]) -> MemoryRecordV2:
-    if set(payload) != V2_REQUIRED_FIELDS:
+    if set(payload) - V2_FIELDS or not V2_REQUIRED_FIELDS <= set(payload):
         raise _invalid("record")
     scope = parse_scope(payload["scope"])
     namespace = _parse_namespace(payload["namespace"])
     collection = _parse_collection(payload["collection"])
     kind = _parse_kind(payload["kind"])
     _validate_scope_dimensions(scope, namespace, kind)
+    occurred_at = _parse_occurrence(payload, kind)
 
     provenance_payload = _expect_object(
         payload["provenance"],
@@ -586,6 +716,7 @@ def _parse_v2(payload: dict[str, Any]) -> MemoryRecordV2:
         lifecycle=MemoryLifecycle(state=state, revision=revision),
         created_at=created_at,
         updated_at=updated_at,
+        occurred_at=occurred_at,
     )
 
 
@@ -620,7 +751,7 @@ def serialize_memory_record(
             payload["tags"] = list(record.tags)
         return payload
 
-    return {
+    payload: dict[str, Any] = {
         "schema_version": 2,
         "id": record.id,
         "scope": record.scope.value,
@@ -653,3 +784,6 @@ def serialize_memory_record(
         "created_at": _serialize_timestamp(record.created_at),
         "updated_at": _serialize_timestamp(record.updated_at),
     }
+    if record.occurred_at is not None:
+        payload["occurred_at"] = _serialize_timestamp(record.occurred_at)
+    return payload
