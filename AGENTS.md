@@ -19,7 +19,11 @@ This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
 
 ## Project Memory
 
-Use Mnemosyne, the already available mnemosyne tools to you, as your memory.
+- Read `MEMORY.md` before using Mnemosyne or assuming that prior project context
+  is absent.
+- Use the available Mnemosyne tools as the primary durable project record store.
+- Follow every instruction in `MEMORY.md`; its project-local rules are
+  non-negotiable.
 
 ## Before Editing
 
