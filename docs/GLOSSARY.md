@@ -1,11 +1,13 @@
 # Glossary
 
 - **Awareness** — read-only, least-privilege inspection of safe local environment signals.
-- **Cold memory** — durable memory retrieved only when relevant; it remains user-governed and easy to delete.
-- **Consent** — explicit user authorization for a durable memory or state-changing action; for mutation Tools it is enforced by per-call MCP-client approval, not a model-provided field.
-- **Hot memory** — a small, bounded working set loaded at session start from durable memory.
+- **Cold memory** — conventional shorthand for durable records retrieved only when relevant; they remain user-governed and easy to delete.
+- **Consent** — explicit user authorization for a durable record or state-changing action; for mutation Tools it is enforced by per-call MCP-client approval, not a model-provided field.
+- **Guided** — the direction of authority in which the user guides Mnemosyne's organization; an agent may retrieve context and propose bounded placement or lifecycle changes, but the user remains the authority over meaning and approves each mutation.
+- **Hot memory** — conventional shorthand for a small, bounded working set loaded into temporary model context at session start from durable records.
 - **MCP tool** — a narrowly scoped capability exposed through the Model Context Protocol.
-- **Memory** — user-approved durable context, such as a preference or stable fact; never a secret store.
+- **Memory** — protocol and product shorthand for user-approved durable records held outside the model; it does not mean that the model possesses durable personal memory and is never a secret store.
+- **Memory substitute** — an external, notebook-like system that preserves approved records and retrieves selected records into temporary model context, providing continuity without giving the model intrinsic memory.
 - **Legacy memory record** — a compatible schema-version-1 JSON record with ID, content, and optional title/tags; it remains readable without background rewriting or invented metadata.
 - **Memory collection** — an optional stable organizational partition beneath a version-2 namespace; its ID affects the path while its mutable label does not.
 - **Memory kind** — the controlled semantic role of a version-2 record, such as `preference`, `decision`, `state`, `event`, or `reference`; it is constrained by scope, immutable after creation, and is not a path segment.

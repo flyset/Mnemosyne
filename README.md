@@ -2,7 +2,10 @@
 
 Mnemosyne is an experimental local MCP server.
 
-Its intended direction is a personal memory and awareness layer for AI agents: a small local service that lets compatible models remember approved context, inspect safe environment signals, and operate under explicit user-governed boundaries.
+Its intended direction is a personal, notebook-like memory substitute and
+awareness layer for AI agents: a small local service that preserves approved
+records outside the model, retrieves selected context when requested, exposes
+safe environment signals, and operates under explicit user-governed boundaries.
 
 ## Current Status
 
@@ -20,9 +23,10 @@ Implemented tools:
 - `memory_restore` — when explicitly enabled, revision-checks and restores one exact archived canonical version-2 memory
 - `memory_forget` — when independently enabled, permanently deletes one exact archived canonical version-2 memory at its expected revision
 
-This is not yet a full memory or awareness system. A `memory_recall` request
-contains a free-form `query`, exactly one high-level scope (`self`,
-`relationship`, `preference`, `practice`, `project`, or `knowledge`), and
+This is not yet a full memory substitute or awareness system. A
+`memory_recall` request contains a free-form `query`, exactly one high-level
+scope (`self`, `relationship`, `preference`, `practice`, `project`, or
+`knowledge`), and
 optionally 1–10 unique free-form `tags`. Scope selects one fixed local directory.
 Query terms and tags rank valid records from that directory; recall never searches
 another scope or accepts a client-supplied path. The Tool schema publishes scope
@@ -877,7 +881,7 @@ native JSON null.
 
 Mnemosyne is meant to become a local-first MCP server that gives agents controlled access to:
 
-- user-approved memory
+- user-approved durable records and retrieval
 - project and runtime awareness
 - behavior/reflection configuration
 - prior session context
@@ -893,7 +897,7 @@ Mnemosyne is not intended to be:
 - an unrestricted filesystem API
 - a secret store
 - a multi-user platform in the initial version
-- a hidden memory system that mutates context without visibility
+- a hidden system that mutates model context without visibility
 
 ## Running the Server
 
