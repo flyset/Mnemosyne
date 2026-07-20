@@ -17,6 +17,10 @@ Mnemosyne is a local-first MCP server for user-governed AI memory, awareness, re
 
 This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
 
+## Project Memory
+
+Use Mnemosyne, the already available mnemosyne tools to you, as your memory.
+
 ## Before Editing
 
 - Read `docs/AI_WORKFLOW.md` before planning any state-changing action.
