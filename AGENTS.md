@@ -45,6 +45,10 @@ This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
 
 - The `docs/` folder is the home for durable project documentation beyond the README.
 - Use `README.md` for user-facing setup, status, and quick orientation.
+- Use `docs/GETTING_STARTED.md` for user guidance on repository-level Mnemosyne
+  integration through `MEMORY.md` and a project memory map.
+- Use `docs/MANUAL.md` for operating guidance for agents using Mnemosyne memory
+  Tools; read it before using Mnemosyne or analyzing its agent-integration workflow.
 - Use `VISION.md` for product intent, boundaries, non-goals, and future direction.
 - Use `docs/ARCHITECTURE.md` for current code organization and architectural rules.
 - Use `docs/AI_WORKFLOW.md` for contribution gates and verification expectations.
