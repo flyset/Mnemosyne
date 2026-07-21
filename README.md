@@ -1044,5 +1044,8 @@ See `VISION.md` for the broader scope and boundaries.
 
 See `docs/ARCHITECTURE.md` for the current code organization.
 
+See `docs/GETTING_STARTED.md` for repository-level project-memory integration,
+and `docs/MANUAL.md` for operating guidance for agents using memory Tools.
+
 See `docs/AI_WORKFLOW.md` for contribution and verification gates, and
 `docs/GLOSSARY.md` for canonical terms and public-contract language.
