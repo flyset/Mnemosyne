@@ -1,7 +1,7 @@
 # Project Memory
 
 > The instructions in this file are the authoritative project-local rules for
-> using Mnemosyne as this project's primary durable record store. They are
+> using Mnemosyne as this project's primary durable memory store. They are
 > non-negotiable for every agent operating in this project.
 
 ## Discover the Available Interface
@@ -89,22 +89,12 @@ Before performing the first Mnemosyne operation in each session:
 - **Scope:** `project`
 - **Namespace:** `mnemosyne`
 - **Collection:** `ideas`
-- **Holds:** discrete proposed capabilities or improvements and their eventual
-  disposition.
-- **Read when:** exploring potential enhancements or the rationale of prior
-  ideas.
-- **Write when:** a concrete possibility is worth retaining but is not yet
-  planned or decided.
-
-#### Ideation
-
-- **Scope:** `project`
-- **Namespace:** `mnemosyne`
-- **Collection:** `ideation`
-- **Holds:** developed exploratory reasoning and deferred design possibilities.
-- **Read when:** exploring future directions or reconsidering deferred concepts.
-- **Write when:** an exploration has durable rationale but has not become a
-  decision.
+- **Holds:** proposed capabilities or improvements, developed exploratory
+  reasoning, deferred design possibilities, and their eventual disposition.
+- **Read when:** exploring potential enhancements or future directions,
+  reconsidering deferred concepts, or reviewing the rationale of prior ideas.
+- **Write when:** a concrete possibility or exploration has durable value but
+  is not yet planned or decided.
 
 #### Issues
 
