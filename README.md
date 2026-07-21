@@ -1,11 +1,11 @@
 # Mnemosyne
 
-Mnemosyne is an experimental local MCP server.
+Mnemosyne is an experimental local MCP server for user-governed AI memory.
 
-Its intended direction is a personal, notebook-like memory substitute and
-awareness layer for AI agents: a small local service that preserves approved
-records outside the model, retrieves selected context when requested, exposes
-safe environment signals, and operates under explicit user-governed boundaries.
+Its intended direction is a personal, notebook-like memory substitute for AI
+agents: a small local service that preserves approved records outside the model,
+retrieves selected context when requested, and operates under explicit
+user-governed boundaries.
 
 ## Current Status
 
@@ -23,7 +23,7 @@ Implemented tools:
 - `memory_restore` — when explicitly enabled, revision-checks and restores one exact archived canonical version-2 memory
 - `memory_forget` — when independently enabled, permanently deletes one exact archived canonical version-2 memory at its expected revision
 
-This is not yet a full memory substitute or awareness system. A
+This is not yet a full memory substitute. A
 `memory_recall` request contains a free-form `query`, exactly one high-level
 scope (`self`, `relationship`, `preference`, `practice`, `project`, or
 `knowledge`), and
@@ -909,13 +909,8 @@ native JSON null.
 
 ## Intended Role
 
-Mnemosyne is meant to become a local-first MCP server that gives agents controlled access to:
-
-- user-approved durable records and retrieval
-- project and runtime awareness
-- behavior/reflection configuration
-- prior session context
-- transparent governance rules
+Mnemosyne is meant to become a local-first MCP server that gives agents controlled
+access to user-approved durable records and bounded retrieval.
 
 The design bias is personal-only first, with clean seams for a possible reusable product later.
 
@@ -1031,14 +1026,28 @@ per-agent permission override must preserve this order: broad `mnemosyne_*`
 denial first, explicit lower-breadth read-only allows (including `memory_list`)
 next, and the exact mutation asks last.
 
+## Integrating Mnemosyne with a Repository
+
+After Mnemosyne's memory Tools are available to an AI client, add a repository-root
+`MEMORY.md`. It is the repository-local operating contract: it tells agents which
+project context to retrieve, where durable records belong, and when records should
+be created, revised, archived, or forgotten.
+
+Keep the repository, Git history, backlog, and documentation as the authoritative
+engineering record. Mnemosyne preserves concise, user-approved orientation,
+rationale, and delivery history across sessions.
+
+Start with `docs/GETTING_STARTED.md` for a project memory-map template and
+integration guidance. Agents should read `docs/MANUAL.md` for general safe Tool-use
+guidance before operating on memory.
+
 ## Roadmap Shape
 
 Likely next steps:
 
-1. Add read-only awareness tools.
-2. Add governance rules for consent, hygiene, and no-secret handling.
-3. Refine retrieval using observed local recall behavior.
-4. Continue automated MCP coverage supplemented by direct protocol checks.
+1. Refine memory governance, hygiene, and no-secret handling.
+2. Refine retrieval using observed local recall behavior.
+3. Continue automated MCP coverage supplemented by direct protocol checks.
 
 See `VISION.md` for the broader scope and boundaries.
 

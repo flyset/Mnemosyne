@@ -1,6 +1,5 @@
 # Glossary
 
-- **Awareness** — read-only, least-privilege inspection of safe local environment signals.
 - **Cold memory** — conventional shorthand for durable records retrieved only when relevant; they remain user-governed and easy to delete.
 - **Consent** — explicit user authorization for a durable record or state-changing action; for mutation Tools it is enforced by per-call MCP-client approval, not a model-provided field.
 - **Guided** — the direction of authority in which the user guides Mnemosyne's organization; an agent may retrieve context and propose bounded placement or lifecycle changes, but the user remains the authority over meaning and approves each mutation.
@@ -62,9 +61,6 @@
 - **Recall reference continuity** — the inspect-compatible versioned reference included with every successful recall match so an active canonical or legacy result can be selected exactly without exposing a path.
 - **Memory recall** — read-only retrieval that validates a recall request, searches only its selected scope directory, and returns bounded approved records with inspect-compatible references without persisting the request.
 - **Memory mutation** — an explicit create, revise, archive, restore, relocate, or physical-forget operation; domain primitives are disabled by default, while remember, revise, reversible archive/restore, and archived-only forget are implemented MCP mutations behind independent startup gates.
-- **Reflection** — operational agent configuration, such as policies, checklists, and failure-mode mitigations; not personal facts.
-- **Session context** — selectively retrieved summaries or excerpts from prior agent sessions.
-
 ## Contract Terms
 
 - **Public MCP contract** — the externally observable behavior of endpoints, protocol methods, tool names, input schemas, and result or error shapes.

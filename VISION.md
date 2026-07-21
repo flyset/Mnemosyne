@@ -1,21 +1,20 @@
 # Mnemosyne Vision
 
 Mnemosyne is a personal, local-first MCP server that gives AI agents controlled
-access to a user-governed memory substitute and safe awareness signals.
+access to a user-governed memory substitute.
 
 The goal is not to make an agent omniscient or pretend that a model possesses
 durable personal memory. The goal is to provide a small, trustworthy local
-notebook and nervous system: the records the user has approved preserving, where
-the agent is operating, and which safety boundaries apply.
+notebook: the records the user has approved preserving and the safety boundaries
+that govern them.
 
 ## Role
 
-Mnemosyne acts as a thin bridge between MCP-compatible agents and local context services.
+Mnemosyne acts as a thin bridge between MCP-compatible agents and local memory.
 
 It should help agents:
 
 - retrieve stable, user-approved facts and preferences when relevant
-- inspect safe awareness signals about the local environment
 - retrieve prior context without dumping everything into the prompt
 - operate under explicit consent and governance rules
 
@@ -61,37 +60,16 @@ Version 0 is personal-only:
 
 The server should expose small, composable tools rather than large autonomous workflows.
 
-## Tool Categories
+## Tool Focus
 
-The intended tool families are:
+Mnemosyne's product domain is memory. Its tools should operate only on approved
+memory records and their lifecycle:
 
-1. **Memory substitute**
-   - store approved facts and preferences
-   - recall by key or query
-   - delete obsolete entries
-   - separate temporary working context from durable on-demand records
-
-2. **Awareness**
-   - current directory and workspace shape
-   - runtime and platform metadata
-   - safe project/file discovery
-   - agent/session identity where available
-
-3. **Reflection**
-   - persona and behavior configuration
-   - operating checklists
-   - failure modes and review cadence
-
-4. **Session Context**
-   - find prior discussions
-   - summarize sessions
-   - retrieve only what is relevant and approved
-
-5. **Governance**
-   - consent boundaries
-   - record hygiene
-   - auditability
-   - no-secret handling
+- store approved facts and preferences
+- recall, list, and inspect bounded records
+- revise, archive, restore, or delete obsolete records under explicit consent
+- separate temporary working context from durable on-demand records
+- apply consent boundaries, record hygiene, auditability, and no-secret handling
 
 ## Non-Goals
 
@@ -109,11 +87,11 @@ Mnemosyne should not become:
 
 Mnemosyne should prefer:
 
-- read-only awareness before mutation
+- read-only memory inspection before mutation
 - explicit schemas and predictable errors
 - least-privilege access
 - user-approved durable records
-- clear separation between personal facts, project facts, and operational reflection
+- clear separation between personal facts and project facts
 - small, explainable record changes
 - local storage by default
 
@@ -127,7 +105,6 @@ If Mnemosyne evolves into a reusable product, it should be ready for:
 - pluggable storage backends
 - configurable policy profiles
 - audit logs
-- installable tool packs
 - optional encryption once the threat model is explicit
 - migration from personal-only to product-grade packaging
 

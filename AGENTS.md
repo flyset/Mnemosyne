@@ -2,7 +2,7 @@
 
 ## Project Intent
 
-Mnemosyne is a local-first MCP server for user-governed AI memory, awareness, reflection, and session context.
+Mnemosyne is a local-first MCP server for user-governed AI memory.
 
 ## Principles
 
