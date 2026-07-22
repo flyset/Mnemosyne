@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from mymcp.memory.errors import (
@@ -8,13 +9,11 @@ from mymcp.memory.errors import (
 )
 from mymcp.memory.records import MemoryRecordV2
 from mymcp.memory.retrieval import MemoryMatch
-from mymcp.memory.scopes import SCOPE_VALUES, parse_scope
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
+from mymcp.memory.scopes import MemoryScope, SCOPE_VALUES, parse_scope
 
 
 logger = logging.getLogger("mcp.memory_recall")
+RecallOperation = Callable[[MemoryScope, str, list[str]], list[MemoryMatch]]
 
 INVALID_QUERY_MESSAGE = (
     "query must be a non-empty string of at most 1000 characters"
@@ -88,7 +87,11 @@ def _serialize_match(match: MemoryMatch, scope: str) -> dict[str, Any]:
     }
 
 
-def handle(arguments: dict[str, Any]) -> dict[str, Any]:
+def handle(
+    arguments: dict[str, Any],
+    *,
+    recall_operation: RecallOperation,
+) -> dict[str, Any]:
     query = arguments.get("query")
 
     logger.info(
@@ -135,8 +138,7 @@ def handle(arguments: dict[str, Any]) -> dict[str, Any]:
         request_tags = tags
 
     try:
-        service = MemoryService(FilesystemMemoryStore(get_memory_root()))
-        matches = service.recall(
+        matches = recall_operation(
             parse_scope(scope),
             query,
             request_tags,

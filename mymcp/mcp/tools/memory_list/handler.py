@@ -24,9 +24,6 @@ from mymcp.memory.listing import (
 from mymcp.memory.normalization import normalize_identifier
 from mymcp.memory.records import LegacyMemoryRecordV1, MemoryRecordV2
 from mymcp.memory.scopes import parse_scope
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
 
 
 logger = logging.getLogger("mcp.memory_list")
@@ -335,23 +332,10 @@ def _serialize_result(result: MemoryListResult) -> dict[str, Any]:
     }
 
 
-def _list_memories(
-    selector: MemoryListSelector,
-    page_size: int | None,
-    cursor: str | None,
-) -> MemoryListResult:
-    service = MemoryService(FilesystemMemoryStore(get_memory_root()))
-    return service.list_memories(
-        selector,
-        page_size=page_size,
-        cursor=cursor,
-    )
-
-
 def handle(
     arguments: object,
     *,
-    list_operation: ListOperation | None = None,
+    list_operation: ListOperation,
 ) -> dict[str, Any]:
     try:
         request = _parse_request(arguments)
@@ -372,14 +356,13 @@ def handle(
             message=error.message,
         )
 
-    operation = list_operation or _list_memories
     log_context = {
         "scope": request.selector.scope.value,
         "namespace_selector_present": request.namespace_selector_present,
         "collection_selector_present": request.collection_selector_present,
     }
     try:
-        result = operation(
+        result = list_operation(
             request.selector,
             request.page_size,
             request.cursor,

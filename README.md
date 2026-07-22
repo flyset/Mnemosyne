@@ -251,6 +251,16 @@ primitives. `memory_remember`, `memory_revise`, paired
 discovery and dispatch unless their independent operator gates enable them.
 Enabling one gate does not enable another capability.
 
+The MCP host uses a generic immutable Tool registry built from explicit
+Tool-definition/handler registrations. One startup composition root resolves
+the retained settings and asks the in-process Mnemosyne integration to select,
+order, bind, and compose the memory Tools. That integration also owns lazy
+memory service/store composition, while handlers remain narrow operation
+adapters. This internal seam preserves Mnemosyne's public server identity, Tool
+names, schemas, ordering, gates, results, errors, configuration, and storage
+contracts. It is not plugin extraction or discovery and adds no public Tool
+namespacing.
+
 ## Revising Memory
 
 Revision is disabled by default and has an independent gate. Persist it in the

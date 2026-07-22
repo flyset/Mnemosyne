@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from mymcp.mcp.tools._memory_content_refusal import CONTENT_REFUSAL_MESSAGE
@@ -13,12 +14,11 @@ from mymcp.memory.errors import (
     WriteConflict,
 )
 from mymcp.memory.records import MemoryDraft, MemoryOrigin, MemoryRecordV2
-from mymcp.memory.service import MemoryResult, MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
+from mymcp.memory.service import MemoryResult
 
 
 logger = logging.getLogger("mcp.memory_remember")
+RememberOperation = Callable[[MemoryDraft], MemoryResult]
 
 
 PUBLIC_ORIGINS = {
@@ -169,6 +169,7 @@ def _serialize_result(result: MemoryResult) -> dict[str, Any]:
 def handle(
     arguments: dict[str, Any],
     *,
+    remember_operation: RememberOperation,
     mutations_enabled: bool = False,
 ) -> dict[str, Any]:
     if arguments.get("origin") not in PUBLIC_ORIGINS:
@@ -216,11 +217,7 @@ def handle(
         )
 
     try:
-        service = MemoryService(
-            FilesystemMemoryStore(get_memory_root()),
-            mutations_enabled=True,
-        )
-        result = service.remember(draft)
+        result = remember_operation(draft)
     except MemoryValidationError as error:
         code, field, message = _validation_error(error)
         _log_outcome(

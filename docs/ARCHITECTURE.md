@@ -58,11 +58,16 @@ mymcp/
     messages.py       # MCP message parsing and normalization
     methods.py        # MCP/JSON-RPC method dispatch
     protocol.py       # JSON-RPC result/error helpers
+    startup.py        # single process startup composition root
+    tool_registry.py  # generic immutable Tool registration and dispatch
     tool_arguments.py # schema-aware client argument compatibility
+
+    integrations/
+      __init__.py     # explicit in-process integration boundary
+      mnemosyne.py    # Mnemosyne Tool selection, binding, and service composition
 
     tools/
       __init__.py
-      registry.py     # MCP tool registry and dispatch
       _memory_content_refusal.py # shared non-content remediation message
       _memory_lifecycle.py # private lifecycle schemas, projections, errors, logs
       _memory_revise.py # private revise schema, parsing, projection, errors, logs
@@ -74,42 +79,42 @@ mymcp/
       memory_recall/
         __init__.py   # public TOOL and handle re-exports
         definition.py # Tool schema derived from canonical shared scopes
-        handler.py    # MCP validation, logging, adaptation, and Tool results
+        handler.py    # typed recall operation adapter and Tool results
 
       memory_list/
         __init__.py   # public TOOL and handle re-exports
         definition.py # strict initial and continuation selector schemas
-        handler.py    # compact projections, bounded errors, and content-free logs
+        handler.py    # typed list operation adapter and compact projections
 
       memory_inspect/
         __init__.py   # public TOOL and handle re-exports
         definition.py # strict versioned-reference schema
-        handler.py    # exact lookup, public projections, errors, and logs
+        handler.py    # typed inspect operation adapter and public projections
 
       memory_remember/
         __init__.py   # public TOOL and handle re-exports
         definition.py # scope/dimension-derived mutation schema
-        handler.py    # bounded validation, service adaptation, results, and logs
+        handler.py    # typed remember operation adapter and mutation gate
 
       memory_revise/
         __init__.py   # public TOOL and handle re-exports
         definition.py # complete canonical revision schema
-        handler.py    # enabled service/store construction and private adapter call
+        handler.py    # narrow operation adapter over the private revise adapter
 
       memory_archive/
         __init__.py   # public TOOL and handle re-exports
         definition.py # strict canonical reference/revision schema
-        handler.py    # archive service construction and private adapter call
+        handler.py    # narrow archive operation adapter
 
       memory_restore/
         __init__.py   # public TOOL and handle re-exports
         definition.py # strict canonical reference/revision schema
-        handler.py    # restore service construction and private adapter call
+        handler.py    # narrow restore operation adapter
 
       memory_forget/
         __init__.py   # public TOOL and handle re-exports
         definition.py # strict canonical reference/revision schema
-        handler.py    # forget service construction and private adapter call
+        handler.py    # narrow forget operation adapter
 ```
 
 ## Responsibilities
@@ -148,6 +153,42 @@ current object properties and `oneOf` / `anyOf` composition without becoming a
 second schema validator: malformed, wrong-type, ambiguous string-permitted, or
 repeatedly encoded values remain unchanged for the Tool's existing validation.
 Native arguments and legitimate text fields remain unchanged.
+
+### `mymcp/mcp/tool_registry.py`
+
+Owns generic registration and dispatch mechanics without importing Mnemosyne
+Tools, the memory domain, or Mnemosyne settings. A frozen `ToolRegistration`
+pairs one Tool definition with one handler. `ToolRegistry` accepts only explicit
+complete registrations, preserves their order, rejects duplicate names,
+snapshots discovery definitions defensively, and dispatches known calls through
+schema-aware one-layer argument normalization. It has no dynamic loading,
+integration metadata, gate selection, or plugin lifecycle.
+
+### `mymcp/mcp/startup.py`
+
+Is the one process startup composition root. It resolves the retained
+Mnemosyne memory Tool settings once, asks the explicit Mnemosyne integration to
+compose the selected surface, and stores one generic immutable registry. MCP
+`tools/list`, the `list_tools` Tool, and `tools/call` all use that same registry
+until restart.
+
+### `mymcp/mcp/integrations/mnemosyne.py`
+
+Owns the explicit in-process Mnemosyne integration: current memory Tool imports,
+fixed public ordering, independent mutation-gate selection, definition/handler
+binding, selected-surface binding for `list_tools`, and memory service/store
+composition. It lazily resolves the configured root and constructs a fresh
+`FilesystemMemoryStore` and `MemoryService` for each validated operation call.
+Recall, list, and inspect operations receive mutation-disabled services;
+remember, revise, archive, restore, and forget receive mutation-enabled services
+only after their handlers pass Tool-specific validation and enabled mutation
+gates.
+
+Each memory handler receives only its narrow typed operation. Handlers retain
+request parsing, Tool-level gate checks, result projection, bounded error
+mapping, and content-free logging; they do not resolve roots or import or
+construct concrete stores and services. This is an internal composition seam,
+not an extracted plugin, plugin discovery system, or public Tool namespace.
 
 Public Tool schemas with argument variants must keep the complete caller-visible
 field set in top-level `properties` with top-level required fields. Composition
@@ -196,16 +237,16 @@ scope, and optional bounded free-form tags. The six scopes are `self`,
 individual model-facing description and is exposed through one explicit string
 enum in the Tool schema for broad client compatibility.
 
-The handler constructs a read-only `MemoryService` over a
-`FilesystemMemoryStore` rooted at the configured location. The shared service
-discovers compatible version-1 and canonical version-2 records and ranks them
-using deterministic query/path/title/content terms and exact tag overlap. It
-returns no more than five records with match evidence and an inspect-compatible
-versioned reference. Legacy references contain scope and ID; canonical
-references also contain namespace ID and nullable collection ID. Recall never
-returns paths, internal scores, provenance, or lifecycle metadata. Archived
-version-2 records are excluded. Missing directories and no positive match return
-`no_matches`; source and candidate-limit failures return stable Tool errors.
+The handler validates the request and adapts it to its supplied typed recall
+operation. The integration-backed operation uses the shared service to discover
+compatible version-1 and canonical version-2 records and rank them using
+deterministic query/path/title/content terms and exact tag overlap. It returns no
+more than five records with match evidence and an inspect-compatible versioned
+reference. Legacy references contain scope and ID; canonical references also
+contain namespace ID and nullable collection ID. Recall never returns paths,
+internal scores, provenance, or lifecycle metadata. Archived version-2 records
+are excluded. Missing directories and no positive match return `no_matches`;
+source and candidate-limit failures return stable Tool errors.
 
 The recall package is deliberately limited to `__init__.py`, `definition.py`,
 and `handler.py`. Its definition derives the scope enum from the shared registry;
@@ -224,8 +265,9 @@ accept an optional page size from 1 through 100; continuations repeat the exact
 selector with an opaque cursor and omit page size. The Tool accepts no query,
 path, content, cross-scope selector, or arbitrary filter.
 
-The handler validates independently before resolving the root and adapts to
-`MemoryListSelector` and `MemoryService.list_memories()`. The store narrows to
+The handler validates independently, creates a `MemoryListSelector`, and invokes
+its supplied typed list operation only after validation. The integration-backed
+operation delegates to `MemoryService.list_memories()`, whose store narrows to
 the deterministic scope, namespace, collectionless level, or exact collection
 before applying the candidate bound. The shared listing domain orders legacy
 records by ID with an unexposed path tie-breaker, orders canonical records by
@@ -257,17 +299,18 @@ version. Version 2 requires scope, namespace ID, nullable collection ID, and
 canonical ID; version 1 requires scope and legacy ID. It accepts no filesystem
 path, storage root, broad selector, query, lifecycle state, or mutation field.
 
-The inspect handler validates before resolving the memory root and delegates
-exact lookup to the existing read-only `MemoryService.inspect()` and
-`FilesystemMemoryStore.get()` contracts. Canonical results contain a
-record-derived reference and all user-visible version-2 fields. Legacy results
-contain a versioned reference and only ID, nullable title, content, and tags.
-Archived canonical records remain inspectable without a lifecycle selector.
-Missing, ambiguous, candidate-limit, unsafe/unavailable-source, validation, and
-unexpected failures map to bounded Tool errors. Inspection does not initialize
-the root or change files. Logger `mcp.memory_inspect` emits one content-free
-terminal event containing only allowlisted outcome/reference metadata; shared
-skip warnings omit candidate paths.
+The inspect handler validates before invoking its supplied typed inspect
+operation. The integration-backed operation delegates exact lookup to the
+existing read-only `MemoryService.inspect()` and `FilesystemMemoryStore.get()`
+contracts. Canonical results contain a record-derived reference and all
+user-visible version-2 fields. Legacy results contain a versioned reference and
+only ID, nullable title, content, and tags. Archived canonical records remain
+inspectable without a lifecycle selector. Missing, ambiguous, candidate-limit,
+unsafe/unavailable-source, validation, and unexpected failures map to bounded
+Tool errors. Inspection does not initialize the root or change files. Logger
+`mcp.memory_inspect` emits one content-free terminal event containing only
+allowlisted outcome/reference metadata; shared skip warnings omit candidate
+paths.
 
 For a canonical project event, the complete inspection projection includes its
 strict structural `occurred_at`. Inspection remains exact and does not add a
@@ -293,16 +336,16 @@ caller-supplied provenance context, not consent; the MCP client supplies the
 separate enforceable per-call approval boundary and the server assigns
 `recorded_via`.
 
-The remember handler validates a `MemoryDraft`, then—only when selected by the
-enabled startup registry—constructs an enabled `MemoryService` over the
-configured `FilesystemMemoryStore`. The service applies the shared content
-policy before duplicate discovery, generates all operational fields, copies an
-event's parsed occurrence time, and uses the existing atomic store. Event
-duplicate identity includes occurrence time; non-events use a null internal key
-position without changing their prior equality. Store replacement treats
-occurrence time as immutable, while revision and lifecycle replacements preserve
-it. The handler returns only status, structured
-reference, and lifecycle for `remembered`, `already_exists`, or
+The remember handler validates a `MemoryDraft`, enforces its Tool-level mutation
+gate, and then invokes its supplied typed remember operation. The
+integration-backed operation constructs the enabled service only at that point.
+The service applies the shared content policy before duplicate discovery,
+generates all operational fields, copies an event's parsed occurrence time, and
+uses the existing atomic store. Event duplicate identity includes occurrence
+time; non-events use a null internal key position without changing their prior
+equality. Store replacement treats occurrence time as immutable, while revision
+and lifecycle replacements preserve it. The handler returns only status,
+structured reference, and lifecycle for `remembered`, `already_exists`, or
 `existing_archived`; failures are bounded Tool errors. Logger
 `mcp.memory_remember` emits one content-free terminal event and never records
 submitted memory text, labels, tags, paths, exception messages, or tracebacks.
@@ -331,14 +374,14 @@ lifecycle target, provenance replacement, timestamp, or model confirmation.
 The private adapter parses the exact reference before enforcing conditional
 replacement completeness, owns strict normalization, minimal projection, result
 consistency, field-aligned bounded errors, and content-free logging. Literal
-string `"null"` remains text. Only the public handler constructs `MemoryService`
-and `FilesystemMemoryStore`. The
-shared domain applies content policy before storage access, checks the exact
-revision, detects normalized no-ops, preserves immutable identity/metadata and
-lifecycle state, and atomically replaces the same file only on change. Changed
-results are `revised`; no-ops are `already_current`. Archived records remain
-archived and recall-excluded. Revision retains no patch, backup, tombstone, or
-hidden prior content.
+string `"null"` remains text. The public handler supplies its narrow revise
+operation to that adapter; service/store construction remains in the
+integration-backed operation. The shared domain applies content policy before
+storage access, checks the exact revision, detects normalized no-ops, preserves
+immutable identity/metadata and lifecycle state, and atomically replaces the
+same file only on change. Changed results are `revised`; no-ops are
+`already_current`. Archived records remain archived and recall-excluded.
+Revision retains no patch, backup, tombstone, or hidden prior content.
 
 `_memory_content_refusal.py` is a private capability-free MCP helper containing
 only the stable remediation message shared by remember and revision. The revise
@@ -355,14 +398,14 @@ with the same three-file public package shape. Their shared private
 parsing, minimal result projection, bounded error mapping, result consistency
 checks, and content-free logging; it exposes no Tool or storage capability.
 
-Each public handler validates through that adapter before resolving the root,
-then constructs an enabled `MemoryService` over the configured
-`FilesystemMemoryStore` only when selected by the startup registry. Requests
-contain exactly one canonical version-2 reference and positive exact-integer
-expected revision. They accept no path, legacy identity, record content, target
-state, timestamp, or model confirmation. The shared service checks revision
-before lifecycle idempotency and atomically replaces the same file only for a
-state change. Current target state returns `already_archived` or
+Each public handler validates through that adapter, enforces its Tool-level
+mutation gate, and invokes only its supplied typed archive or restore operation.
+The integration-backed operation constructs an enabled service after those
+checks. Requests contain exactly one canonical version-2 reference and positive
+exact-integer expected revision. They accept no path, legacy identity, record
+content, target state, timestamp, or model confirmation. The shared service
+checks revision before lifecycle idempotency and atomically replaces the same
+file only for a state change. Current target state returns `already_archived` or
 `already_active` without write; stale revisions conflict.
 
 Lifecycle results contain only status, canonical versioned reference, and
@@ -383,14 +426,15 @@ mechanics from `_memory_lifecycle.py`; deletion-specific projection, bounded
 errors, result consistency, and content-free logging live in private
 `_memory_forget.py`, which owns no storage capability.
 
-The public handler validates before root resolution and constructs an enabled
-shared service/store only when startup registration selects it. Revision is
-checked before archived-state eligibility. Definitive identity, revision, state,
-safe-path, and bounded-fingerprint checks occur at the store deletion point
-under a mutation lock shared by in-process stores for the same absolute root.
-Successful deletion unlinks one source file, syncs its parent, leaves directories
-intact, and returns only `forgotten` plus the same canonical reference. There is
-no tombstone or idempotent repeat result; later exact access returns not found.
+The public handler validates, enforces its Tool-level mutation gate, and invokes
+only its supplied typed forget operation. The integration-backed operation
+constructs an enabled service after those checks. Revision is checked before
+archived-state eligibility. Definitive identity, revision, state, safe-path, and
+bounded-fingerprint checks occur at the store deletion point under a mutation
+lock shared by in-process stores for the same absolute root. Successful deletion
+unlinks one source file, syncs its parent, leaves directories intact, and returns
+only `forgotten` plus the same canonical reference. There is no tombstone or
+idempotent repeat result; later exact access returns not found.
 
 A failure after unlink but before confirmed parent-directory sync raises a
 distinct uncertain-outcome domain error. The MCP result instructs the caller to

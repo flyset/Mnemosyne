@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 
 from mymcp.mcp.messages import MCPMessage, parse_message
 from mymcp.mcp.protocol import mcp_error, mcp_result
-from mymcp.mcp.tools import TOOLS, call_tool
+from mymcp.mcp.startup import REGISTRY
 from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
@@ -56,7 +56,11 @@ def handle_ping(message: MCPMessage) -> JSONResponse:
 
 
 def handle_tools_list(message: MCPMessage) -> JSONResponse:
-    return mcp_result(message.request_id, {"tools": TOOLS})
+    return mcp_result(message.request_id, {"tools": REGISTRY.tools})
+
+
+def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any] | None:
+    return REGISTRY.call_tool(tool_name, arguments)
 
 
 def handle_tools_call(message: MCPMessage) -> JSONResponse:

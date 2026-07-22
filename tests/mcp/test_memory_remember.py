@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.mcp.tools.memory_remember import TOOL, handle
+from mymcp.mcp.tools.memory_remember import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_remember import handler as handler_module
 from mymcp.mcp.tools.memory_remember.definition import TOOL as DEFINED_TOOL
 from mymcp.memory.errors import (
@@ -15,10 +15,11 @@ from mymcp.memory.errors import (
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mymcp.memory.records import KIND_DEFINITIONS, MemoryReference
+from mymcp.memory.records import KIND_DEFINITIONS, MemoryDraft, MemoryReference
 from mymcp.memory.scopes import SCOPE_DEFINITIONS
 from mymcp.memory.service import MemoryService
 from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.settings import get_memory_root
 
 
 REQUIRED_FIELDS = {
@@ -62,6 +63,30 @@ EXPECTED_FLAT_KIND_ENUM = [
     "question",
     "reference",
 ]
+
+
+def _remember_operation(draft: MemoryDraft):
+    return MemoryService(
+        FilesystemMemoryStore(get_memory_root()),
+        mutations_enabled=True,
+    ).remember(draft)
+
+
+def handle(
+    arguments,
+    *,
+    mutations_enabled=False,
+    remember_operation=None,
+):
+    return public_handle(
+        arguments,
+        remember_operation=(
+            _remember_operation
+            if remember_operation is None
+            else remember_operation
+        ),
+        mutations_enabled=mutations_enabled,
+    )
 
 
 def _arguments() -> dict[str, object]:
@@ -353,7 +378,27 @@ def test_memory_remember_enforces_project_event_occurrence_contract(
 
 def test_memory_remember_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
+
+
+def test_memory_remember_adapts_a_valid_draft_to_the_supplied_operation() -> None:
+    observed = []
+
+    def remember_operation(draft: MemoryDraft):
+        observed.append(draft)
+        raise MutationDisabled
+
+    result = handle(
+        _arguments(),
+        mutations_enabled=True,
+        remember_operation=remember_operation,
+    )
+
+    assert len(observed) == 1
+    assert observed[0].scope.value == "project"
+    assert observed[0].namespace.id == "mnemosyne"
+    assert observed[0].content == _arguments()["content"]
+    assert _payload(result)["code"] == "mutation_disabled"
 
 
 def test_memory_remember_validates_without_persisting(
@@ -789,14 +834,15 @@ def test_memory_remember_classifies_dotted_version_without_source_access(
 def test_memory_remember_maps_service_failures_without_exception_details(
     error: Exception,
     expected: dict[str, str],
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fail_remember(*args: object) -> None:
         raise error
 
-    monkeypatch.setattr(handler_module.MemoryService, "remember", fail_remember)
-
-    result = handle(_arguments(), mutations_enabled=True)
+    result = handle(
+        _arguments(),
+        mutations_enabled=True,
+        remember_operation=fail_remember,
+    )
 
     assert result["isError"] is True
     assert _payload(result) == expected
@@ -889,16 +935,18 @@ def test_memory_remember_logs_failures_without_exception_details(
     level: int,
     outcome: str,
     code: str,
-    monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     def fail_remember(*args: object) -> None:
         raise error
 
-    monkeypatch.setattr(handler_module.MemoryService, "remember", fail_remember)
     caplog.set_level(logging.INFO, logger="mcp.memory_remember")
 
-    handle(_arguments(), mutations_enabled=True)
+    handle(
+        _arguments(),
+        mutations_enabled=True,
+        remember_operation=fail_remember,
+    )
 
     assert len(caplog.records) == 1
     assert caplog.records[0].levelno == level

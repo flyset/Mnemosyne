@@ -15,6 +15,9 @@ FORGET_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_forget"
 REVISE_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_revise"
 REVISE_HELPER = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "_memory_revise.py"
 FORGET_HELPER = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "_memory_forget.py"
+MNEMOSYNE_INTEGRATION = (
+    PROJECT_ROOT / "mymcp" / "mcp" / "integrations" / "mnemosyne.py"
+)
 LIFECYCLE_HELPER = (
     PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "_memory_lifecycle.py"
 )
@@ -29,6 +32,65 @@ def _imports(path: Path) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.module is not None:
             imports.add(node.module)
     return imports
+
+
+def _imported_names(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+
+
+def test_memory_handlers_do_not_own_service_store_or_root_construction() -> None:
+    handler_paths = [
+        package / "handler.py"
+        for package in (
+            RECALL_PACKAGE,
+            LIST_PACKAGE,
+            INSPECT_PACKAGE,
+            REMEMBER_PACKAGE,
+            ARCHIVE_PACKAGE,
+            RESTORE_PACKAGE,
+            REVISE_PACKAGE,
+            FORGET_PACKAGE,
+        )
+    ]
+
+    violations = {
+        str(path.relative_to(PROJECT_ROOT)): {
+            "imports": sorted(
+                _imports(path) & {"mymcp.memory.store", "mymcp.settings"}
+            ),
+            "names": sorted(
+                _imported_names(path)
+                & {"FilesystemMemoryStore", "MemoryService", "get_memory_root"}
+            ),
+        }
+        for path in handler_paths
+    }
+
+    assert {
+        path: violation
+        for path, violation in violations.items()
+        if violation["imports"] or violation["names"]
+    } == {}
+
+
+def test_mnemosyne_integration_owns_memory_service_composition() -> None:
+    imports = _imports(MNEMOSYNE_INTEGRATION)
+    imported_names = _imported_names(MNEMOSYNE_INTEGRATION)
+
+    assert "mymcp.memory.service" in imports
+    assert "mymcp.memory.store" in imports
+    assert "mymcp.settings" in imports
+    assert {
+        "MemoryService",
+        "FilesystemMemoryStore",
+        "get_memory_root",
+    } <= imported_names
 
 
 def test_shared_memory_domain_imports_no_mcp_http_or_fastapi_modules() -> None:
@@ -82,9 +144,9 @@ def test_memory_list_definition_and_handler_use_shared_domain_contracts() -> Non
     assert "mymcp.memory.listing" in handler_imports
     assert "mymcp.memory.records" in handler_imports
     assert "mymcp.memory.errors" in handler_imports
-    assert "mymcp.memory.service" in handler_imports
-    assert "mymcp.memory.store" in handler_imports
-    assert "mymcp.settings" in handler_imports
+    assert "mymcp.memory.service" not in handler_imports
+    assert "mymcp.memory.store" not in handler_imports
+    assert "mymcp.settings" not in handler_imports
     assert all(
         not imported.startswith(
             (
@@ -106,8 +168,9 @@ def test_memory_list_definition_and_handler_use_shared_domain_contracts() -> Non
 def test_memory_recall_handler_uses_shared_service_and_store() -> None:
     handler_imports = _imports(RECALL_PACKAGE / "handler.py")
 
-    assert "mymcp.memory.service" in handler_imports
-    assert "mymcp.memory.store" in handler_imports
+    assert "mymcp.memory.service" not in handler_imports
+    assert "mymcp.memory.store" not in handler_imports
+    assert "mymcp.settings" not in handler_imports
     assert "mymcp.mcp.tools.memory_recall.retrieval" not in handler_imports
 
 
@@ -128,8 +191,8 @@ def test_memory_remember_definition_and_handler_use_only_shared_contracts() -> N
     assert "mymcp.memory.records" in handler_imports
     assert "mymcp.memory.errors" in handler_imports
     assert "mymcp.memory.service" in handler_imports
-    assert "mymcp.memory.store" in handler_imports
-    assert "mymcp.settings" in handler_imports
+    assert "mymcp.memory.store" not in handler_imports
+    assert "mymcp.settings" not in handler_imports
     assert all(
         not imported.startswith(
             ("mymcp.mcp.tools.memory_recall", "mymcp.routes", "fastapi")
@@ -154,9 +217,9 @@ def test_memory_inspect_definition_and_handler_use_shared_reference_contracts() 
     assert "mymcp.memory.normalization" in definition_imports
     assert "mymcp.memory.records" in handler_imports
     assert "mymcp.memory.errors" in handler_imports
-    assert "mymcp.memory.service" in handler_imports
-    assert "mymcp.memory.store" in handler_imports
-    assert "mymcp.settings" in handler_imports
+    assert "mymcp.memory.service" not in handler_imports
+    assert "mymcp.memory.store" not in handler_imports
+    assert "mymcp.settings" not in handler_imports
     assert all(
         not imported.startswith(
             (
@@ -217,8 +280,8 @@ def test_memory_lifecycle_adapters_preserve_shared_domain_ownership() -> None:
     for imports in (archive_imports, restore_imports):
         assert "mymcp.memory.records" in imports
         assert "mymcp.memory.service" in imports
-        assert "mymcp.memory.store" in imports
-        assert "mymcp.settings" in imports
+        assert "mymcp.memory.store" not in imports
+        assert "mymcp.settings" not in imports
 
 
 def test_memory_forget_package_contains_only_mcp_adapter_modules() -> None:
@@ -244,8 +307,8 @@ def test_memory_forget_adapter_preserves_shared_domain_ownership() -> None:
     assert "mymcp.mcp.tools._memory_forget" in package_imports
     assert "mymcp.memory.records" in package_imports
     assert "mymcp.memory.service" in package_imports
-    assert "mymcp.memory.store" in package_imports
-    assert "mymcp.settings" in package_imports
+    assert "mymcp.memory.store" not in package_imports
+    assert "mymcp.settings" not in package_imports
     assert all(
         not imported.startswith(
             (
@@ -280,10 +343,10 @@ def test_memory_revise_adapter_preserves_shared_domain_ownership() -> None:
     assert "mymcp.memory.store" not in helper_imports
     assert "mymcp.settings" not in helper_imports
     assert "mymcp.mcp.tools._memory_revise" in package_imports
-    assert "mymcp.memory.records" in package_imports
-    assert "mymcp.memory.service" in package_imports
-    assert "mymcp.memory.store" in package_imports
-    assert "mymcp.settings" in package_imports
+    assert "mymcp.memory.records" not in package_imports
+    assert "mymcp.memory.service" not in package_imports
+    assert "mymcp.memory.store" not in package_imports
+    assert "mymcp.settings" not in package_imports
     assert all(
         not imported.startswith(
             (

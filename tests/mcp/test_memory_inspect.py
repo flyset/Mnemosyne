@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from mymcp.mcp.tools.memory_inspect import TOOL, handle
+from mymcp.mcp.tools.memory_inspect import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_inspect import handler as handler_module
 from mymcp.mcp.tools.memory_inspect.definition import TOOL as DEFINED_TOOL
 from mymcp.memory.errors import (
@@ -22,10 +22,26 @@ from mymcp.memory.records import (
     MemoryReference,
 )
 from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.memory.service import MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.settings import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
 ARCHIVED_ID = "mem_fedcba9876543210fedcba9876543210"
+
+
+def _inspect_operation(reference):
+    return MemoryService(FilesystemMemoryStore(get_memory_root())).inspect(reference)
+
+
+def handle(arguments, *, inspect_operation=None):
+    return public_handle(
+        arguments,
+        inspect_operation=(
+            _inspect_operation if inspect_operation is None else inspect_operation
+        ),
+    )
 
 
 def _write_memory(path: Path, record: dict[str, object]) -> None:
@@ -168,7 +184,7 @@ def test_memory_inspect_exposes_a_strict_versioned_reference_definition() -> Non
 
 def test_memory_inspect_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
 
 
 def test_memory_inspect_handler_adapts_a_canonical_reference() -> None:

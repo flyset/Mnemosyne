@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from mymcp.mcp.tools.memory_list import TOOL, handle
+from mymcp.mcp.tools.memory_list import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_list import handler as handler_module
 from mymcp.mcp.tools.memory_list.definition import TOOL as DEFINED_TOOL
 from mymcp.memory.errors import (
@@ -31,10 +31,29 @@ from mymcp.memory.records import (
     parse_memory_record,
 )
 from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mymcp.memory.store import StoredMemory
+from mymcp.memory.service import MemoryService
+from mymcp.memory.store import FilesystemMemoryStore, StoredMemory
+from mymcp.settings import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
+
+
+def _list_operation(selector, page_size, cursor):
+    return MemoryService(FilesystemMemoryStore(get_memory_root())).list_memories(
+        selector,
+        page_size=page_size,
+        cursor=cursor,
+    )
+
+
+def handle(arguments, *, list_operation=None):
+    return public_handle(
+        arguments,
+        list_operation=(
+            _list_operation if list_operation is None else list_operation
+        ),
+    )
 
 
 def _payload(result: dict[str, Any]) -> dict[str, Any]:
@@ -312,7 +331,7 @@ def test_memory_list_remains_callable_through_top_level_only_projection() -> Non
 
 def test_memory_list_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
 
 
 @pytest.mark.parametrize(
@@ -666,16 +685,11 @@ def test_memory_list_logs_one_content_free_success_event(
     assert CANONICAL_ID not in records[0].getMessage()
 
 
-def test_memory_list_validation_precedes_memory_root_resolution(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        handler_module,
-        "get_memory_root",
-        lambda: pytest.fail("memory root must not be resolved"),
-    )
+def test_memory_list_validation_precedes_memory_root_resolution() -> None:
+    def fail(*args: object) -> None:
+        pytest.fail("list operation must not be invoked")
 
-    result = handle({"scope": "missing"})
+    result = handle({"scope": "missing"}, list_operation=fail)
 
     assert _payload(result)["code"] == "invalid_scope"
 

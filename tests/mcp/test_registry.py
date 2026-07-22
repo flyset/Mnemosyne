@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
-from mymcp.mcp.tools.registry import (
+from mymcp.mcp.integrations.mnemosyne import (
     build_startup_tool_registry,
     build_tool_registry,
-    call_tool,
 )
+from mymcp.mcp.startup import REGISTRY as STARTUP_REGISTRY
+from mymcp.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
 
 
 REMEMBER_TOOL = {
@@ -108,7 +108,7 @@ def _forget(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def test_call_tool_returns_none_for_an_unknown_tool() -> None:
-    assert call_tool("missing", {}) is None
+    assert STARTUP_REGISTRY.call_tool("missing", {}) is None
 
 
 def test_call_tool_dispatches_memory_recall(
@@ -117,7 +117,7 @@ def test_call_tool_dispatches_memory_recall(
 ) -> None:
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
 
-    assert call_tool(
+    assert STARTUP_REGISTRY.call_tool(
         "memory_recall",
         {"query": "current project", "scope": "project"},
     ) == {
@@ -137,7 +137,7 @@ def test_call_tool_dispatches_memory_inspect(
     root = tmp_path / "missing" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
 
-    result = call_tool(
+    result = STARTUP_REGISTRY.call_tool(
         "memory_inspect",
         {
             "reference": {
@@ -164,7 +164,10 @@ def test_call_tool_dispatches_memory_list_without_initializing_the_root(
     root = tmp_path / "missing" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
 
-    result = call_tool("memory_list", {"scope": "project", "page_size": "2"})
+    result = STARTUP_REGISTRY.call_tool(
+        "memory_list",
+        {"scope": "project", "page_size": "2"},
+    )
 
     assert result is not None
     assert result.get("isError") is not True
@@ -180,7 +183,7 @@ def test_call_tool_normalizes_stringified_inspect_reference(
     root = tmp_path / "missing" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
 
-    result = call_tool(
+    result = STARTUP_REGISTRY.call_tool(
         "memory_inspect",
         {
             "reference": (

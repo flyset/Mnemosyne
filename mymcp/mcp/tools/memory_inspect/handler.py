@@ -18,9 +18,6 @@ from mymcp.memory.records import (
     MemoryReference,
     serialize_memory_record,
 )
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
 
 
 logger = logging.getLogger("mcp.memory_inspect")
@@ -146,15 +143,10 @@ def _serialize_memory(
     return {"reference": public_reference, **serialized}
 
 
-def _inspect(reference: InspectReference) -> InspectRecord:
-    service = MemoryService(FilesystemMemoryStore(get_memory_root()))
-    return service.inspect(reference)
-
-
 def handle(
     arguments: dict[str, Any],
     *,
-    inspect_operation: InspectOperation | None = None,
+    inspect_operation: InspectOperation,
 ) -> dict[str, Any]:
     try:
         reference = _parse_reference(arguments)
@@ -173,9 +165,8 @@ def handle(
             message="reference is invalid",
         )
 
-    operation = inspect_operation or _inspect
     try:
-        memory = operation(reference)
+        memory = inspect_operation(reference)
         serialized = _serialize_memory(reference, memory)
     except MemoryValidationError as error:
         field = VALIDATION_FIELDS.get(error.field, "reference")

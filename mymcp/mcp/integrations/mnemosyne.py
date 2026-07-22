@@ -1,9 +1,6 @@
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
-from types import MappingProxyType
 from typing import Any
 
-from mymcp.mcp.tool_arguments import normalize_tool_arguments
+from mymcp.mcp.tool_registry import ToolHandler, ToolRegistration, ToolRegistry
 from mymcp.mcp.tools import (
     list_tools,
     memory_archive,
@@ -15,27 +12,85 @@ from mymcp.mcp.tools import (
     memory_revise,
     memory_restore,
 )
-from mymcp.settings import get_memory_tool_settings
+from mymcp.memory.listing import MemoryListResult, MemoryListSelector
+from mymcp.memory.records import (
+    LegacyMemoryRecordV1,
+    LegacyMemoryReference,
+    MemoryDraft,
+    MemoryRecordV2,
+    MemoryReference,
+    MemoryRevision,
+)
+from mymcp.memory.retrieval import MemoryMatch
+from mymcp.memory.scopes import MemoryScope
+from mymcp.memory.service import ForgetResult, MemoryResult, MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.settings import MemoryToolSettings, get_memory_root
 
-ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
+
+def _memory_service(*, mutations_enabled: bool) -> MemoryService:
+    return MemoryService(
+        FilesystemMemoryStore(get_memory_root()),
+        mutations_enabled=mutations_enabled,
+    )
 
 
-@dataclass(frozen=True)
-class ToolRegistry:
-    tools: tuple[dict[str, Any], ...]
-    handlers: Mapping[str, ToolHandler]
-    input_schemas: Mapping[str, dict[str, Any]]
+def _recall(
+    scope: MemoryScope,
+    query: str,
+    tags: list[str],
+) -> list[MemoryMatch]:
+    return _memory_service(mutations_enabled=False).recall(scope, query, tags)
 
-    def call_tool(
-        self,
-        tool_name: str,
-        arguments: dict[str, Any],
-    ) -> dict[str, Any] | None:
-        handler = self.handlers.get(tool_name)
-        if handler is None:
-            return None
-        input_schema = self.input_schemas[tool_name]
-        return handler(normalize_tool_arguments(arguments, input_schema))
+
+def _list_memories(
+    selector: MemoryListSelector,
+    page_size: int | None,
+    cursor: str | None,
+) -> MemoryListResult:
+    return _memory_service(mutations_enabled=False).list_memories(
+        selector,
+        page_size=page_size,
+        cursor=cursor,
+    )
+
+
+def _inspect(
+    reference: MemoryReference | LegacyMemoryReference,
+) -> MemoryRecordV2 | LegacyMemoryRecordV1:
+    return _memory_service(mutations_enabled=False).inspect(reference)
+
+
+def _remember(draft: MemoryDraft) -> MemoryResult:
+    return _memory_service(mutations_enabled=True).remember(draft)
+
+
+def _archive(reference: MemoryReference, revision: int) -> MemoryResult:
+    return _memory_service(mutations_enabled=True).archive(
+        reference,
+        expected_revision=revision,
+    )
+
+
+def _restore(reference: MemoryReference, revision: int) -> MemoryResult:
+    return _memory_service(mutations_enabled=True).restore(
+        reference,
+        expected_revision=revision,
+    )
+
+
+def _revise(
+    reference: MemoryReference,
+    revision: MemoryRevision,
+) -> MemoryResult:
+    return _memory_service(mutations_enabled=True).revise(reference, revision)
+
+
+def _forget(reference: MemoryReference, revision: int) -> ForgetResult:
+    return _memory_service(mutations_enabled=True).forget(
+        reference,
+        expected_revision=revision,
+    )
 
 
 def build_tool_registry(
@@ -61,7 +116,10 @@ def build_tool_registry(
 ) -> ToolRegistry:
     tools = [list_tools.TOOL, memory_recall.TOOL]
     handlers: dict[str, ToolHandler] = {
-        memory_recall.TOOL["name"]: memory_recall.handle,
+        memory_recall.TOOL["name"]: lambda arguments: memory_recall.handle(
+            arguments,
+            recall_operation=_recall,
+        ),
     }
 
     if (memory_list_tool is None) != (memory_list_handler is None):
@@ -117,11 +175,8 @@ def build_tool_registry(
         selected_tools,
     )
     return ToolRegistry(
-        tools=selected_tools,
-        handlers=MappingProxyType(handlers),
-        input_schemas=MappingProxyType(
-            {tool["name"]: tool["inputSchema"] for tool in selected_tools}
-        ),
+        ToolRegistration(tool=tool, handler=handlers[tool["name"]])
+        for tool in selected_tools
     )
 
 
@@ -138,47 +193,52 @@ def build_startup_tool_registry(
         memory_forget_enabled=memory_forget_enabled,
         memory_revise_enabled=memory_revise_enabled,
         memory_list_tool=memory_list.TOOL,
-        memory_list_handler=memory_list.handle,
+        memory_list_handler=lambda arguments: memory_list.handle(
+            arguments,
+            list_operation=_list_memories,
+        ),
         memory_inspect_tool=memory_inspect.TOOL,
-        memory_inspect_handler=memory_inspect.handle,
+        memory_inspect_handler=lambda arguments: memory_inspect.handle(
+            arguments,
+            inspect_operation=_inspect,
+        ),
         memory_archive_tool=memory_archive.TOOL,
         memory_archive_handler=lambda arguments: memory_archive.handle(
             arguments,
+            archive_operation=_archive,
             mutations_enabled=True,
         ),
         memory_restore_tool=memory_restore.TOOL,
         memory_restore_handler=lambda arguments: memory_restore.handle(
             arguments,
+            restore_operation=_restore,
             mutations_enabled=True,
         ),
         memory_remember_tool=memory_remember.TOOL,
         memory_remember_handler=lambda arguments: memory_remember.handle(
             arguments,
+            remember_operation=_remember,
             mutations_enabled=True,
         ),
         memory_revise_tool=memory_revise.TOOL,
         memory_revise_handler=lambda arguments: memory_revise.handle(
             arguments,
+            revise_operation=_revise,
             mutations_enabled=True,
         ),
         memory_forget_tool=memory_forget.TOOL,
         memory_forget_handler=lambda arguments: memory_forget.handle(
             arguments,
+            forget_operation=_forget,
             mutations_enabled=True,
         ),
     )
 
 
-_MEMORY_TOOL_SETTINGS = get_memory_tool_settings()
-REGISTRY = build_startup_tool_registry(
-    memory_remember_enabled=_MEMORY_TOOL_SETTINGS.remember_enabled,
-    memory_archive_restore_enabled=_MEMORY_TOOL_SETTINGS.archive_restore_enabled,
-    memory_forget_enabled=_MEMORY_TOOL_SETTINGS.forget_enabled,
-    memory_revise_enabled=_MEMORY_TOOL_SETTINGS.revise_enabled,
-)
-TOOLS = REGISTRY.tools
-TOOL_HANDLERS = REGISTRY.handlers
-
-
-def call_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any] | None:
-    return REGISTRY.call_tool(tool_name, arguments)
+def compose_mnemosyne_registry(settings: MemoryToolSettings) -> ToolRegistry:
+    return build_startup_tool_registry(
+        memory_remember_enabled=settings.remember_enabled,
+        memory_archive_restore_enabled=settings.archive_restore_enabled,
+        memory_forget_enabled=settings.forget_enabled,
+        memory_revise_enabled=settings.revise_enabled,
+    )

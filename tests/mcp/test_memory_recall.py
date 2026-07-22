@@ -4,15 +4,29 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.mcp.tools.memory_recall import TOOL, handle
+from mymcp.mcp.tools.memory_recall import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_recall import handler as handler_module
 from mymcp.mcp.tools.memory_recall.definition import TOOL as DEFINED_TOOL
 from mymcp.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
 )
-from mymcp.memory.scopes import SCOPE_DEFINITIONS
+from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.memory.service import MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
 from mymcp.settings import get_memory_root
+
+
+def _recall_operation(scope: MemoryScope, query: str, tags: list[str]):
+    return MemoryService(FilesystemMemoryStore(get_memory_root())).recall(
+        scope,
+        query,
+        tags,
+    )
+
+
+def handle(arguments, *, recall_operation=_recall_operation):
+    return public_handle(arguments, recall_operation=recall_operation)
 
 
 def _write_memory(path: Path, record: dict[str, object]) -> None:
@@ -81,7 +95,29 @@ def test_memory_recall_exposes_the_selected_tool_definition() -> None:
 
 def test_memory_recall_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
+
+
+def test_memory_recall_adapts_valid_arguments_to_the_supplied_operation() -> None:
+    observed = []
+
+    def recall_operation(scope: MemoryScope, query: str, tags: list[str]):
+        observed.append((scope, query, tags))
+        return []
+
+    result = handle(
+        {
+            "query": "current project constraints",
+            "scope": "project",
+            "tags": ["architecture"],
+        },
+        recall_operation=recall_operation,
+    )
+
+    assert observed == [
+        (MemoryScope.PROJECT, "current project constraints", ["architecture"])
+    ]
+    assert json.loads(result["content"][0]["text"])["status"] == "no_matches"
 
 
 @pytest.mark.parametrize(
@@ -313,16 +349,16 @@ def test_memory_recall_searches_only_the_requested_scope(
     ],
 )
 def test_memory_recall_returns_stable_retrieval_errors(
-    monkeypatch: pytest.MonkeyPatch,
     error: Exception,
     expected: dict[str, str],
 ) -> None:
     def fail_recall(*args: object) -> None:
         raise error
 
-    monkeypatch.setattr(handler_module.MemoryService, "recall", fail_recall)
-
-    result = handle({"query": "relevant memory", "scope": "knowledge"})
+    result = handle(
+        {"query": "relevant memory", "scope": "knowledge"},
+        recall_operation=fail_recall,
+    )
 
     assert result["isError"] is True
     assert json.loads(result["content"][0]["text"]) == expected

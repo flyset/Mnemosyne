@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from mymcp.mcp.tools._memory_revise import parse_revise_request
-from mymcp.mcp.tools.memory_revise import TOOL, handle
+from mymcp.mcp.tools.memory_revise import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_revise import handler as handler_module
 from mymcp.mcp.tools.memory_revise.definition import TOOL as DEFINED_TOOL
 from mymcp.memory.errors import (
@@ -32,10 +32,37 @@ from mymcp.memory.records import (
     serialize_memory_record,
 )
 from mymcp.memory.scopes import MemoryScope
-from mymcp.memory.service import MemoryResult
+from mymcp.memory.service import MemoryResult, MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.settings import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
+
+
+def _revise_operation(
+    reference: MemoryReference,
+    revision: MemoryRevision,
+) -> MemoryResult:
+    return MemoryService(
+        FilesystemMemoryStore(get_memory_root()),
+        mutations_enabled=True,
+    ).revise(reference, revision)
+
+
+def handle(
+    arguments,
+    *,
+    mutations_enabled=False,
+    revise_operation=None,
+):
+    return public_handle(
+        arguments,
+        revise_operation=(
+            _revise_operation if revise_operation is None else revise_operation
+        ),
+        mutations_enabled=mutations_enabled,
+    )
 
 
 def _arguments() -> dict[str, object]:
@@ -177,7 +204,7 @@ def test_memory_revise_description_explains_safe_refusal_recovery() -> None:
 
 def test_memory_revise_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
 
 
 def test_revise_request_parser_adapts_identity_and_normalized_replacement() -> None:
@@ -349,16 +376,11 @@ def test_revise_request_reports_invalid_collection_label_consistently() -> None:
     assert caught.value.message == "collection label is invalid"
 
 
-def test_memory_revise_direct_call_is_disabled_without_registration(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        handler_module,
-        "get_memory_root",
-        lambda: pytest.fail("memory root must not be resolved"),
-    )
+def test_memory_revise_direct_call_is_disabled_without_registration() -> None:
+    def fail(*args: object) -> None:
+        pytest.fail("revise operation must not be invoked")
 
-    result = handle(_arguments())
+    result = handle(_arguments(), revise_operation=fail)
 
     assert result["isError"] is True
     assert _payload(result) == {
@@ -831,17 +853,13 @@ def test_memory_revise_logs_success_with_only_lifecycle_metadata(
 
 
 def test_memory_revise_invalid_call_logs_one_bounded_event_without_root(
-    monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO, logger="mcp.memory_revise")
-    monkeypatch.setattr(
-        handler_module,
-        "get_memory_root",
-        lambda: pytest.fail("memory root must not be resolved"),
-    )
+    def fail(*args: object) -> None:
+        pytest.fail("revise operation must not be invoked")
 
-    result = handle({})
+    result = handle({}, revise_operation=fail)
 
     assert _payload(result)["code"] == "invalid_reference"
     records = [record for record in caplog.records if record.name == "mcp.memory_revise"]

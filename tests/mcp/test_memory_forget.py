@@ -18,13 +18,37 @@ from mymcp.memory.errors import (
 )
 from mymcp.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
 from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mymcp.memory.service import ForgetResult
-from mymcp.mcp.tools.memory_forget import TOOL, handle
+from mymcp.memory.service import ForgetResult, MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.mcp.tools.memory_forget import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_forget import handler as handler_module
 from mymcp.mcp.tools.memory_forget.definition import TOOL as DEFINED_TOOL
+from mymcp.settings import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
+
+
+def _forget_operation(reference: MemoryReference, revision: int) -> ForgetResult:
+    return MemoryService(
+        FilesystemMemoryStore(get_memory_root()),
+        mutations_enabled=True,
+    ).forget(reference, expected_revision=revision)
+
+
+def handle(
+    arguments,
+    *,
+    mutations_enabled=False,
+    forget_operation=None,
+):
+    return public_handle(
+        arguments,
+        forget_operation=(
+            _forget_operation if forget_operation is None else forget_operation
+        ),
+        mutations_enabled=mutations_enabled,
+    )
 
 
 def _arguments() -> dict[str, object]:
@@ -91,7 +115,7 @@ def test_memory_forget_exposes_a_strict_irreversible_definition() -> None:
 
 def test_memory_forget_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
 
 
 @pytest.mark.parametrize(
@@ -465,12 +489,36 @@ def test_memory_forget_deletes_one_archived_record_and_all_read_paths_report_abs
     from mymcp.mcp.tools.memory_recall import handle as recall
     from mymcp.mcp.tools.memory_restore import handle as restore
 
-    assert _payload(inspect({"reference": arguments["reference"]}))["code"] == "not_found"
-    assert _payload(recall({"query": "forget integration context", "scope": "project"})) == {
+    read_service = MemoryService(FilesystemMemoryStore(tmp_path))
+    mutation_service = MemoryService(
+        FilesystemMemoryStore(tmp_path),
+        mutations_enabled=True,
+    )
+    assert _payload(
+        inspect(
+            {"reference": arguments["reference"]},
+            inspect_operation=read_service.inspect,
+        )
+    )["code"] == "not_found"
+    assert _payload(
+        recall(
+            {"query": "forget integration context", "scope": "project"},
+            recall_operation=read_service.recall,
+        )
+    ) == {
         "status": "no_matches",
         "memories": [],
     }
-    assert _payload(restore(arguments, mutations_enabled=True))["code"] == "not_found"
+    assert _payload(
+        restore(
+            arguments,
+            restore_operation=lambda reference, revision: mutation_service.restore(
+                reference,
+                expected_revision=revision,
+            ),
+            mutations_enabled=True,
+        )
+    )["code"] == "not_found"
     assert _payload(handle(arguments, mutations_enabled=True))["code"] == "not_found"
 
 

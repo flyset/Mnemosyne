@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from mymcp.mcp.tools._memory_lifecycle import parse_lifecycle_request
-from mymcp.mcp.tools.memory_archive import TOOL, handle
+from mymcp.mcp.tools.memory_archive import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_archive import handler as handler_module
 from mymcp.mcp.tools.memory_archive.definition import TOOL as DEFINED_TOOL
 from mymcp.memory.errors import (
@@ -21,10 +21,34 @@ from mymcp.memory.errors import (
 )
 from mymcp.memory.records import MemoryReference, parse_memory_record
 from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mymcp.memory.service import MemoryResult
+from mymcp.memory.service import MemoryResult, MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.settings import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
+
+
+def _archive_operation(reference: MemoryReference, revision: int) -> MemoryResult:
+    return MemoryService(
+        FilesystemMemoryStore(get_memory_root()),
+        mutations_enabled=True,
+    ).archive(reference, expected_revision=revision)
+
+
+def handle(
+    arguments,
+    *,
+    mutations_enabled=False,
+    archive_operation=None,
+):
+    return public_handle(
+        arguments,
+        archive_operation=(
+            _archive_operation if archive_operation is None else archive_operation
+        ),
+        mutations_enabled=mutations_enabled,
+    )
 
 
 def _arguments() -> dict[str, object]:
@@ -117,7 +141,7 @@ def test_memory_archive_exposes_a_strict_canonical_revision_definition() -> None
 
 def test_memory_archive_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
 
 
 def test_lifecycle_request_parser_adapts_canonical_identity_and_revision() -> None:
@@ -299,17 +323,14 @@ def test_memory_archive_maps_failures_and_logs_one_bounded_event(
 
 
 def test_memory_archive_invalid_and_disabled_calls_do_not_resolve_root(
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(
-        handler_module,
-        "get_memory_root",
-        lambda: pytest.fail("memory root was resolved"),
-        raising=False,
-    )
+    def fail(*args: object) -> None:
+        pytest.fail("archive operation was invoked")
 
-    assert _payload(handle({}))["code"] == "invalid_reference"
-    assert _payload(handle(_arguments()))["code"] == "mutation_disabled"
+    assert _payload(handle({}, archive_operation=fail))["code"] == "invalid_reference"
+    assert _payload(handle(_arguments(), archive_operation=fail))["code"] == (
+        "mutation_disabled"
+    )
 
 
 def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspection(
@@ -333,7 +354,18 @@ def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspectio
     assert unrelated.read_text(encoding="utf-8") == "unrelated"
     from mymcp.mcp.tools.memory_recall import handle as recall
     from mymcp.mcp.tools.memory_inspect import handle as inspect
-    assert _payload(recall({"query": "archive lifecycle context", "scope": "project"}))["status"] == "no_matches"
-    inspected = _payload(inspect({"reference": _arguments()["reference"]}))
+    read_service = MemoryService(FilesystemMemoryStore(tmp_path))
+    assert _payload(
+        recall(
+            {"query": "archive lifecycle context", "scope": "project"},
+            recall_operation=read_service.recall,
+        )
+    )["status"] == "no_matches"
+    inspected = _payload(
+        inspect(
+            {"reference": _arguments()["reference"]},
+            inspect_operation=read_service.inspect,
+        )
+    )
     assert inspected["memory"]["lifecycle"] == {"state": "archived", "revision": 2}
     assert inspected["memory"]["occurred_at"] == "2026-07-17T09:30:00Z"

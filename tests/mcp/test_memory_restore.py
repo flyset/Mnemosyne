@@ -6,16 +6,40 @@ from typing import Any
 import pytest
 
 from mymcp.mcp.tools._memory_lifecycle import parse_lifecycle_request
-from mymcp.mcp.tools.memory_restore import TOOL, handle
+from mymcp.mcp.tools.memory_restore import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_restore import handler as handler_module
 from mymcp.mcp.tools.memory_restore.definition import TOOL as DEFINED_TOOL
 from mymcp.memory.errors import ReplacementOutcomeUncertain
 from mymcp.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
 from mymcp.memory.scopes import MemoryScope
-from mymcp.memory.service import MemoryResult
+from mymcp.memory.service import MemoryResult, MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.settings import get_memory_root
 
 
 CANONICAL_ID = "mem_fedcba9876543210fedcba9876543210"
+
+
+def _restore_operation(reference: MemoryReference, revision: int) -> MemoryResult:
+    return MemoryService(
+        FilesystemMemoryStore(get_memory_root()),
+        mutations_enabled=True,
+    ).restore(reference, expected_revision=revision)
+
+
+def handle(
+    arguments,
+    *,
+    mutations_enabled=False,
+    restore_operation=None,
+):
+    return public_handle(
+        arguments,
+        restore_operation=(
+            _restore_operation if restore_operation is None else restore_operation
+        ),
+        mutations_enabled=mutations_enabled,
+    )
 
 
 def _arguments() -> dict[str, object]:
@@ -80,7 +104,7 @@ def test_memory_restore_uses_the_same_strict_request_contract() -> None:
 
 def test_memory_restore_package_reexports_definition_and_handler() -> None:
     assert TOOL is DEFINED_TOOL
-    assert handle is handler_module.handle
+    assert public_handle is handler_module.handle
 
 
 def test_restore_request_adapts_a_nullable_collection_reference() -> None:
@@ -175,8 +199,19 @@ def test_memory_restore_returns_archived_memory_to_recall_and_inspection(
     assert _payload(result)["status"] == "restored"
     from mymcp.mcp.tools.memory_recall import handle as recall
     from mymcp.mcp.tools.memory_inspect import handle as inspect
-    recalled = _payload(recall({"query": "restore lifecycle context", "scope": "project"}))
+    read_service = MemoryService(FilesystemMemoryStore(tmp_path))
+    recalled = _payload(
+        recall(
+            {"query": "restore lifecycle context", "scope": "project"},
+            recall_operation=read_service.recall,
+        )
+    )
     assert recalled["status"] == "ok"
-    inspected = _payload(inspect({"reference": _arguments()["reference"]}))
+    inspected = _payload(
+        inspect(
+            {"reference": _arguments()["reference"]},
+            inspect_operation=read_service.inspect,
+        )
+    )
     assert inspected["memory"]["lifecycle"] == {"state": "active", "revision": 3}
     assert inspected["memory"]["occurred_at"] == "2026-07-17T09:30:00Z"
