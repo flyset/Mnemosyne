@@ -5,20 +5,20 @@ from pathlib import Path
 
 import pytest
 
-from mnemosyne.mcp.tools.memory_remember import TOOL, handle
-from mnemosyne.mcp.tools.memory_remember import handler as handler_module
-from mnemosyne.mcp.tools.memory_remember.definition import TOOL as DEFINED_TOOL
-from mnemosyne.memory.errors import (
+from mymcp.mcp.tools.memory_remember import TOOL, handle
+from mymcp.mcp.tools.memory_remember import handler as handler_module
+from mymcp.mcp.tools.memory_remember.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
     MutationDisabled,
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mnemosyne.memory.records import KIND_DEFINITIONS, MemoryReference
-from mnemosyne.memory.scopes import SCOPE_DEFINITIONS
-from mnemosyne.memory.service import MemoryService
-from mnemosyne.memory.store import FilesystemMemoryStore
+from mymcp.memory.records import KIND_DEFINITIONS, MemoryReference
+from mymcp.memory.scopes import SCOPE_DEFINITIONS
+from mymcp.memory.service import MemoryService
+from mymcp.memory.store import FilesystemMemoryStore
 
 
 REQUIRED_FIELDS = {

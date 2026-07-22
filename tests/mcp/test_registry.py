@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from mnemosyne.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
-from mnemosyne.mcp.tools.registry import (
+from mymcp.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
+from mymcp.mcp.tools.registry import (
     build_startup_tool_registry,
     build_tool_registry,
     call_tool,

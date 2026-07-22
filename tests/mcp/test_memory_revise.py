@@ -8,11 +8,11 @@ from typing import Any
 
 import pytest
 
-from mnemosyne.mcp.tools._memory_revise import parse_revise_request
-from mnemosyne.mcp.tools.memory_revise import TOOL, handle
-from mnemosyne.mcp.tools.memory_revise import handler as handler_module
-from mnemosyne.mcp.tools.memory_revise.definition import TOOL as DEFINED_TOOL
-from mnemosyne.memory.errors import (
+from mymcp.mcp.tools._memory_revise import parse_revise_request
+from mymcp.mcp.tools.memory_revise import TOOL, handle
+from mymcp.mcp.tools.memory_revise import handler as handler_module
+from mymcp.mcp.tools.memory_revise.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.errors import (
     ContentRefusalReason,
     DisallowedMemoryContent,
     MemoryNotFound,
@@ -24,15 +24,15 @@ from mnemosyne.memory.errors import (
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mnemosyne.memory.records import (
+from mymcp.memory.records import (
     MemoryLifecycle,
     MemoryReference,
     MemoryRevision,
     parse_memory_record,
     serialize_memory_record,
 )
-from mnemosyne.memory.scopes import MemoryScope
-from mnemosyne.memory.service import MemoryResult
+from mymcp.memory.scopes import MemoryScope
+from mymcp.memory.service import MemoryResult
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"

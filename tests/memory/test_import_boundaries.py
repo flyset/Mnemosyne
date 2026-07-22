@@ -3,20 +3,20 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-MEMORY_PACKAGE = PROJECT_ROOT / "mnemosyne" / "memory"
+MEMORY_PACKAGE = PROJECT_ROOT / "mymcp" / "memory"
 LISTING_MODULE = MEMORY_PACKAGE / "listing.py"
-LIST_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_list"
-RECALL_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_recall"
-REMEMBER_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_remember"
-INSPECT_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_inspect"
-ARCHIVE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_archive"
-RESTORE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_restore"
-FORGET_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_forget"
-REVISE_PACKAGE = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "memory_revise"
-REVISE_HELPER = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_revise.py"
-FORGET_HELPER = PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_forget.py"
+LIST_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_list"
+RECALL_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_recall"
+REMEMBER_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_remember"
+INSPECT_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_inspect"
+ARCHIVE_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_archive"
+RESTORE_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_restore"
+FORGET_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_forget"
+REVISE_PACKAGE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "memory_revise"
+REVISE_HELPER = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "_memory_revise.py"
+FORGET_HELPER = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "_memory_forget.py"
 LIFECYCLE_HELPER = (
-    PROJECT_ROOT / "mnemosyne" / "mcp" / "tools" / "_memory_lifecycle.py"
+    PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "_memory_lifecycle.py"
 )
 
 
@@ -32,7 +32,7 @@ def _imports(path: Path) -> set[str]:
 
 
 def test_shared_memory_domain_imports_no_mcp_http_or_fastapi_modules() -> None:
-    forbidden = ("mnemosyne.mcp", "mnemosyne.routes", "fastapi")
+    forbidden = ("mymcp.mcp", "mymcp.routes", "fastapi")
 
     violations = {
         path.name: sorted(
@@ -54,7 +54,7 @@ def test_listing_has_no_top_level_runtime_store_import() -> None:
         if isinstance(node, ast.ImportFrom) and node.module is not None
     }
 
-    assert "mnemosyne.memory.store" not in top_level_imports
+    assert "mymcp.memory.store" not in top_level_imports
 
 
 def test_memory_recall_package_contains_only_mcp_adapter_modules() -> None:
@@ -77,25 +77,25 @@ def test_memory_list_definition_and_handler_use_shared_domain_contracts() -> Non
     definition_imports = _imports(LIST_PACKAGE / "definition.py")
     handler_imports = _imports(LIST_PACKAGE / "handler.py")
 
-    assert "mnemosyne.memory.scopes" in definition_imports
-    assert "mnemosyne.memory.normalization" in definition_imports
-    assert "mnemosyne.memory.listing" in handler_imports
-    assert "mnemosyne.memory.records" in handler_imports
-    assert "mnemosyne.memory.errors" in handler_imports
-    assert "mnemosyne.memory.service" in handler_imports
-    assert "mnemosyne.memory.store" in handler_imports
-    assert "mnemosyne.settings" in handler_imports
+    assert "mymcp.memory.scopes" in definition_imports
+    assert "mymcp.memory.normalization" in definition_imports
+    assert "mymcp.memory.listing" in handler_imports
+    assert "mymcp.memory.records" in handler_imports
+    assert "mymcp.memory.errors" in handler_imports
+    assert "mymcp.memory.service" in handler_imports
+    assert "mymcp.memory.store" in handler_imports
+    assert "mymcp.settings" in handler_imports
     assert all(
         not imported.startswith(
             (
-                "mnemosyne.mcp.tools.memory_recall",
-                "mnemosyne.mcp.tools.memory_inspect",
-                "mnemosyne.mcp.tools.memory_remember",
-                "mnemosyne.mcp.tools.memory_archive",
-                "mnemosyne.mcp.tools.memory_restore",
-                "mnemosyne.mcp.tools.memory_revise",
-                "mnemosyne.mcp.tools.memory_forget",
-                "mnemosyne.routes",
+                "mymcp.mcp.tools.memory_recall",
+                "mymcp.mcp.tools.memory_inspect",
+                "mymcp.mcp.tools.memory_remember",
+                "mymcp.mcp.tools.memory_archive",
+                "mymcp.mcp.tools.memory_restore",
+                "mymcp.mcp.tools.memory_revise",
+                "mymcp.mcp.tools.memory_forget",
+                "mymcp.routes",
                 "fastapi",
             )
         )
@@ -106,9 +106,9 @@ def test_memory_list_definition_and_handler_use_shared_domain_contracts() -> Non
 def test_memory_recall_handler_uses_shared_service_and_store() -> None:
     handler_imports = _imports(RECALL_PACKAGE / "handler.py")
 
-    assert "mnemosyne.memory.service" in handler_imports
-    assert "mnemosyne.memory.store" in handler_imports
-    assert "mnemosyne.mcp.tools.memory_recall.retrieval" not in handler_imports
+    assert "mymcp.memory.service" in handler_imports
+    assert "mymcp.memory.store" in handler_imports
+    assert "mymcp.mcp.tools.memory_recall.retrieval" not in handler_imports
 
 
 def test_memory_remember_package_contains_only_mcp_adapter_modules() -> None:
@@ -123,16 +123,16 @@ def test_memory_remember_definition_and_handler_use_only_shared_contracts() -> N
     definition_imports = _imports(REMEMBER_PACKAGE / "definition.py")
     handler_imports = _imports(REMEMBER_PACKAGE / "handler.py")
 
-    assert "mnemosyne.memory.scopes" in definition_imports
-    assert "mnemosyne.memory.records" in definition_imports
-    assert "mnemosyne.memory.records" in handler_imports
-    assert "mnemosyne.memory.errors" in handler_imports
-    assert "mnemosyne.memory.service" in handler_imports
-    assert "mnemosyne.memory.store" in handler_imports
-    assert "mnemosyne.settings" in handler_imports
+    assert "mymcp.memory.scopes" in definition_imports
+    assert "mymcp.memory.records" in definition_imports
+    assert "mymcp.memory.records" in handler_imports
+    assert "mymcp.memory.errors" in handler_imports
+    assert "mymcp.memory.service" in handler_imports
+    assert "mymcp.memory.store" in handler_imports
+    assert "mymcp.settings" in handler_imports
     assert all(
         not imported.startswith(
-            ("mnemosyne.mcp.tools.memory_recall", "mnemosyne.routes", "fastapi")
+            ("mymcp.mcp.tools.memory_recall", "mymcp.routes", "fastapi")
         )
         for imported in definition_imports | handler_imports
     )
@@ -150,19 +150,19 @@ def test_memory_inspect_definition_and_handler_use_shared_reference_contracts() 
     definition_imports = _imports(INSPECT_PACKAGE / "definition.py")
     handler_imports = _imports(INSPECT_PACKAGE / "handler.py")
 
-    assert "mnemosyne.memory.scopes" in definition_imports
-    assert "mnemosyne.memory.normalization" in definition_imports
-    assert "mnemosyne.memory.records" in handler_imports
-    assert "mnemosyne.memory.errors" in handler_imports
-    assert "mnemosyne.memory.service" in handler_imports
-    assert "mnemosyne.memory.store" in handler_imports
-    assert "mnemosyne.settings" in handler_imports
+    assert "mymcp.memory.scopes" in definition_imports
+    assert "mymcp.memory.normalization" in definition_imports
+    assert "mymcp.memory.records" in handler_imports
+    assert "mymcp.memory.errors" in handler_imports
+    assert "mymcp.memory.service" in handler_imports
+    assert "mymcp.memory.store" in handler_imports
+    assert "mymcp.settings" in handler_imports
     assert all(
         not imported.startswith(
             (
-                "mnemosyne.mcp.tools.memory_recall",
-                "mnemosyne.mcp.tools.memory_remember",
-                "mnemosyne.routes",
+                "mymcp.mcp.tools.memory_recall",
+                "mymcp.mcp.tools.memory_remember",
+                "mymcp.routes",
                 "fastapi",
             )
         )
@@ -192,33 +192,33 @@ def test_memory_lifecycle_adapters_preserve_shared_domain_ownership() -> None:
         for imported in _imports(path)
     }
 
-    assert "mnemosyne.memory.normalization" in helper_imports
-    assert "mnemosyne.memory.scopes" in helper_imports
-    assert "mnemosyne.memory.records" in helper_imports
-    assert "mnemosyne.memory.service" in helper_imports
+    assert "mymcp.memory.normalization" in helper_imports
+    assert "mymcp.memory.scopes" in helper_imports
+    assert "mymcp.memory.records" in helper_imports
+    assert "mymcp.memory.service" in helper_imports
     assert all(
-        "mnemosyne.mcp.tools._memory_lifecycle" in imports
+        "mymcp.mcp.tools._memory_lifecycle" in imports
         for imports in (archive_imports, restore_imports)
     )
     combined = helper_imports | archive_imports | restore_imports
     assert all(
-        not imported.startswith(("mnemosyne.routes", "fastapi"))
+        not imported.startswith(("mymcp.routes", "fastapi"))
         for imported in combined
     )
     assert all(
-        not imported.startswith("mnemosyne.mcp.tools.memory_restore")
+        not imported.startswith("mymcp.mcp.tools.memory_restore")
         for imported in archive_imports
     )
     assert all(
-        not imported.startswith("mnemosyne.mcp.tools.memory_archive")
+        not imported.startswith("mymcp.mcp.tools.memory_archive")
         for imported in restore_imports
     )
-    assert "mnemosyne.memory.store" not in helper_imports
+    assert "mymcp.memory.store" not in helper_imports
     for imports in (archive_imports, restore_imports):
-        assert "mnemosyne.memory.records" in imports
-        assert "mnemosyne.memory.service" in imports
-        assert "mnemosyne.memory.store" in imports
-        assert "mnemosyne.settings" in imports
+        assert "mymcp.memory.records" in imports
+        assert "mymcp.memory.service" in imports
+        assert "mymcp.memory.store" in imports
+        assert "mymcp.settings" in imports
 
 
 def test_memory_forget_package_contains_only_mcp_adapter_modules() -> None:
@@ -237,21 +237,21 @@ def test_memory_forget_adapter_preserves_shared_domain_ownership() -> None:
         for imported in _imports(path)
     }
 
-    assert "mnemosyne.mcp.tools._memory_lifecycle" in helper_imports
-    assert "mnemosyne.memory.records" in helper_imports
-    assert "mnemosyne.memory.service" in helper_imports
-    assert "mnemosyne.memory.store" not in helper_imports
-    assert "mnemosyne.mcp.tools._memory_forget" in package_imports
-    assert "mnemosyne.memory.records" in package_imports
-    assert "mnemosyne.memory.service" in package_imports
-    assert "mnemosyne.memory.store" in package_imports
-    assert "mnemosyne.settings" in package_imports
+    assert "mymcp.mcp.tools._memory_lifecycle" in helper_imports
+    assert "mymcp.memory.records" in helper_imports
+    assert "mymcp.memory.service" in helper_imports
+    assert "mymcp.memory.store" not in helper_imports
+    assert "mymcp.mcp.tools._memory_forget" in package_imports
+    assert "mymcp.memory.records" in package_imports
+    assert "mymcp.memory.service" in package_imports
+    assert "mymcp.memory.store" in package_imports
+    assert "mymcp.settings" in package_imports
     assert all(
         not imported.startswith(
             (
-                "mnemosyne.mcp.tools.memory_archive",
-                "mnemosyne.mcp.tools.memory_restore",
-                "mnemosyne.routes",
+                "mymcp.mcp.tools.memory_archive",
+                "mymcp.mcp.tools.memory_restore",
+                "mymcp.routes",
                 "fastapi",
             )
         )
@@ -275,23 +275,23 @@ def test_memory_revise_adapter_preserves_shared_domain_ownership() -> None:
         for imported in _imports(path)
     }
 
-    assert "mnemosyne.mcp.tools._memory_lifecycle" in helper_imports
-    assert "mnemosyne.memory.records" in helper_imports
-    assert "mnemosyne.memory.store" not in helper_imports
-    assert "mnemosyne.settings" not in helper_imports
-    assert "mnemosyne.mcp.tools._memory_revise" in package_imports
-    assert "mnemosyne.memory.records" in package_imports
-    assert "mnemosyne.memory.service" in package_imports
-    assert "mnemosyne.memory.store" in package_imports
-    assert "mnemosyne.settings" in package_imports
+    assert "mymcp.mcp.tools._memory_lifecycle" in helper_imports
+    assert "mymcp.memory.records" in helper_imports
+    assert "mymcp.memory.store" not in helper_imports
+    assert "mymcp.settings" not in helper_imports
+    assert "mymcp.mcp.tools._memory_revise" in package_imports
+    assert "mymcp.memory.records" in package_imports
+    assert "mymcp.memory.service" in package_imports
+    assert "mymcp.memory.store" in package_imports
+    assert "mymcp.settings" in package_imports
     assert all(
         not imported.startswith(
             (
-                "mnemosyne.mcp.tools.memory_remember",
-                "mnemosyne.mcp.tools.memory_archive",
-                "mnemosyne.mcp.tools.memory_restore",
-                "mnemosyne.mcp.tools.memory_forget",
-                "mnemosyne.routes",
+                "mymcp.mcp.tools.memory_remember",
+                "mymcp.mcp.tools.memory_archive",
+                "mymcp.mcp.tools.memory_restore",
+                "mymcp.mcp.tools.memory_forget",
+                "mymcp.routes",
                 "fastapi",
             )
         )

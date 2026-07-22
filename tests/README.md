@@ -5,7 +5,7 @@ environment:
 
 ```bash
 python -m pip install -e ".[test]"
-mnemosyne-test
+mymcp-test
 ```
 
 `python -m pytest tests` remains equivalent when the virtual environment is

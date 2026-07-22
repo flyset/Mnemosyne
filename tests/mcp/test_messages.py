@@ -1,4 +1,4 @@
-from mnemosyne.mcp.messages import MCPMessage, parse_message
+from mymcp.mcp.messages import MCPMessage, parse_message
 
 
 def test_parse_message_preserves_object_fields() -> None:

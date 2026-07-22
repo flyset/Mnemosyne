@@ -1,6 +1,9 @@
 # Architecture
 
-Mnemosyne is organized around a small HTTP surface and a separate MCP protocol layer.
+MyMCP is the repository and top-level Python host package. It currently hosts
+the Mnemosyne memory domain in-process and is organized around a small HTTP
+surface and a separate MCP protocol layer. Mnemosyne remains the public server
+and memory-domain identity; plugin extraction is not implemented yet.
 
 The central distinction is:
 
@@ -25,7 +28,7 @@ their payloads at the default level.
 ## Filesystem Layout
 
 ```text
-mnemosyne/
+mymcp/
   __init__.py
   app.py              # FastAPI app assembly
   cli.py              # console entrypoints
@@ -111,11 +114,11 @@ mnemosyne/
 
 ## Responsibilities
 
-### `mnemosyne/app.py`
+### `mymcp/app.py`
 
 Builds the FastAPI application and includes route modules. It should stay thin.
 
-### `mnemosyne/routes/`
+### `mymcp/routes/`
 
 Owns HTTP transport concerns:
 
@@ -126,7 +129,7 @@ Owns HTTP transport concerns:
 
 Route modules should not accumulate MCP semantics or tool execution logic.
 
-### `mnemosyne/mcp/`
+### `mymcp/mcp/`
 
 Owns MCP protocol concerns:
 
@@ -157,7 +160,7 @@ schema.
 
 This is where the protocol surface should grow.
 
-### `mnemosyne/memory/`
+### `mymcp/memory/`
 
 Owns tool-independent memory meaning and local persistence:
 
@@ -486,7 +489,7 @@ contracts. Every mutation Tool requires explicit operator enablement and a
 client capable of per-call approval; clients without that boundary must leave
 mutation Tools disabled.
 
-### `mnemosyne/settings.py`
+### `mymcp/settings.py`
 
 Contains stable server identity constants used across routes and MCP
 initialization, dynamic resolution of the operator-controlled memory root, and
@@ -497,14 +500,14 @@ file read. It owns the fixed local settings path, schema, bounded source
 checks, and stable configuration failures without creating or editing operator
 configuration.
 
-### `mnemosyne/cli.py`
+### `mymcp/cli.py`
 
 Contains console entrypoints for normal and development server startup, plus
 the test-suite runner when the `test` extra is installed.
 
 ## Design Rule
 
-Keep FastAPI routes thin. Put MCP meaning under `mnemosyne/mcp/`.
+Keep FastAPI routes thin. Put MCP meaning under `mymcp/mcp/`.
 
 In short:
 
@@ -521,5 +524,5 @@ The door is HTTP. The language spoken behind it is MCP.
 
 - Project-wide workflow and verification gates live in `docs/AI_WORKFLOW.md`.
 - Canonical product and public-contract terms live in `docs/GLOSSARY.md`.
-- `mnemosyne/mcp/AGENTS.md` governs MCP protocol and tool work.
-- `mnemosyne/routes/AGENTS.md` governs HTTP transport work.
+- `mymcp/mcp/AGENTS.md` governs MCP protocol and tool work.
+- `mymcp/routes/AGENTS.md` governs HTTP transport work.

@@ -6,22 +6,22 @@ from typing import Any
 
 import pytest
 
-from mnemosyne.mcp.tools.memory_inspect import TOOL, handle
-from mnemosyne.mcp.tools.memory_inspect import handler as handler_module
-from mnemosyne.mcp.tools.memory_inspect.definition import TOOL as DEFINED_TOOL
-from mnemosyne.memory.errors import (
+from mymcp.mcp.tools.memory_inspect import TOOL, handle
+from mymcp.mcp.tools.memory_inspect import handler as handler_module
+from mymcp.mcp.tools.memory_inspect.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.errors import (
     AmbiguousMemoryReference,
     CandidateLimitExceeded,
     MemoryNotFound,
     MemorySourceUnavailable,
     UnsafeMemoryPath,
 )
-from mnemosyne.memory.records import (
+from mymcp.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
     MemoryReference,
 )
-from mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
@@ -629,7 +629,7 @@ def test_memory_inspect_legacy_discovery_warnings_contain_no_candidate_paths(
     store_messages = [
         record.getMessage()
         for record in caplog.records
-        if record.name == "mnemosyne.memory.store"
+        if record.name == "mymcp.memory.store"
     ]
     inspect_messages = [
         record.getMessage()

@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from mnemosyne import cli
+from mymcp import cli
 
 
 def test_main_starts_the_shared_application_import(
@@ -16,7 +16,7 @@ def test_main_starts_the_shared_application_import(
     cli.main()
 
     runner.assert_called_once_with(
-        "mnemosyne.app:app",
+        "mymcp.app:app",
         host="127.0.0.1",
         port=8000,
     )
@@ -31,7 +31,7 @@ def test_dev_starts_the_shared_application_import_with_reload(
     cli.dev()
 
     runner.assert_called_once_with(
-        "mnemosyne.app:app",
+        "mymcp.app:app",
         host="127.0.0.1",
         port=8000,
         reload=True,

@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from mnemosyne.app import app
-from mnemosyne.mcp import methods as mcp_methods
-from mnemosyne.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
+from mymcp.app import app
+from mymcp.mcp import methods as mcp_methods
+from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
 client = TestClient(app)

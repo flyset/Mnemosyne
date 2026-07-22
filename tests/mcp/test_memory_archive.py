@@ -5,11 +5,11 @@ from typing import Any
 
 import pytest
 
-from mnemosyne.mcp.tools._memory_lifecycle import parse_lifecycle_request
-from mnemosyne.mcp.tools.memory_archive import TOOL, handle
-from mnemosyne.mcp.tools.memory_archive import handler as handler_module
-from mnemosyne.mcp.tools.memory_archive.definition import TOOL as DEFINED_TOOL
-from mnemosyne.memory.errors import (
+from mymcp.mcp.tools._memory_lifecycle import parse_lifecycle_request
+from mymcp.mcp.tools.memory_archive import TOOL, handle
+from mymcp.mcp.tools.memory_archive import handler as handler_module
+from mymcp.mcp.tools.memory_archive.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.errors import (
     MemoryNotFound,
     MemorySourceUnavailable,
     MemoryValidationError,
@@ -19,9 +19,9 @@ from mnemosyne.memory.errors import (
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mnemosyne.memory.records import MemoryReference, parse_memory_record
-from mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mnemosyne.memory.service import MemoryResult
+from mymcp.memory.records import MemoryReference, parse_memory_record
+from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.memory.service import MemoryResult
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
@@ -319,7 +319,7 @@ def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspectio
     record = _record(state="active", revision=1, event=True)
     path = tmp_path / "project" / "mnemosyne" / "decisions" / f"{CANONICAL_ID}.json"
     path.parent.mkdir(parents=True)
-    from mnemosyne.memory.records import serialize_memory_record
+    from mymcp.memory.records import serialize_memory_record
     path.write_text(json.dumps(serialize_memory_record(record)), encoding="utf-8")
     unrelated = tmp_path / "project" / "other.json"
     unrelated.write_text("unrelated", encoding="utf-8")
@@ -331,8 +331,8 @@ def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspectio
     assert len(list(tmp_path.rglob(f"{CANONICAL_ID}.json"))) == 1
     assert list(path.parent.glob(".*.tmp")) == []
     assert unrelated.read_text(encoding="utf-8") == "unrelated"
-    from mnemosyne.mcp.tools.memory_recall import handle as recall
-    from mnemosyne.mcp.tools.memory_inspect import handle as inspect
+    from mymcp.mcp.tools.memory_recall import handle as recall
+    from mymcp.mcp.tools.memory_inspect import handle as inspect
     assert _payload(recall({"query": "archive lifecycle context", "scope": "project"}))["status"] == "no_matches"
     inspected = _payload(inspect({"reference": _arguments()["reference"]}))
     assert inspected["memory"]["lifecycle"] == {"state": "archived", "revision": 2}

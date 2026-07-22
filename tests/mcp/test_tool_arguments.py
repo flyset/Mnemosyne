@@ -2,12 +2,12 @@ from copy import deepcopy
 
 import pytest
 
-from mnemosyne.mcp import tool_arguments
-from mnemosyne.mcp.tool_arguments import normalize_tool_arguments
-from mnemosyne.mcp.tools.memory_list import TOOL as MEMORY_LIST_TOOL
-from mnemosyne.mcp.tools.memory_list import handle as handle_memory_list
-from mnemosyne.mcp.tools.memory_remember import TOOL as REMEMBER_TOOL
-from mnemosyne.memory.listing import MemoryListPage, MemoryListResult
+from mymcp.mcp import tool_arguments
+from mymcp.mcp.tool_arguments import normalize_tool_arguments
+from mymcp.mcp.tools.memory_list import TOOL as MEMORY_LIST_TOOL
+from mymcp.mcp.tools.memory_list import handle as handle_memory_list
+from mymcp.mcp.tools.memory_remember import TOOL as REMEMBER_TOOL
+from mymcp.memory.listing import MemoryListPage, MemoryListResult
 
 
 def _remember_arguments() -> dict[str, object]:

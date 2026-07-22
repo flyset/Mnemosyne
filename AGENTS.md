@@ -2,7 +2,8 @@
 
 ## Project Intent
 
-Mnemosyne is a local-first MCP server for user-governed AI memory.
+MyMCP is the repository and host package for a local-first MCP server. It
+currently hosts the Mnemosyne user-governed memory domain in-process.
 
 ## Principles
 
@@ -15,7 +16,8 @@ Mnemosyne is a local-first MCP server for user-governed AI memory.
 
 ## Current Scope
 
-This is an early FastAPI MCP skeleton. Keep changes minimal and protocol-aware.
+This is an early FastAPI MCP skeleton. The Mnemosyne domain has not been
+extracted into a plugin; keep changes minimal and protocol-aware.
 
 ## Project Memory
 

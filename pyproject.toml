@@ -1,5 +1,5 @@
 [project]
-name = "mnemosyne"
+name = "mymcp"
 version = "0.1.3"
 description = "Local-first MCP server for user-governed AI memory."
 readme = "README.md"
@@ -20,9 +20,9 @@ test = [
 ]
 
 [project.scripts]
-mnemosyne = "mnemosyne.cli:main"
-mnemosyne-dev = "mnemosyne.cli:dev"
-mnemosyne-test = "mnemosyne.cli:test"
+mymcp = "mymcp.cli:main"
+mymcp-dev = "mymcp.cli:dev"
+mymcp-test = "mymcp.cli:test"
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"

@@ -6,17 +6,17 @@ from typing import Any
 
 import pytest
 
-from mnemosyne.mcp.tools.memory_list import TOOL, handle
-from mnemosyne.mcp.tools.memory_list import handler as handler_module
-from mnemosyne.mcp.tools.memory_list.definition import TOOL as DEFINED_TOOL
-from mnemosyne.memory.errors import (
+from mymcp.mcp.tools.memory_list import TOOL, handle
+from mymcp.mcp.tools.memory_list import handler as handler_module
+from mymcp.mcp.tools.memory_list.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.errors import (
     CandidateLimitExceeded,
     InvalidMemoryListCursor,
     MemorySourceUnavailable,
     StaleMemoryListCursor,
     UnsafeMemoryPath,
 )
-from mnemosyne.memory.listing import (
+from mymcp.memory.listing import (
     CollectionSelectionMode,
     MemoryCollectionSelector,
     MemoryInspectability,
@@ -25,13 +25,13 @@ from mnemosyne.memory.listing import (
     MemoryListResult,
     MemoryListSelector,
 )
-from mnemosyne.memory.records import (
+from mymcp.memory.records import (
     LegacyMemoryRecordV1,
     MemoryRecordV2,
     parse_memory_record,
 )
-from mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mnemosyne.memory.store import StoredMemory
+from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.memory.store import StoredMemory
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"

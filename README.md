@@ -1,6 +1,9 @@
-# Mnemosyne
+# MyMCP
 
-Mnemosyne is an experimental local MCP server for user-governed AI memory.
+MyMCP is the repository and Python host package for an experimental local MCP
+server. It currently hosts Mnemosyne, the user-governed AI memory domain,
+in-process. Mnemosyne remains the public server and memory-domain identity; no
+plugin extraction is implemented by this package rename.
 
 Its intended direction is a personal, notebook-like memory substitute for AI
 agents: a small local service that preserves approved records outside the model,
@@ -9,7 +12,8 @@ user-governed boundaries.
 
 ## Current Status
 
-This repository currently contains a minimal FastAPI-based MCP skeleton.
+This repository currently contains a minimal FastAPI-based MCP host skeleton
+with the Mnemosyne memory domain built in.
 
 Implemented tools:
 
@@ -240,7 +244,7 @@ contain only scope and a bounded reason.
 
 Memory scopes, records, paths, storage, retrieval, listing selection, ordering,
 pagination, cursor policy, content policy, and lifecycle policy live in a shared
-`mnemosyne/memory/` domain rather than inside individual MCP Tools. The domain
+`mymcp/memory/` domain rather than inside individual MCP Tools. The domain
 includes mutation-disabled revise, archive, restore, and physical-delete
 primitives. `memory_remember`, `memory_revise`, paired
 `memory_archive` / `memory_restore`, and `memory_forget` are absent from
@@ -949,19 +953,19 @@ python -m pip install -e .
 Start the development server with auto-reload:
 
 ```bash
-mnemosyne-dev
+mymcp-dev
 ```
 
 Start the server without auto-reload:
 
 ```bash
-mnemosyne
+mymcp
 ```
 
 Run the test suite after installing the `test` extra:
 
 ```bash
-mnemosyne-test
+mymcp-test
 ```
 
 ## OpenCode Configuration

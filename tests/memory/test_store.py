@@ -5,23 +5,23 @@ from pathlib import Path
 
 import pytest
 
-from mnemosyne.memory.errors import (
+from mymcp.memory.errors import (
     AmbiguousMemoryReference,
     CandidateLimitExceeded,
     MemoryNotFound,
     MemorySourceUnavailable,
     UnsafeMemoryPath,
 )
-from mnemosyne.memory.listing import MemoryCollectionSelector, MemoryListSelector
-from mnemosyne.memory.records import (
+from mymcp.memory.listing import MemoryCollectionSelector, MemoryListSelector
+from mymcp.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
     LifecycleState,
     MemoryRecordV2,
     MemoryReference,
 )
-from mnemosyne.memory.scopes import MemoryScope
-from mnemosyne.memory.store import FilesystemMemoryStore
+from mymcp.memory.scopes import MemoryScope
+from mymcp.memory.store import FilesystemMemoryStore
 
 
 def _write(path: Path, payload: object) -> None:
@@ -130,7 +130,7 @@ def test_store_skips_invalid_and_path_mismatched_records_with_safe_warnings(
     (scope / "bad-json.json").write_text("{", encoding="utf-8")
     _write(scope / "invalid.json", {"schema_version": 1})
     _write(scope / "wrong" / "record.json", _v2())
-    caplog.set_level(logging.WARNING, logger="mnemosyne.memory.store")
+    caplog.set_level(logging.WARNING, logger="mymcp.memory.store")
 
     assert FilesystemMemoryStore(tmp_path).discover(MemoryScope.PROJECT) == []
     assert caplog.messages == [
@@ -154,7 +154,7 @@ def test_store_skips_oversized_and_too_deep_sources(
         scope / "one" / "two" / "three" / "four" / "five" / "ignored.json",
         _v1("ignored"),
     )
-    caplog.set_level(logging.WARNING, logger="mnemosyne.memory.store")
+    caplog.set_level(logging.WARNING, logger="mymcp.memory.store")
 
     stored = FilesystemMemoryStore(tmp_path).discover(MemoryScope.PROJECT)
 
@@ -182,7 +182,7 @@ def test_store_rejects_symlink_files_and_directories(
         (scope / "linked-directory").symlink_to(outside_directory, target_is_directory=True)
     except OSError:
         pytest.skip("symlinks are unavailable on this platform")
-    caplog.set_level(logging.WARNING, logger="mnemosyne.memory.store")
+    caplog.set_level(logging.WARNING, logger="mymcp.memory.store")
 
     assert FilesystemMemoryStore(tmp_path).discover(MemoryScope.PROJECT) == []
     assert caplog.messages == [

@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from mnemosyne.memory.errors import (
+from mymcp.memory.errors import (
     DeletionOutcomeUncertain,
     MemoryNotArchived,
     MemoryNotFound,
@@ -16,12 +16,12 @@ from mnemosyne.memory.errors import (
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mnemosyne.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
-from mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mnemosyne.memory.service import ForgetResult
-from mnemosyne.mcp.tools.memory_forget import TOOL, handle
-from mnemosyne.mcp.tools.memory_forget import handler as handler_module
-from mnemosyne.mcp.tools.memory_forget.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
+from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.memory.service import ForgetResult
+from mymcp.mcp.tools.memory_forget import TOOL, handle
+from mymcp.mcp.tools.memory_forget import handler as handler_module
+from mymcp.mcp.tools.memory_forget.definition import TOOL as DEFINED_TOOL
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
@@ -461,9 +461,9 @@ def test_memory_forget_deletes_one_archived_record_and_all_read_paths_report_abs
     assert unrelated.read_text(encoding="utf-8") == "unrelated"
     assert sorted(item.name for item in path.parent.iterdir()) == ["unrelated.txt"]
 
-    from mnemosyne.mcp.tools.memory_inspect import handle as inspect
-    from mnemosyne.mcp.tools.memory_recall import handle as recall
-    from mnemosyne.mcp.tools.memory_restore import handle as restore
+    from mymcp.mcp.tools.memory_inspect import handle as inspect
+    from mymcp.mcp.tools.memory_recall import handle as recall
+    from mymcp.mcp.tools.memory_restore import handle as restore
 
     assert _payload(inspect({"reference": arguments["reference"]}))["code"] == "not_found"
     assert _payload(recall({"query": "forget integration context", "scope": "project"})) == {

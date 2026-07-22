@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from mnemosyne.app import app
-from mnemosyne.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
+from mymcp.app import app
+from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
 client = TestClient(app)

@@ -5,14 +5,14 @@ from typing import Any
 
 import pytest
 
-from mnemosyne.mcp.tools._memory_lifecycle import parse_lifecycle_request
-from mnemosyne.mcp.tools.memory_restore import TOOL, handle
-from mnemosyne.mcp.tools.memory_restore import handler as handler_module
-from mnemosyne.mcp.tools.memory_restore.definition import TOOL as DEFINED_TOOL
-from mnemosyne.memory.errors import ReplacementOutcomeUncertain
-from mnemosyne.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
-from mnemosyne.memory.scopes import MemoryScope
-from mnemosyne.memory.service import MemoryResult
+from mymcp.mcp.tools._memory_lifecycle import parse_lifecycle_request
+from mymcp.mcp.tools.memory_restore import TOOL, handle
+from mymcp.mcp.tools.memory_restore import handler as handler_module
+from mymcp.mcp.tools.memory_restore.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.errors import ReplacementOutcomeUncertain
+from mymcp.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
+from mymcp.memory.scopes import MemoryScope
+from mymcp.memory.service import MemoryResult
 
 
 CANONICAL_ID = "mem_fedcba9876543210fedcba9876543210"
@@ -173,8 +173,8 @@ def test_memory_restore_returns_archived_memory_to_recall_and_inspection(
     result = handle(_arguments(), mutations_enabled=True)
 
     assert _payload(result)["status"] == "restored"
-    from mnemosyne.mcp.tools.memory_recall import handle as recall
-    from mnemosyne.mcp.tools.memory_inspect import handle as inspect
+    from mymcp.mcp.tools.memory_recall import handle as recall
+    from mymcp.mcp.tools.memory_inspect import handle as inspect
     recalled = _payload(recall({"query": "restore lifecycle context", "scope": "project"}))
     assert recalled["status"] == "ok"
     inspected = _payload(inspect({"reference": _arguments()["reference"]}))

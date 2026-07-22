@@ -18,7 +18,7 @@ MEMORY_ROOT_ENV = "MNEMOSYNE_MEMORY_ROOT"
 STARTUP_PROBE = """
 import json
 
-from mnemosyne.mcp.methods import handle_message
+from mymcp.mcp.methods import handle_message
 
 
 def request(message):
@@ -119,7 +119,7 @@ STARTUP_FIXED_PROBE = """
 import json
 from pathlib import Path
 
-from mnemosyne.mcp.methods import handle_message
+from mymcp.mcp.methods import handle_message
 
 
 def tool_names():

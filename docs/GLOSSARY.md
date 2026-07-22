@@ -5,6 +5,8 @@
 - **Guided** — the direction of authority in which the user guides Mnemosyne's organization; an agent may retrieve context and propose bounded placement or lifecycle changes, but the user remains the authority over meaning and approves each mutation.
 - **Hot memory** — conventional shorthand for a small, bounded working set loaded into temporary model context at session start from durable records.
 - **MCP tool** — a narrowly scoped capability exposed through the Model Context Protocol.
+- **MyMCP host** — the current repository, distribution, and top-level Python package that hosts the HTTP and MCP runtime together with the in-process Mnemosyne memory domain; it does not yet provide an extracted plugin system.
+- **Mnemosyne memory domain** — the user-governed memory behavior currently hosted by MyMCP; Mnemosyne remains the public server, configuration, storage, and `memory_*` Tool identity.
 - **Memory** — protocol and product shorthand for user-approved durable records held outside the model; it does not mean that the model possesses durable personal memory and is never a secret store.
 - **Memory substitute** — an external, notebook-like system that preserves approved records and retrieves selected records into temporary model context, providing continuity without giving the model intrinsic memory.
 - **Legacy memory record** — a compatible schema-version-1 JSON record with ID, content, and optional title/tags; it remains readable without background rewriting or invented metadata.
@@ -55,7 +57,7 @@
 - **Memory recall request** — a narrow, model-generated description of user-specific context that could materially affect the current response.
 - **Memory scope** — the single required high-level category describing what a memory operation concerns: `self`, `relationship`, `preference`, `practice`, `project`, or `knowledge`.
 - **Memory scope directory** — one fixed top-level directory beneath the memory root selected by a validated memory scope; recall and listing never accept a client-supplied path.
-- **Shared memory domain** — the tool-independent `mnemosyne/memory/` package that owns scopes, per-pair kind definitions/guidance, records, event occurrence semantics, normalization, paths, storage, retrieval, listing selection/order/pagination/cursors, revision mutable-field and content policy, first-match refusal field/reason classification, lifecycle policy, atomic replacement, replacement uncertainty, and shared errors.
+- **Shared memory domain** — the tool-independent `mymcp/memory/` package that owns Mnemosyne scopes, per-pair kind definitions/guidance, records, event occurrence semantics, normalization, paths, storage, retrieval, listing selection/order/pagination/cursors, revision mutable-field and content policy, first-match refusal field/reason classification, lifecycle policy, atomic replacement, replacement uncertainty, and shared errors.
 - **Recall tags** — optional, bounded, free-form descriptive labels attached to a memory recall request; exact normalized overlap with record tags is a ranking signal, not a required filter.
 - **Recall match evidence** — the sorted terms and tags explaining which request signals matched a returned memory record; it excludes paths and internal scores.
 - **Recall reference continuity** — the inspect-compatible versioned reference included with every successful recall match so an active canonical or legacy result can be selected exactly without exposing a path.

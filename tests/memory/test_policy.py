@@ -2,15 +2,15 @@ from copy import deepcopy
 
 import pytest
 
-from mnemosyne.memory.errors import (
+from mymcp.memory.errors import (
     ContentRefusalReason,
     DisallowedMemoryContent,
 )
-from mnemosyne.memory.policy import (
+from mymcp.memory.policy import (
     validate_remember_content,
     validate_revision_content,
 )
-from mnemosyne.memory.records import MemoryDraft, MemoryRevision
+from mymcp.memory.records import MemoryDraft, MemoryRevision
 
 
 def _arguments() -> dict[str, object]:

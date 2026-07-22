@@ -1,7 +1,7 @@
 import pytest
 
-from mnemosyne.memory.errors import MemoryValidationError
-from mnemosyne.memory.normalization import (
+from mymcp.memory.errors import MemoryValidationError
+from mymcp.memory.normalization import (
     normalize_identifier,
     normalize_language,
     normalize_optional_text,

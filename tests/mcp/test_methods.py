@@ -1,6 +1,6 @@
 import json
 
-from mnemosyne.mcp.methods import handle_message
+from mymcp.mcp.methods import handle_message
 
 
 def test_handle_message_rejects_non_object_params_with_request_id() -> None:

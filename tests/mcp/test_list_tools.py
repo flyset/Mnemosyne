@@ -1,8 +1,8 @@
 import tomllib
 from pathlib import Path
 
-from mnemosyne.mcp.tools.list_tools import handle
-from mnemosyne.settings import SERVER_NAME, SERVER_VERSION
+from mymcp.mcp.tools.list_tools import handle
+from mymcp.settings import SERVER_NAME, SERVER_VERSION
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

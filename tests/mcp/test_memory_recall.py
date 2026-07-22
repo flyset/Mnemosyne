@@ -4,15 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from mnemosyne.mcp.tools.memory_recall import TOOL, handle
-from mnemosyne.mcp.tools.memory_recall import handler as handler_module
-from mnemosyne.mcp.tools.memory_recall.definition import TOOL as DEFINED_TOOL
-from mnemosyne.memory.errors import (
+from mymcp.mcp.tools.memory_recall import TOOL, handle
+from mymcp.mcp.tools.memory_recall import handler as handler_module
+from mymcp.mcp.tools.memory_recall.definition import TOOL as DEFINED_TOOL
+from mymcp.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
 )
-from mnemosyne.memory.scopes import SCOPE_DEFINITIONS
-from mnemosyne.settings import get_memory_root
+from mymcp.memory.scopes import SCOPE_DEFINITIONS
+from mymcp.settings import get_memory_root
 
 
 def _write_memory(path: Path, record: dict[str, object]) -> None:

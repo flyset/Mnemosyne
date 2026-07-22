@@ -1,6 +1,6 @@
 import json
 
-from mnemosyne.mcp.protocol import mcp_error, mcp_result
+from mymcp.mcp.protocol import mcp_error, mcp_result
 
 
 def test_mcp_result_returns_a_json_rpc_success_response() -> None:

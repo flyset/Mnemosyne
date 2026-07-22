@@ -3,16 +3,30 @@ from pathlib import Path
 
 import pytest
 
-import mnemosyne.settings as settings
-from mnemosyne.settings import (
+import mymcp.settings as settings
+from mymcp.settings import (
     SETTINGS_MAX_BYTES,
     SettingsError,
     get_memory_archive_restore_enabled,
     get_memory_forget_enabled,
     get_memory_remember_enabled,
     get_memory_revise_enabled,
+    get_memory_root,
     get_memory_tool_settings,
 )
+
+
+def test_default_memory_root_remains_under_mnemosyne_application_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.delenv("MNEMOSYNE_MEMORY_ROOT", raising=False)
+
+    assert get_memory_root() == home / ".mnemosyne" / "memory"
+    assert not home.exists()
+    assert not (home / ".mymcp").exists()
 
 
 def _isolate_home(
