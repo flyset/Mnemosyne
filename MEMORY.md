@@ -32,36 +32,36 @@ Before performing the first Mnemosyne operation in each session:
 - **Write when:** an approved, enduring professional fact or circumstance should
   remain available across sessions.
 
-### Project
+### MyMCP Project
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `null`
-- **Holds:** general project state, decisions, constraints, questions, references,
+- **Holds:** general MyMCP host-project state, constraints, questions, references,
   and summaries that do not belong in a more specific mapped collection.
-- **Read when:** prior Mnemosyne project context could affect the current task.
-- **Write when:** approved durable project context has no more specific mapped
-  collection.
+- **Read when:** prior MyMCP project context could affect the current task.
+- **Write when:** approved durable host-project context has no more specific
+  mapped collection.
 
 #### Overview
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `overview`
-- **Holds:** the living high-level project identity, purpose, boundaries, and
+- **Holds:** the living high-level MyMCP identity, purpose, boundaries, and
   current shape.
-- **Read when:** a task needs quick project orientation.
-- **Write when:** the project's high-level identity or capabilities materially
-  change; revise the living overview.
+- **Read when:** a task needs quick host-project orientation.
+- **Write when:** MyMCP's high-level identity or capabilities materially change;
+  revise the living overview.
 
 #### Roadmaps
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `roadmaps`
-- **Holds:** user-approved, long-range project roadmaps, including major phases,
-  sequencing, dependencies, and intended outcomes; roadmaps guide direction
-  but do not replace detailed Backlog Tracks.
+- **Holds:** user-approved, long-range MyMCP roadmaps, including major phases,
+  sequencing, dependencies, and intended outcomes; roadmaps guide direction but
+  do not replace detailed Backlog Tracks.
 - **Read when:** choosing or evaluating the next major project step, planning a
   roadmap-derived Track, determining how a Track fits the longer-term direction,
   and reconciling the roadmap when that Track completes.
@@ -75,18 +75,18 @@ Before performing the first Mnemosyne operation in each session:
 #### Decisions
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `decisions`
-- **Holds:** durable project decisions with their rationale and consequences.
+- **Holds:** durable MyMCP decisions with their rationale and consequences.
 - **Read when:** current work may be constrained by an established choice.
-- **Write when:** a durable choice should guide future work.
+- **Write when:** a durable host-project choice should guide future work.
 
 #### Critiques
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `critiques`
-- **Holds:** unresolved critiques and questions about project architecture,
+- **Holds:** unresolved critiques and questions about MyMCP architecture,
   semantics, or product direction.
 - **Read when:** evaluating project weaknesses or planning improvements.
 - **Write when:** a concrete unresolved concern could change project direction.
@@ -94,9 +94,9 @@ Before performing the first Mnemosyne operation in each session:
 #### Reviews
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `reviews`
-- **Holds:** the living holistic assessment of project strengths, weaknesses,
+- **Holds:** the living holistic assessment of MyMCP strengths, weaknesses,
   maturity, and priorities.
 - **Read when:** assessing current project health or priorities.
 - **Write when:** the overall assessment materially changes; revise the living
@@ -105,9 +105,9 @@ Before performing the first Mnemosyne operation in each session:
 #### Ideas
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `ideas`
-- **Holds:** proposed capabilities or improvements, developed exploratory
+- **Holds:** proposed host capabilities or improvements, developed exploratory
   reasoning, deferred design possibilities, and their eventual disposition.
 - **Read when:** exploring potential enhancements or future directions,
   reconsidering deferred concepts, or reviewing the rationale of prior ideas.
@@ -117,17 +117,17 @@ Before performing the first Mnemosyne operation in each session:
 #### Issues
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `issues`
-- **Holds:** concrete observed defects or operational problems and their
+- **Holds:** concrete observed MyMCP defects or operational problems and their
   resolution status.
-- **Read when:** diagnosing known or historical project problems.
+- **Read when:** diagnosing known or historical host-project problems.
 - **Write when:** a concrete issue is observed that may require project work.
 
 #### Checkpoints
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `checkpoints`
 - **Holds:** temporary, user-requested snapshots of unfinished project or Track
   state, including the current position, blockers, and next action.
@@ -143,10 +143,46 @@ Before performing the first Mnemosyne operation in each session:
 #### Changelog
 
 - **Scope:** `project`
-- **Namespace:** `mnemosyne`
+- **Namespace:** `mymcp`
 - **Collection:** `changelog`
-- **Holds:** concise project event records for meaningful completed Tracks or
+- **Holds:** concise MyMCP event records for meaningful completed Tracks or
   releases, including the commit, delivered outcome, validation evidence, and
   compatibility build when applicable; excludes minor commits.
-- **Read when:** the task requires the history of completed Tracks or releases.
-- **Write when:** a completed Track or release has been committed and pushed.
+- **Read when:** the task requires the history of completed MyMCP Tracks or
+  releases.
+- **Write when:** a completed MyMCP Track or release has been committed and
+  pushed.
+
+### Mnemosyne Domain and History
+
+- **Scope:** `project`
+- **Namespace:** `mnemosyne`
+- **Collection:** omitted when listing; use the exact existing collection when
+  inspecting or writing.
+- **Holds:** Mnemosyne memory-domain context and existing project history,
+  including pre-inversion decisions, critiques, reviews, ideas, plans, events,
+  and the inspectable transition roadmap. It is not the default home for MyMCP
+  host work.
+- **Read when:** the task concerns Mnemosyne's memory behavior, public identity,
+  domain-specific direction, or the history of the Mnemosyne-to-MyMCP
+  transition.
+- **Write when:** approved durable context is specifically about the Mnemosyne
+  memory domain. Route MyMCP host orientation, plans, decisions, and outcomes to
+  the `mymcp` namespace instead.
+- **Lifecycle:** do not bulk-migrate, rewrite, relocate, archive, or forget
+  existing Mnemosyne records merely because MyMCP is now the host-project
+  identity.
+
+#### Mnemosyne Changelog History
+
+- **Scope:** `project`
+- **Namespace:** `mnemosyne`
+- **Collection:** `changelog`
+- **Holds:** the existing historical changelog, including completed memory-domain
+  work and the host-identity transition through Track 027.
+- **Read when:** the task requires that historical delivery record.
+- **Write when:** a future committed and pushed outcome is specifically
+  Mnemosyne-domain work. Record future MyMCP host outcomes in
+  `project/mymcp/changelog`.
+- **Lifecycle:** preserve existing events in place; do not move or rewrite them
+  during project-identity inversion.

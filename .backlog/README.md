@@ -25,7 +25,7 @@ A Track is a large, outcome-driven line of work. It is the repository's self-con
 
 Track
 - ID: TRACK_<id>
-- Repository: Mnemosyne
+- Repository: MyMCP
 - Branch: <branch>
 - Current path: .backlog/<STATUS>/<YYYY>/TRACK_<id>_<STATUS>_<title>.md
 

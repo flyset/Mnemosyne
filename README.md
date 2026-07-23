@@ -5,10 +5,10 @@ server. It currently hosts Mnemosyne, the user-governed AI memory domain,
 in-process. Mnemosyne remains the public server and memory-domain identity; no
 plugin extraction is implemented by this package rename.
 
-Its intended direction is a personal, notebook-like memory substitute for AI
-agents: a small local service that preserves approved records outside the model,
-retrieves selected context when requested, and operates under explicit
-user-governed boundaries.
+Its intended direction is a local, client-neutral MCP host and governance gateway
+that composes narrowly scoped integrations behind one machine-local endpoint.
+Mnemosyne supplies the current notebook-like memory capability while retaining
+its explicit user-governed boundaries.
 
 ## Current Status
 
@@ -933,22 +933,26 @@ an integer, while `collection_id` strings—including `"null"`—remain strings
 because that field legitimately permits them. Collectionless selection requires
 native JSON null.
 
-## Intended Role
+## Intended Roles
 
-Mnemosyne is meant to become a local-first MCP server that gives agents controlled
-access to user-approved durable records and bounded retrieval.
+MyMCP is intended to become a local-first MCP host and client-neutral governance
+gateway. It owns Tool composition, identity, plugin contracts, routing, and
+reusable host mechanisms without absorbing integration-specific domain policy.
 
-The design bias is personal-only first, with clean seams for a possible reusable product later.
+Mnemosyne remains the built-in user-governed memory domain. It gives agents
+controlled access to approved durable records and bounded retrieval while
+preserving its existing public server, Tool, configuration, and storage identity.
 
 ## Non-Goals
 
-Mnemosyne is not intended to be:
+MyMCP and its built-in Mnemosyne domain are not intended to provide:
 
-- a generic shell execution server
-- an unrestricted filesystem API
-- a secret store
-- a multi-user platform in the initial version
-- a hidden system that mutates model context without visibility
+- generic shell execution or unrestricted filesystem access;
+- secret storage;
+- hidden mutation or governance that bypasses visible user consent;
+- a multi-user platform before an explicit threat model supports one; or
+- dynamic plugin loading, installation, lifecycle, or isolation before those
+  contracts are implemented and validated.
 
 ## Running the Server
 
@@ -1069,13 +1073,15 @@ guidance before operating on memory.
 
 ## Roadmap Shape
 
-Likely next steps:
+The next MyMCP phase defines the external plugin-author contract and Tool identity
+rules required before third-party aggregation. Later phases cover minimal plugin
+packaging and configuration, lifecycle and isolation, the client-neutral
+governance gateway, and reusable host services proven by a second real
+integration.
 
-1. Refine memory governance, hygiene, and no-secret handling.
-2. Refine retrieval using observed local recall behavior.
-3. Continue automated MCP coverage supplemented by direct protocol checks.
-
-See `VISION.md` for the broader scope and boundaries.
+See `VISION.md` for MyMCP's broader scope and boundaries. See
+`docs/MNEMOSYNE_VISION.md` for the built-in memory domain's notebook model,
+safety contract, and direction.
 
 See `docs/ARCHITECTURE.md` for the current code organization.
 

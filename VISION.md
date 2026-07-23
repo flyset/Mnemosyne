@@ -1,113 +1,74 @@
-# Mnemosyne Vision
+# MyMCP Vision
 
-Mnemosyne is a personal, local-first MCP server that gives AI agents controlled
-access to a user-governed memory substitute.
+MyMCP is a local, client-neutral MCP host and governance gateway. It should let a
+single user run narrowly scoped integrations behind one machine-local endpoint
+without surrendering control of Tools, data, or mutation approval to a specific
+AI client or plugin author.
 
-The goal is not to make an agent omniscient or pretend that a model possesses
-durable personal memory. The goal is to provide a small, trustworthy local
-notebook: the records the user has approved preserving and the safety boundaries
-that govern them.
+MyMCP currently hosts the Mnemosyne user-governed memory domain in-process. The
+host/domain boundary is real, but plugin extraction, dynamic loading,
+installation, lifecycle management, and isolation are not implemented yet.
 
 ## Role
 
-Mnemosyne acts as a thin bridge between MCP-compatible agents and local memory.
+MyMCP owns host-level composition and protocol mechanisms:
 
-It should help agents:
+- one explicit MCP surface for independent compatible clients;
+- stable Tool registration, identity, discovery, and dispatch;
+- deterministic composition and collision handling;
+- plugin contracts, routing, compatibility, and lifecycle boundaries as they are
+  introduced; and
+- reusable host governance only after multiple integrations prove it generic.
 
-- retrieve stable, user-approved facts and preferences when relevant
-- retrieve prior context without dumping everything into the prompt
-- operate under explicit consent and governance rules
+Domain integrations own their application meaning. Mnemosyne therefore retains
+its memory taxonomy, record semantics, retrieval, lifecycle policy, public
+`memory_*` Tools, configuration, and storage identity.
 
-## Notebook Model
+## Current Foundation
 
-Models do not have durable personal memory. During inference they operate on
-temporary context supplied for the current interaction; any continuity across
-sessions comes from an external system preserving and supplying state.
+The repository already provides the MyMCP distribution and top-level Python host
+package, a generic immutable Tool registry, an explicit Mnemosyne integration and
+configuration boundary, and host-owned static ordered integration composition.
+The production surface still contains only the built-in Mnemosyne integration.
 
-Mnemosyne is that kind of memory substitute, best understood as a user-kept
-notebook rather than ambient memory. It stores approved records outside the
-model and retrieves selected records into temporary context when an agent
-deliberately consults it. "Guided" describes the direction of authority: the
-user guides Mnemosyne's organization; Mnemosyne does not guess what the user's
-information means.
+The next product step is to define the plugin-author contract and Tool identity
+rules required before third-party aggregation. Packaging, plugin lifecycle,
+isolation, client-neutral gateway policy, and reusable host services follow only
+after their prerequisites are explicit.
 
-The roles are deliberately distinct:
+## Principles
 
-- the user is the keeper and remains the authority over meaning;
-- the agent acts as a clerk that retrieves records and proposes bounded changes;
-- Mnemosyne is the notebook that preserves only approved records and structure.
+MyMCP should preserve:
 
-Structure is not decoration. Scope, namespace, collection, and kind make records
-retrievable and provide the organizational neighborhood that constrains how they
-should be interpreted. Poor placement can fail silently through missed retrieval
-or, more dangerously, through confident misreading.
+- local-first operation and filesystem truth;
+- a single-user model until a broader threat model is explicit;
+- least privilege and small, explicit Tools;
+- client-neutral server-enforced boundaries;
+- explicit operator enablement and per-call user consent for mutations;
+- deterministic startup and failure rather than hidden discovery or fallback;
+- compatibility for existing integrations while contracts evolve; and
+- separation between reusable host mechanism and domain-specific policy.
 
-Mnemosyne should make sound organization intuitive, validate bounded choices,
-and help agents reuse existing structure. It must stop short of silently
-classifying, moving, or rewriting records based on its own interpretation. The
-system may help with the interpretive act, but the user must decide it.
-
-## Initial Scope
-
-Version 0 is personal-only:
-
-- single user
-- local machine
-- filesystem-backed storage is acceptable
-- simple schemas over complex infrastructure
-- explicit tools over broad ambient access
-- transparent behavior over invisible automation
-
-The server should expose small, composable tools rather than large autonomous workflows.
-
-## Tool Focus
-
-Mnemosyne's product domain is memory. Its tools should operate only on approved
-memory records and their lifecycle:
-
-- store approved facts and preferences
-- recall, list, and inspect bounded records
-- revise, archive, restore, or delete obsolete records under explicit consent
-- separate temporary working context from durable on-demand records
-- apply consent boundaries, record hygiene, auditability, and no-secret handling
+Generalization must be earned. A host service should not absorb Mnemosyne's
+domain semantics merely because Mnemosyne is currently its only consumer. A
+second real integration should prove reusable approval, audit, or storage
+mechanisms before they become host infrastructure.
 
 ## Non-Goals
 
-Mnemosyne should not become:
+MyMCP should not become:
 
-- a general shell proxy
-- an unrestricted filesystem bridge
-- a place to store secrets, tokens, or private keys
-- a business-logic layer for unrelated applications
-- a multi-user product before the single-user model is reliable
-- a vector database by default
-- a hidden autonomous system that changes model context without transparency
+- a general shell-execution proxy;
+- an unrestricted filesystem bridge;
+- a secret store;
+- a hidden system that bypasses client-visible consent;
+- a multi-user or remote-trust platform before its threat model supports one;
+- a client-specific bundle runtime presented as a universal MCP boundary; or
+- a plugin marketplace, loader, or isolation system before those contracts are
+  actually implemented and validated.
 
-## Safety Contract
+## Built-in Mnemosyne Domain
 
-Mnemosyne should prefer:
-
-- read-only memory inspection before mutation
-- explicit schemas and predictable errors
-- least-privilege access
-- user-approved durable records
-- clear separation between personal facts and project facts
-- small, explainable record changes
-- local storage by default
-
-It should refuse or constrain requests that risk exposing secrets, private data, or uncontrolled filesystem access.
-
-## Future Expansion Seams
-
-If Mnemosyne evolves into a reusable product, it should be ready for:
-
-- versioned schemas
-- pluggable storage backends
-- configurable policy profiles
-- audit logs
-- optional encryption once the threat model is explicit
-- migration from personal-only to product-grade packaging
-
-The product path should not compromise the v0 principle: keep the user sovereign,
-keep the tools small, and make external records and their use in model context
-visible.
+Mnemosyne remains the built-in user-governed memory domain and the current public
+server identity. Its notebook model, safety contract, and domain-specific
+direction are preserved in [the Mnemosyne vision](docs/MNEMOSYNE_VISION.md).
