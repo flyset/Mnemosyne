@@ -1,4 +1,5 @@
-from mymcp.mcp.integrations.mnemosyne import compose_mnemosyne_registry
+from mymcp.mcp.composition import compose_tool_registry
+from mymcp.mcp.integrations.mnemosyne import mnemosyne_integration
 
 
-REGISTRY = compose_mnemosyne_registry()
+REGISTRY = compose_tool_registry((mnemosyne_integration,))

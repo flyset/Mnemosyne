@@ -73,21 +73,32 @@ Current inventory
 
 Artifacts
 - Designs, PRs, test evidence, or other durable references.
+- For roadmap-derived work, cite the living roadmap and applicable phase.
 
 Completion notes
 - Outcomes, validation evidence, metrics, and lessons learned.
+- For roadmap-derived work, record whether the roadmap was revised under user
+  approval, has a revision proposal pending, or remains current.
 ```
 
 ## Workflow
 
 1. Create a new Track in `DRAFT` with at least one PORE problem, an objective, acceptance criteria, scope, and a current inventory.
-2. Planning is allowed while DRAFT; implementation is not.
-3. Before implementation, move the Track to `ACTIVE` and check its explicit Move-to-ACTIVE plan step.
-4. Execute only the next stated unchecked plan step or coherent TDD chunk unless the user explicitly requests batching.
-5. For each implementation chunk: write a focused failing test, implement the smallest passing change, refactor, run validations, then update the Track immediately.
-6. Update the Track's plan, inventory, and validation evidence after each meaningful chunk.
-7. If new work falls outside scope, update the Track before proceeding or create a separate Track.
-8. On acceptance, move the Track to `COMPLETED`, capture outcomes, and check the completion transition step.
+2. When a Track is roadmap-derived, inspect the current living roadmap during
+   planning and cite the roadmap and applicable phase in the Track's Artifacts.
+3. Planning is allowed while DRAFT; implementation is not.
+4. Before implementation, move the Track to `ACTIVE` and check its explicit Move-to-ACTIVE plan step.
+5. Execute only the next stated unchecked plan step or coherent TDD chunk unless the user explicitly requests batching.
+6. For each implementation chunk: write a focused failing test, implement the smallest passing change, refactor, run validations, then update the Track immediately.
+7. Update the Track's plan, inventory, and validation evidence after each meaningful chunk.
+8. If new work falls outside scope, update the Track before proceeding or create a separate Track.
+9. Before completing a roadmap-derived Track, inspect its linked roadmap. If the
+   completed outcome or an approved decision materially changes the delivered
+   baseline, current phase, sequencing, dependencies, intended outcomes, or next
+   major step, propose revision of the living roadmap through its required user
+   approval. Otherwise record in Completion notes that the roadmap remains
+   current.
+10. On acceptance, move the Track to `COMPLETED`, capture outcomes, and check the completion transition step.
 
 ## Implementation Gates (non-negotiable)
 
@@ -95,4 +106,7 @@ Completion notes
 - Begin every implementation session by reading the Track and stating the next unchecked step(s).
 - TDD is mandatory for implementation. Direct protocol checks supplement automated tests; they never substitute for them.
 - Done means both validations have run and the Track has been updated.
+- A roadmap-derived Track cannot complete until its linked roadmap has been
+  inspected and the reconciliation outcome recorded; roadmap mutation remains
+  user-approval-gated.
 - Keep all Track notes, inventory, decisions, and completion evidence inside the Track file. Do not create auxiliary backlog notes.

@@ -24,6 +24,7 @@ MNEMOSYNE_INTEGRATION = (
 )
 MCP_METHODS = PROJECT_ROOT / "mymcp" / "mcp" / "methods.py"
 MCP_STARTUP = PROJECT_ROOT / "mymcp" / "mcp" / "startup.py"
+MCP_COMPOSITION = PROJECT_ROOT / "mymcp" / "mcp" / "composition.py"
 TOOL_REGISTRY = PROJECT_ROOT / "mymcp" / "mcp" / "tool_registry.py"
 MEMORY_CONFIGURATION_MODULES = {
     "mymcp.settings",
@@ -147,6 +148,9 @@ def test_mnemosyne_integration_owns_memory_service_composition() -> None:
         "FilesystemMemoryStore",
         "get_memory_root",
     } <= imported_names
+    assert "ToolRegistration" in imported_names
+    assert "ToolRegistry" not in imported_names
+    assert "list_tools" not in imported_names
 
 
 def test_shared_memory_domain_imports_no_host_or_transport_modules() -> None:
@@ -170,7 +174,8 @@ def test_shared_memory_domain_imports_no_host_or_transport_modules() -> None:
     assert {name: imports for name, imports in violations.items() if imports} == {}
 
 
-def test_generic_mcp_registry_and_methods_own_no_memory_configuration() -> None:
+def test_generic_mcp_composition_registry_and_methods_own_no_memory_configuration(
+) -> None:
     forbidden_names = {
         "MemoryToolSettings",
         "get_memory_root",
@@ -181,14 +186,26 @@ def test_generic_mcp_registry_and_methods_own_no_memory_configuration() -> None:
         "get_memory_revise_enabled",
     }
 
-    assert _imports(TOOL_REGISTRY).isdisjoint(
-        MEMORY_CONFIGURATION_MODULES
-        | {"mymcp.mcp.integrations.mnemosyne"}
-    )
+    generic_forbidden_imports = MEMORY_CONFIGURATION_MODULES | {
+        "mymcp.mcp.integrations.mnemosyne",
+        "mymcp.memory",
+    }
+
+    assert _imports(TOOL_REGISTRY).isdisjoint(generic_forbidden_imports)
+    assert _imports(MCP_COMPOSITION).isdisjoint(generic_forbidden_imports)
     assert _imported_names(TOOL_REGISTRY).isdisjoint(forbidden_names)
+    assert _imported_names(MCP_COMPOSITION).isdisjoint(forbidden_names)
     assert _imported_names(MCP_METHODS).isdisjoint(forbidden_names)
     assert _imports(MCP_STARTUP).isdisjoint(MEMORY_CONFIGURATION_MODULES)
+    assert all(
+        not imported.startswith(("mymcp.mcp.tools", "mymcp.memory"))
+        for imported in _imports(MCP_STARTUP)
+    )
     assert _imported_names(MCP_STARTUP).isdisjoint(forbidden_names)
+    assert {
+        "compose_tool_registry",
+        "mnemosyne_integration",
+    } <= _imported_names(MCP_STARTUP)
 
 
 def test_listing_has_no_top_level_runtime_store_import() -> None:

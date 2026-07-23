@@ -63,12 +63,13 @@ mymcp/
     methods.py        # MCP/JSON-RPC method dispatch
     protocol.py       # JSON-RPC result/error helpers
     startup.py        # single process startup composition root
+    composition.py    # generic static integration aggregation and list_tools
     tool_registry.py  # generic immutable Tool registration and dispatch
     tool_arguments.py # schema-aware client argument compatibility
 
     integrations/
       __init__.py     # explicit in-process integration boundary
-      mnemosyne.py    # Mnemosyne Tool selection, binding, and service composition
+      mnemosyne.py    # Mnemosyne registrations and service composition
 
     tools/
       __init__.py
@@ -146,6 +147,7 @@ Owns MCP protocol concerns:
 - JSON-RPC request-parameter validation and errors
 - JSON-RPC response shape
 - MCP method dispatch
+- static integration composition
 - tool registry and dispatch
 - individual tool definitions and execution handlers
 
@@ -157,6 +159,22 @@ current object properties and `oneOf` / `anyOf` composition without becoming a
 second schema validator: malformed, wrong-type, ambiguous string-permitted, or
 repeatedly encoded values remain unchanged for the Tool's existing validation.
 Native arguments and legitimate text fields remain unchanged.
+
+### `mymcp/mcp/composition.py`
+
+Owns generic static integration aggregation. A `ToolIntegration` is a
+zero-argument callable returning an ordered finite tuple of complete
+`ToolRegistration` values. `compose_tool_registry()` invokes an explicitly
+supplied integration sequence once in declaration order, snapshots the complete
+selected surface, prepends and binds host-owned `list_tools`, and delegates final
+immutable construction to `ToolRegistry`.
+
+Final registry construction rejects duplicate names within or across
+integrations, including an integration attempt to claim `list_tools`, without
+returning a partial registry. Composition imports no Mnemosyne integration,
+memory domain, or Mnemosyne configuration. It performs no module, filesystem,
+package, manifest, entry-point, or network discovery and owns no integration
+identity, origin metadata, configuration, lifecycle, or isolation contract.
 
 ### `mymcp/mcp/tool_registry.py`
 
@@ -170,19 +188,25 @@ integration metadata, gate selection, or plugin lifecycle.
 
 ### `mymcp/mcp/startup.py`
 
-Is the one process startup composition root. It calls the zero-argument
-Mnemosyne composition entrypoint and stores one generic immutable registry. It
-imports no Mnemosyne configuration, memory Tool package, or memory domain. MCP
-`tools/list`, the `list_tools` Tool, and `tools/call` all use that same registry
-until restart.
+Is the one process startup composition root. It explicitly declares the fixed
+production integration sequence, currently `(mnemosyne_integration,)`, passes it
+to host-owned static composition once, and stores the resulting generic
+immutable registry. It imports no Mnemosyne configuration, memory Tool package,
+or memory domain. MCP `tools/list`, the `list_tools` Tool, and `tools/call` all
+use that same registry until restart.
 
 ### `mymcp/mcp/integrations/mnemosyne.py`
 
 Owns the explicit in-process Mnemosyne integration: current memory Tool imports,
 one immutable startup resolution of Mnemosyne-owned mutation settings, fixed
 public ordering, independent mutation-gate selection, definition/handler
-binding, selected-surface binding for `list_tools`, and memory service/store
-composition. It lazily resolves the configured root and constructs a fresh
+binding, and memory service/store composition. Its zero-argument production
+entrypoint contributes an ordered tuple of memory `ToolRegistration` values; it
+does not contribute `list_tools` or construct the final `ToolRegistry`. A single
+lower-level helper accepts explicit gate booleans for deterministic focused tests
+without restoring integration-owned aggregation.
+
+The integration lazily resolves the configured root and constructs a fresh
 `FilesystemMemoryStore` and `MemoryService` for each validated operation call.
 Recall, list, and inspect operations receive mutation-disabled services;
 remember, revise, archive, restore, and forget receive mutation-enabled services
@@ -193,7 +217,8 @@ Each memory handler receives only its narrow typed operation. Handlers retain
 request parsing, Tool-level gate checks, result projection, bounded error
 mapping, and content-free logging; they do not resolve roots or import or
 construct concrete stores and services. This is an internal composition seam,
-not an extracted plugin, plugin discovery system, or public Tool namespace.
+not an extracted plugin, dynamic discovery system, production second
+integration, or public Tool namespace.
 
 Public Tool schemas with argument variants must keep the complete caller-visible
 field set in top-level `properties` with top-level required fields. Composition

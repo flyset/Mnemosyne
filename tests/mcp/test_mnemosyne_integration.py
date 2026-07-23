@@ -6,11 +6,13 @@ from typing import Any
 import pytest
 
 from mymcp.mcp import methods
+from mymcp.mcp.composition import compose_tool_registry
 from mymcp.mcp.integrations import mnemosyne
 from mymcp.mcp.integrations.mnemosyne import (
-    build_startup_tool_registry,
-    compose_mnemosyne_registry,
+    build_mnemosyne_registrations,
+    mnemosyne_integration,
 )
+from mymcp.mcp.tool_registry import ToolRegistration
 from mymcp.mcp.tools import (
     memory_archive,
     memory_forget,
@@ -38,6 +40,7 @@ DEFAULT_TOOL_NAMES = [
     "memory_list",
     "memory_inspect",
 ]
+DEFAULT_INTEGRATION_TOOL_NAMES = DEFAULT_TOOL_NAMES[1:]
 CANONICAL_REFERENCE = {
     "schema_version": 2,
     "scope": "project",
@@ -59,12 +62,55 @@ def _imports(path: Path) -> set[str]:
 
 
 def _registry_for_settings(settings: MemoryToolSettings):
-    return build_startup_tool_registry(
-        memory_remember_enabled=settings.remember_enabled,
-        memory_archive_restore_enabled=settings.archive_restore_enabled,
-        memory_forget_enabled=settings.forget_enabled,
-        memory_revise_enabled=settings.revise_enabled,
+    return compose_tool_registry(
+        (
+            lambda: build_mnemosyne_registrations(
+                memory_remember_enabled=settings.remember_enabled,
+                memory_archive_restore_enabled=settings.archive_restore_enabled,
+                memory_forget_enabled=settings.forget_enabled,
+                memory_revise_enabled=settings.revise_enabled,
+            ),
+        )
     )
+
+
+def test_mnemosyne_integration_contributes_ordered_registrations_without_list_tools(
+) -> None:
+    registrations = build_mnemosyne_registrations(False)
+
+    assert isinstance(registrations, tuple)
+    assert all(isinstance(item, ToolRegistration) for item in registrations)
+    assert [item.tool["name"] for item in registrations] == (
+        DEFAULT_INTEGRATION_TOOL_NAMES
+    )
+
+
+def test_mnemosyne_integration_resolves_settings_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+
+    def resolve_settings() -> MemoryToolSettings:
+        nonlocal calls
+        calls += 1
+        return MemoryToolSettings(remember_enabled=True)
+
+    monkeypatch.setattr(mnemosyne, "get_memory_tool_settings", resolve_settings)
+
+    registrations = mnemosyne_integration()
+
+    assert calls == 1
+    assert [item.tool["name"] for item in registrations] == (
+        DEFAULT_INTEGRATION_TOOL_NAMES + ["memory_remember"]
+    )
+
+
+def test_startup_uses_fixed_host_composition_sequence() -> None:
+    startup_imports = _imports(STARTUP_MODULE)
+
+    assert "mymcp.mcp.composition" in startup_imports
+    assert "mymcp.mcp.integrations.mnemosyne" in startup_imports
+    assert methods.REGISTRY is STARTUP_REGISTRY
 
 
 @pytest.mark.parametrize(
@@ -127,27 +173,6 @@ def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface() -> Non
 
 def test_startup_and_methods_share_one_composed_registry() -> None:
     assert methods.REGISTRY is STARTUP_REGISTRY
-
-
-def test_mnemosyne_composition_owns_one_settings_resolution(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    assert inspect.signature(compose_mnemosyne_registry).parameters == {}
-    calls = 0
-
-    def resolve_settings() -> MemoryToolSettings:
-        nonlocal calls
-        calls += 1
-        return MemoryToolSettings(remember_enabled=True)
-
-    monkeypatch.setattr(mnemosyne, "get_memory_tool_settings", resolve_settings)
-
-    registry = compose_mnemosyne_registry()
-
-    assert calls == 1
-    assert [tool["name"] for tool in registry.tools] == (
-        DEFAULT_TOOL_NAMES + ["memory_remember"]
-    )
 
 
 def test_integration_owns_memory_configuration_while_startup_owns_neither() -> None:

@@ -252,18 +252,26 @@ discovery and dispatch unless their independent operator gates enable them.
 Enabling one gate does not enable another capability.
 
 The MCP host uses a generic immutable Tool registry built from explicit
-Tool-definition/handler registrations. One startup composition root asks the
-in-process Mnemosyne integration to compose the memory Tool surface. The
-integration resolves Mnemosyne-owned immutable mutation settings once, then
-selects, orders, and binds the Tools; it resolves the configured memory root
-lazily for each validated operation and owns memory service/store composition.
+Tool-definition/handler registrations. At process startup, MyMCP invokes a fixed
+ordered sequence of zero-argument in-process integrations, aggregates their Tool
+registrations, prepends and binds host-owned `list_tools` to the complete final
+surface, and constructs one registry for discovery and dispatch. Duplicate Tool
+names fail startup composition rather than overwriting a registration.
+
+The production sequence currently contains only Mnemosyne. Its integration
+resolves Mnemosyne-owned immutable mutation settings once, then selects, orders,
+and binds the memory Tools without constructing the final registry or
+contributing `list_tools`. It resolves the configured memory root lazily for each
+validated operation and owns memory service/store composition.
 `mymcp/settings.py` retains only host server/process identity, while
 `mymcp/mnemosyne/configuration.py` owns the unchanged `MNEMOSYNE_*`,
 `~/.mnemosyne/config.toml`, and memory-root contracts. Handlers remain narrow
-operation adapters. This internal seam preserves Mnemosyne's public server
-identity, Tool names, schemas, ordering, gates, results, errors, configuration,
-and storage contracts. It is not plugin extraction or discovery and adds no
-public Tool namespacing.
+operation adapters. A small second integration exists only in tests to prove
+ordered aggregation, complete reporting, dispatch, and collision rejection.
+This internal static seam preserves Mnemosyne's public server identity, Tool
+names, schemas, ordering, gates, results, errors, configuration, and storage
+contracts. It is not plugin extraction or dynamic discovery, adds no public Tool
+namespacing, and provides no installation or lifecycle system.
 
 ## Revising Memory
 

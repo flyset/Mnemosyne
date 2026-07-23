@@ -54,6 +54,24 @@ Before performing the first Mnemosyne operation in each session:
 - **Write when:** the project's high-level identity or capabilities materially
   change; revise the living overview.
 
+#### Roadmaps
+
+- **Scope:** `project`
+- **Namespace:** `mnemosyne`
+- **Collection:** `roadmaps`
+- **Holds:** user-approved, long-range project roadmaps, including major phases,
+  sequencing, dependencies, and intended outcomes; roadmaps guide direction
+  but do not replace detailed Backlog Tracks.
+- **Read when:** choosing or evaluating the next major project step, planning a
+  roadmap-derived Track, determining how a Track fits the longer-term direction,
+  and reconciling the roadmap when that Track completes.
+- **Write when:** the user approves a durable roadmap or materially changes one,
+  or when a completed Track or approved decision changes the delivered baseline,
+  current phase, sequencing, dependencies, intended outcomes, or next major step.
+  Revise the existing living roadmap rather than creating a near-duplicate. Do
+  not revise it for individual TDD chunks or routine DRAFT/ACTIVE transitions;
+  the Backlog Track owns that execution detail.
+
 #### Decisions
 
 - **Scope:** `project`
