@@ -14,7 +14,7 @@ from mymcp.memory.records import MemoryReference, parse_memory_record, serialize
 from mymcp.memory.scopes import MemoryScope
 from mymcp.memory.service import MemoryResult, MemoryService
 from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
+from mymcp.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_fedcba9876543210fedcba9876543210"

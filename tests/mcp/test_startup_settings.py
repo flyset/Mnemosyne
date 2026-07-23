@@ -137,6 +137,44 @@ after = tool_names()
 print(json.dumps({"before": before, "after": after}, sort_keys=True))
 """
 
+STARTUP_SETTINGS_READ_PROBE = """
+import json
+import os
+
+settings_file_opens = 0
+original_open = os.open
+
+
+def counted_open(path, *args, **kwargs):
+    global settings_file_opens
+    if os.fspath(path).endswith("config.toml"):
+        settings_file_opens += 1
+    return original_open(path, *args, **kwargs)
+
+
+os.open = counted_open
+
+from mymcp.mcp.methods import handle_message
+
+
+first = handle_message({"id": "first", "method": "tools/list"})
+second = handle_message({"id": "second", "method": "tools/list"})
+print(
+    json.dumps(
+        {
+            "settings_file_opens": settings_file_opens,
+            "first": [
+                tool["name"] for tool in json.loads(first.body)["result"]["tools"]
+            ],
+            "second": [
+                tool["name"] for tool in json.loads(second.body)["result"]["tools"]
+            ],
+        },
+        sort_keys=True,
+    )
+)
+"""
+
 
 def _write_settings(home: Path, source: str) -> Path:
     application_directory = home / ".mnemosyne"
@@ -246,6 +284,32 @@ def test_file_enabled_startup_exposes_discovery_and_dispatch_without_writes(
     assert settings_path.read_text(encoding="utf-8") == (
         "[memory]\nremember_enabled = true\n"
     )
+    assert not (home / ".mnemosyne" / "memory").exists()
+
+
+def test_startup_reads_one_settings_document_at_most_once(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    _write_settings(home, "[memory]\nremember_enabled = true\n")
+
+    result = _probe_result(
+        _run_probe(home, probe=STARTUP_SETTINGS_READ_PROBE)
+    )
+
+    expected = [
+        "list_tools",
+        "memory_recall",
+        "memory_list",
+        "memory_inspect",
+        "memory_remember",
+    ]
+    assert result == {
+        "settings_file_opens": 1,
+        "first": expected,
+        "second": expected,
+    }
     assert not (home / ".mnemosyne" / "memory").exists()
 
 

@@ -23,7 +23,7 @@ from mymcp.memory.store import FilesystemMemoryStore
 from mymcp.mcp.tools.memory_forget import TOOL, handle as public_handle
 from mymcp.mcp.tools.memory_forget import handler as handler_module
 from mymcp.mcp.tools.memory_forget.definition import TOOL as DEFINED_TOOL
-from mymcp.settings import get_memory_root
+from mymcp.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"

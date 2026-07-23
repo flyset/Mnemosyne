@@ -32,7 +32,11 @@ mymcp/
   __init__.py
   app.py              # FastAPI app assembly
   cli.py              # console entrypoints
-  settings.py         # identity, memory root, and bounded startup configuration
+  settings.py         # retained server/process identity constants
+
+  mnemosyne/
+    __init__.py       # in-process Mnemosyne ownership boundary
+    configuration.py  # memory root and bounded startup configuration
 
   memory/
     __init__.py       # stable shared-domain exports
@@ -166,16 +170,17 @@ integration metadata, gate selection, or plugin lifecycle.
 
 ### `mymcp/mcp/startup.py`
 
-Is the one process startup composition root. It resolves the retained
-Mnemosyne memory Tool settings once, asks the explicit Mnemosyne integration to
-compose the selected surface, and stores one generic immutable registry. MCP
+Is the one process startup composition root. It calls the zero-argument
+Mnemosyne composition entrypoint and stores one generic immutable registry. It
+imports no Mnemosyne configuration, memory Tool package, or memory domain. MCP
 `tools/list`, the `list_tools` Tool, and `tools/call` all use that same registry
 until restart.
 
 ### `mymcp/mcp/integrations/mnemosyne.py`
 
 Owns the explicit in-process Mnemosyne integration: current memory Tool imports,
-fixed public ordering, independent mutation-gate selection, definition/handler
+one immutable startup resolution of Mnemosyne-owned mutation settings, fixed
+public ordering, independent mutation-gate selection, definition/handler
 binding, selected-surface binding for `list_tools`, and memory service/store
 composition. It lazily resolves the configured root and constructs a fresh
 `FilesystemMemoryStore` and `MemoryService` for each validated operation call.
@@ -444,7 +449,8 @@ code/field, schema version, and scope. Multi-process/external last-instruction
 races and secure erasure of journals, snapshots, backups, or external copies are
 outside this local filesystem contract.
 
-Tool availability is startup-fixed. Supplied values for
+Tool availability is startup-fixed. The in-process Mnemosyne configuration
+boundary owns resolution of supplied values for
 `MNEMOSYNE_MEMORY_REMEMBER_ENABLED`,
 `MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED`,
 `MNEMOSYNE_MEMORY_REVISE_ENABLED`, and `MNEMOSYNE_MEMORY_FORGET_ENABLED`
@@ -457,12 +463,13 @@ optional `[memory]` table may contain only the optional TOML booleans
 `revise_enabled`. The file is bypassed only when all four environment values are
 supplied. All default false.
 
-The settings layer performs no initialization. It bounds the file to 16 KiB of
-UTF-8 TOML, rejects unknown structure, symlinked or non-regular sources,
-metadata replacement during open, unreadable sources, and group/world-writable
-POSIX application directories or files. Descriptor-relative/no-follow access
-is used where supported, and failures expose only stable non-content-bearing
-codes/messages. The immutable startup registry always contains `list_tools`,
+The Mnemosyne configuration layer performs no initialization. It bounds the
+file to 16 KiB of UTF-8 TOML, rejects unknown structure, symlinked or
+non-regular sources, metadata replacement during open, unreadable sources, and
+group/world-writable POSIX application directories or files.
+Descriptor-relative/no-follow access is used where supported, and failures
+expose only stable non-content-bearing codes/messages. The immutable startup
+registry always contains `list_tools`,
 `memory_recall`, `memory_list`, and `memory_inspect`, in that order; appends
 archive and restore together when their pair gate is enabled; appends remember
 when its independent gate is enabled; appends revise when its independent gate
@@ -535,14 +542,22 @@ mutation Tools disabled.
 
 ### `mymcp/settings.py`
 
-Contains stable server identity constants used across routes and MCP
-initialization, dynamic resolution of the operator-controlled memory root, and
-strict environment-first/fixed-file startup parsing for independent remember,
-archive/restore, revise, and forget enablement. Each supplied environment value
-overrides only its matching setting; unresolved values use at most one strict
-file read. It owns the fixed local settings path, schema, bounded source
-checks, and stable configuration failures without creating or editing operator
-configuration.
+Contains only stable server/process identity constants used across application
+assembly, routes, MCP initialization, and `list_tools`: `SERVER_NAME`,
+`SERVER_VERSION`, `PROTOCOL_VERSION`, and `APP_TITLE`. It owns no memory root,
+mutation gate, environment name, local-file parser, or memory settings model.
+
+### `mymcp/mnemosyne/configuration.py`
+
+Owns the in-process Mnemosyne operator-configuration contract: dynamic
+resolution of the memory root and strict environment-first/fixed-file startup
+parsing for independent remember, archive/restore, revise, and forget
+enablement. Each supplied environment value overrides only its matching
+setting; unresolved values use at most one strict file read. It owns the fixed
+local settings path, schema, bounded source checks, and stable configuration
+failures without creating or editing operator configuration. It imports no MCP
+Tool package, FastAPI, or route module. This ownership seam is not an extracted
+plugin, dynamic configuration system, or public plugin contract.
 
 ### `mymcp/cli.py`
 

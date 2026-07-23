@@ -19,7 +19,7 @@ from mymcp.memory.records import KIND_DEFINITIONS, MemoryDraft, MemoryReference
 from mymcp.memory.scopes import SCOPE_DEFINITIONS
 from mymcp.memory.service import MemoryService
 from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
+from mymcp.mnemosyne.configuration import get_memory_root
 
 
 REQUIRED_FIELDS = {

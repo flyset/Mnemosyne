@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-import mymcp.settings as settings
-from mymcp.settings import (
+import mymcp.mnemosyne.configuration as settings
+from mymcp.mnemosyne.configuration import (
     SETTINGS_MAX_BYTES,
     SettingsError,
     get_memory_archive_restore_enabled,
@@ -419,6 +419,31 @@ def test_complete_valid_environment_overrides_prevent_any_file_access(
     monkeypatch.setenv("MNEMOSYNE_MEMORY_REVISE_ENABLED", "false")
 
     assert get_memory_remember_enabled() is (configured_value == "true")
+
+
+def test_memory_tool_settings_validate_environment_before_any_file_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        Path,
+        "home",
+        lambda: pytest.fail("environment validation must precede file access"),
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REMEMBER_ENABLED", "invalid-remember")
+    monkeypatch.setenv(
+        "MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED",
+        "invalid-archive-restore",
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_FORGET_ENABLED", "invalid-forget")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REVISE_ENABLED", "invalid-revise")
+
+    with pytest.raises(ValueError) as error:
+        get_memory_tool_settings()
+
+    assert str(error.value) == (
+        "MNEMOSYNE_MEMORY_REMEMBER_ENABLED must be 'true' or 'false'"
+    )
+    assert "invalid-remember" not in str(error.value)
 
 
 @pytest.mark.parametrize(

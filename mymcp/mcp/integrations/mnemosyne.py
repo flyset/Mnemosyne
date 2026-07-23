@@ -25,7 +25,10 @@ from mymcp.memory.retrieval import MemoryMatch
 from mymcp.memory.scopes import MemoryScope
 from mymcp.memory.service import ForgetResult, MemoryResult, MemoryService
 from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import MemoryToolSettings, get_memory_root
+from mymcp.mnemosyne.configuration import (
+    get_memory_root,
+    get_memory_tool_settings,
+)
 
 
 def _memory_service(*, mutations_enabled: bool) -> MemoryService:
@@ -235,7 +238,8 @@ def build_startup_tool_registry(
     )
 
 
-def compose_mnemosyne_registry(settings: MemoryToolSettings) -> ToolRegistry:
+def compose_mnemosyne_registry() -> ToolRegistry:
+    settings = get_memory_tool_settings()
     return build_startup_tool_registry(
         memory_remember_enabled=settings.remember_enabled,
         memory_archive_restore_enabled=settings.archive_restore_enabled,

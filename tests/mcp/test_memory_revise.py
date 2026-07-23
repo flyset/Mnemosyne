@@ -34,7 +34,7 @@ from mymcp.memory.records import (
 from mymcp.memory.scopes import MemoryScope
 from mymcp.memory.service import MemoryResult, MemoryService
 from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
+from mymcp.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"

@@ -252,14 +252,18 @@ discovery and dispatch unless their independent operator gates enable them.
 Enabling one gate does not enable another capability.
 
 The MCP host uses a generic immutable Tool registry built from explicit
-Tool-definition/handler registrations. One startup composition root resolves
-the retained settings and asks the in-process Mnemosyne integration to select,
-order, bind, and compose the memory Tools. That integration also owns lazy
-memory service/store composition, while handlers remain narrow operation
-adapters. This internal seam preserves Mnemosyne's public server identity, Tool
-names, schemas, ordering, gates, results, errors, configuration, and storage
-contracts. It is not plugin extraction or discovery and adds no public Tool
-namespacing.
+Tool-definition/handler registrations. One startup composition root asks the
+in-process Mnemosyne integration to compose the memory Tool surface. The
+integration resolves Mnemosyne-owned immutable mutation settings once, then
+selects, orders, and binds the Tools; it resolves the configured memory root
+lazily for each validated operation and owns memory service/store composition.
+`mymcp/settings.py` retains only host server/process identity, while
+`mymcp/mnemosyne/configuration.py` owns the unchanged `MNEMOSYNE_*`,
+`~/.mnemosyne/config.toml`, and memory-root contracts. Handlers remain narrow
+operation adapters. This internal seam preserves Mnemosyne's public server
+identity, Tool names, schemas, ordering, gates, results, errors, configuration,
+and storage contracts. It is not plugin extraction or discovery and adds no
+public Tool namespacing.
 
 ## Revising Memory
 

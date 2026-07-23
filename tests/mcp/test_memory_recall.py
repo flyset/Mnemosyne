@@ -14,7 +14,7 @@ from mymcp.memory.errors import (
 from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
 from mymcp.memory.service import MemoryService
 from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.settings import get_memory_root
+from mymcp.mnemosyne.configuration import get_memory_root
 
 
 def _recall_operation(scope: MemoryScope, query: str, tags: list[str]):

@@ -7,7 +7,10 @@ import pytest
 
 from mymcp.mcp import methods
 from mymcp.mcp.integrations import mnemosyne
-from mymcp.mcp.integrations.mnemosyne import compose_mnemosyne_registry
+from mymcp.mcp.integrations.mnemosyne import (
+    build_startup_tool_registry,
+    compose_mnemosyne_registry,
+)
 from mymcp.mcp.tools import (
     memory_archive,
     memory_forget,
@@ -20,7 +23,7 @@ from mymcp.mcp.tools import (
 )
 from mymcp.mcp.startup import REGISTRY as STARTUP_REGISTRY
 from mymcp.memory.errors import MemorySourceUnavailable
-from mymcp.settings import MemoryToolSettings
+from mymcp.mnemosyne.configuration import MemoryToolSettings
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -55,6 +58,15 @@ def _imports(path: Path) -> set[str]:
     return imports
 
 
+def _registry_for_settings(settings: MemoryToolSettings):
+    return build_startup_tool_registry(
+        memory_remember_enabled=settings.remember_enabled,
+        memory_archive_restore_enabled=settings.archive_restore_enabled,
+        memory_forget_enabled=settings.forget_enabled,
+        memory_revise_enabled=settings.revise_enabled,
+    )
+
+
 @pytest.mark.parametrize(
     ("settings", "suffix"),
     [
@@ -87,7 +99,7 @@ def test_mnemosyne_composition_preserves_ordered_gate_selection(
     settings: MemoryToolSettings,
     suffix: list[str],
 ) -> None:
-    registry = compose_mnemosyne_registry(settings)
+    registry = _registry_for_settings(settings)
 
     assert [tool["name"] for tool in registry.tools] == DEFAULT_TOOL_NAMES + suffix
     for name in suffix:
@@ -95,7 +107,7 @@ def test_mnemosyne_composition_preserves_ordered_gate_selection(
 
 
 def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface() -> None:
-    registry = compose_mnemosyne_registry(
+    registry = _registry_for_settings(
         MemoryToolSettings(remember_enabled=True, revise_enabled=True)
     )
 
@@ -117,14 +129,37 @@ def test_startup_and_methods_share_one_composed_registry() -> None:
     assert methods.REGISTRY is STARTUP_REGISTRY
 
 
-def test_integration_owns_memory_imports_while_startup_owns_no_tools() -> None:
+def test_mnemosyne_composition_owns_one_settings_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert inspect.signature(compose_mnemosyne_registry).parameters == {}
+    calls = 0
+
+    def resolve_settings() -> MemoryToolSettings:
+        nonlocal calls
+        calls += 1
+        return MemoryToolSettings(remember_enabled=True)
+
+    monkeypatch.setattr(mnemosyne, "get_memory_tool_settings", resolve_settings)
+
+    registry = compose_mnemosyne_registry()
+
+    assert calls == 1
+    assert [tool["name"] for tool in registry.tools] == (
+        DEFAULT_TOOL_NAMES + ["memory_remember"]
+    )
+
+
+def test_integration_owns_memory_configuration_while_startup_owns_neither() -> None:
     integration_imports = _imports(INTEGRATION_MODULE)
     startup_imports = _imports(STARTUP_MODULE)
 
     assert "mymcp.mcp.tools" in integration_imports
-    assert "mymcp.settings" in integration_imports
+    assert "mymcp.mnemosyne.configuration" in integration_imports
     assert all(
-        not imported.startswith(("mymcp.mcp.tools", "mymcp.memory"))
+        not imported.startswith(
+            ("mymcp.mcp.tools", "mymcp.memory", "mymcp.mnemosyne")
+        )
         for imported in startup_imports
     )
     assert not OLD_REGISTRY_MODULE.exists()
@@ -160,7 +195,7 @@ def test_composition_and_invalid_requests_do_not_construct_memory_services(
         "get_memory_root",
         lambda: pytest.fail("memory root was resolved"),
     )
-    registry = compose_mnemosyne_registry(
+    registry = _registry_for_settings(
         MemoryToolSettings(
             remember_enabled=True,
             archive_restore_enabled=True,
@@ -180,6 +215,32 @@ def test_composition_and_invalid_requests_do_not_construct_memory_services(
         "memory_forget",
     ):
         assert registry.call_tool(tool_name, {}) is not None
+
+
+def test_memory_root_is_resolved_for_each_operation_after_composition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    active_root = {"value": tmp_path / "first"}
+    resolved_roots: list[Path] = []
+
+    def get_root() -> Path:
+        root = active_root["value"]
+        resolved_roots.append(root)
+        return root
+
+    monkeypatch.setattr(mnemosyne, "get_memory_root", get_root)
+    registry = _registry_for_settings(MemoryToolSettings())
+
+    first = registry.call_tool("memory_list", {"scope": "project"})
+    active_root["value"] = tmp_path / "second"
+    second = registry.call_tool("memory_list", {"scope": "project"})
+
+    assert first is not None
+    assert second is not None
+    assert resolved_roots == [tmp_path / "first", tmp_path / "second"]
+    assert not (tmp_path / "first").exists()
+    assert not (tmp_path / "second").exists()
 
 
 def test_all_valid_memory_tool_paths_invoke_fresh_expected_operations(
@@ -247,7 +308,7 @@ def test_all_valid_memory_tool_paths_invoke_fresh_expected_operations(
     monkeypatch.setattr(mnemosyne, "get_memory_root", get_root)
     monkeypatch.setattr(mnemosyne, "FilesystemMemoryStore", build_store)
     monkeypatch.setattr(mnemosyne, "MemoryService", build_service)
-    registry = compose_mnemosyne_registry(
+    registry = _registry_for_settings(
         MemoryToolSettings(
             remember_enabled=True,
             archive_restore_enabled=True,
