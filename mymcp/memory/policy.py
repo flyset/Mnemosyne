@@ -62,9 +62,12 @@ SIGNATURE_PATTERNS = (
         re.compile(r"\b[A-Za-z][A-Za-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@"),
     ),
     (
+        # JOSE compact serialization: a base64url JSON header always
+        # begins with "eyJ" ('{"'). Dotted text without that header
+        # evidence (versions, dates, hostnames, module paths) is allowed.
         ContentRefusalReason.COMPACT_TOKEN_SHAPE,
         re.compile(
-            r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\."
+            r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\."
             r"[A-Za-z0-9_-]+(?![A-Za-z0-9_-])"
         ),
     ),

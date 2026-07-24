@@ -744,14 +744,16 @@ def test_memory_remember_maps_refusal_to_bounded_public_field(
     assert not memory_root.parent.exists()
 
 
-def test_memory_remember_classifies_dotted_version_without_source_access(
+def test_memory_remember_classifies_compact_token_without_source_access(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     memory_root = tmp_path / "application" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(memory_root))
     arguments = _arguments()
-    arguments["content"] = "Compatibility build 0.1.0"
+    arguments["content"] = (
+        "Session token eyJhbGciOiJub25lIn0.c3ludGhldGlj.c2lnbmF0dXJl"
+    )
 
     result = handle(arguments, mutations_enabled=True)
 
@@ -768,6 +770,24 @@ def test_memory_remember_classifies_dotted_version_without_source_access(
         ),
     }
     assert not memory_root.parent.exists()
+
+
+def test_memory_remember_accepts_benign_dotted_version_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    arguments = _arguments()
+    arguments["content"] = (
+        "Compatibility build 0.1.3 was validated on 2026.07.23."
+    )
+
+    result = handle(arguments, mutations_enabled=True)
+
+    assert "isError" not in result
+    assert _payload(result)["status"] == "remembered"
+    stored = json.loads(next(tmp_path.rglob("*.json")).read_text(encoding="utf-8"))
+    assert stored["content"] == arguments["content"]
 
 
 @pytest.mark.parametrize(

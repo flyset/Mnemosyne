@@ -115,6 +115,7 @@ def test_remember_policy_rejects_declared_sensitive_signatures(
         "password: no",
         "postgresql://localhost/db",
         "two.segments",
+        "eyJhbGciOiJub25lIn0.c3ludGhldGlj",
         "4242 4242 4242 4241",
         "123456789",
         "Memory creation requires exact per-call approval.",
@@ -124,16 +125,31 @@ def test_remember_policy_allows_near_misses(allowed: str) -> None:
     validate_remember_content(_draft_with_content(allowed))
 
 
-def test_remember_policy_classifies_dotted_version_as_compact_token_shape() -> None:
-    with pytest.raises(DisallowedMemoryContent) as caught:
-        validate_remember_content(_draft_with_content("Compatibility build 0.1.0"))
+BENIGN_DOTTED_TEXT = [
+    "Compatibility build 0.1.3",
+    "1.25.0",
+    "2026.07.23",
+    "1.0.0-rc.1",
+    "mymcp.memory.policy",
+    "api.example.com",
+]
 
-    assert caught.value.field == "content"
-    assert caught.value.reason is ContentRefusalReason.COMPACT_TOKEN_SHAPE
+
+@pytest.mark.parametrize("allowed", BENIGN_DOTTED_TEXT)
+def test_remember_policy_accepts_benign_dotted_text(allowed: str) -> None:
+    validate_remember_content(_draft_with_content(allowed))
+
+
+@pytest.mark.parametrize("allowed", BENIGN_DOTTED_TEXT)
+def test_revision_policy_accepts_benign_dotted_text(allowed: str) -> None:
+    arguments = _revision_arguments()
+    arguments["content"] = allowed
+
+    validate_revision_content(MemoryRevision.from_dict(arguments))
 
 
 def test_remember_policy_reports_only_first_match_without_retaining_value() -> None:
-    rejected = "client_secret=aaa.bbb.ccc"
+    rejected = "client_secret=eyJhbGciOiJub25lIn0.c3ludGhldGlj.c2lnbmF0dXJl"
 
     with pytest.raises(DisallowedMemoryContent) as caught:
         validate_remember_content(_draft_with_content(rejected))

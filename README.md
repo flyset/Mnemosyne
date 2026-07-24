@@ -386,8 +386,12 @@ Active memory remains recall-eligible.
 The shared bounded content policy checks every replacement label, title,
 content value, and tag before storage access. It refuses recognized private-key,
 credential, authorization-header, JWT-shaped, payment-card, and SSN-shaped
-values with `disallowed_content`. This is signature detection, not complete
-semantic DLP; secrets and sensitive personal data remain prohibited.
+values with `disallowed_content`. Compact-token recognition requires JOSE
+compact-serialization evidence—a base64url JSON header segment beginning `eyJ`
+followed by two further segments—so ordinary dotted text such as versions,
+dates, hostnames, and module paths is stored normally. This is signature
+detection, not complete semantic DLP; secrets and sensitive personal data
+remain prohibited.
 
 Both `memory_revise` and `memory_remember` make a content refusal actionable
 without echoing the rejected value. The Tool error contains the first bounded
@@ -415,8 +419,8 @@ Only the deterministic first match is reported. Results and logs never include
 the matched value, offset, regular expression, provider-specific detector,
 fingerprint, or rejected content. The metadata is diagnostic, not permission to
 evade policy: do not obfuscate suspected sensitive data. Retry only after the
-user verifies that the formatting is benign—such as an ordinary dotted version
-that resembles a compact token—and approves the complete revised call.
+user verifies that the formatting is benign and approves the complete revised
+call.
 
 Stable bounded error codes are `invalid_reference`,
 `invalid_expected_revision`, `invalid_record`, `invalid_collection`,
@@ -440,7 +444,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mnemosyne 0.1.3.`. Restart the server and reconnect the client after an
+`Server: mnemosyne 0.1.4.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory

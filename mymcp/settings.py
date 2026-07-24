@@ -1,4 +1,4 @@
 SERVER_NAME = "mnemosyne"
-SERVER_VERSION = "0.1.3"
+SERVER_VERSION = "0.1.4"
 PROTOCOL_VERSION = "2024-11-05"
 APP_TITLE = "Mnemosyne MCP Server"

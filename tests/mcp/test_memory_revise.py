@@ -527,6 +527,29 @@ def test_memory_revise_updates_one_source_file_through_the_shared_service(
     assert len(list(tmp_path.rglob("*.json"))) == 1
 
 
+def test_memory_revise_accepts_benign_dotted_version_content(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = _record(revision=3)
+    path = tmp_path / "preference" / "tea" / "favorites" / f"{CANONICAL_ID}.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(serialize_memory_record(original)),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
+    arguments = _arguments()
+    arguments["content"] = "Compatibility remains version 0.1.3."
+
+    result = handle(arguments, mutations_enabled=True)
+
+    assert _payload(result)["status"] == "revised"
+    stored = parse_memory_record(json.loads(path.read_text(encoding="utf-8")))
+    assert stored.content == "Compatibility remains version 0.1.3."
+    assert stored.lifecycle.revision == 4
+
+
 def test_memory_revise_updates_collectionless_source_with_omitted_collection_label(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
