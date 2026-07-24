@@ -2,8 +2,9 @@
 
 MyMCP is the repository and Python host package for an experimental local MCP
 server. It currently hosts Mnemosyne, the user-governed AI memory domain,
-in-process. Mnemosyne remains the public server and memory-domain identity; no
-plugin extraction is implemented by this package rename.
+in-process. Mnemosyne remains the current `0.1.x` public server and
+memory-domain identity; no plugin extraction or public-host cutover is
+implemented by this package rename.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
 that composes narrowly scoped integrations behind one machine-local endpoint.
@@ -14,6 +15,24 @@ its explicit user-governed boundaries.
 
 This repository currently contains a minimal FastAPI-based MCP host skeleton
 with the Mnemosyne memory domain built in.
+
+The approved target architecture makes MyMCP a generic plugin host with a
+kind-qualified immutable runtime and explicit bootstrap, while consolidating all
+Mnemosyne production implementation under `mymcp/plugins/mnemosyne/` as the
+first bundled plugin. It also defines a distinct native external-plugin path:
+inert prebuilt-wheel metadata and managed immutable environments precede a
+supervised isolated worker boundary; unknown external code is never imported
+into the host process.
+
+That target is not implemented yet. Current composition remains static,
+in-process, and based on the transitional trusted integration boundary described
+below. After complete Mnemosyne extraction, a mandatory dedicated `0.2.0`
+compatibility migration will make the endpoint, FastAPI application, repository
+metadata, and official client identify MyMCP while preserving plugin
+`mnemosyne`, every `memory_*`, all `MNEMOSYNE_*`, `~/.mnemosyne`, storage,
+record, and memory-domain identities. See `docs/PLUGIN_ARCHITECTURE.md` for the
+complete package, manifest, identity, compatibility, security, lifecycle, and
+migration design.
 
 Implemented tools:
 
@@ -939,9 +958,20 @@ MyMCP is intended to become a local-first MCP host and client-neutral governance
 gateway. It owns Tool composition, identity, plugin contracts, routing, and
 reusable host mechanisms without absorbing integration-specific domain policy.
 
+Its approved Tools-only target separates one host-owned logical plugin API from
+concrete bundled implementations and isolated external execution adapters. It
+retains qualified `(plugin_id, capability_kind, capability_local_id)` origin
+internally and binds that identity to the endpoint's flat MCP Tool name. Host
+bootstrap remains explicit. Native installation, lifecycle generations,
+isolation, authenticated client policy, host-verifiable exact-call approval,
+and bounded security audit remain unimplemented.
+
 Mnemosyne remains the built-in user-governed memory domain. It gives agents
 controlled access to approved durable records and bounded retrieval while
-preserving its existing public server, Tool, configuration, and storage identity.
+preserving its existing Tool, configuration, storage, record, and memory-domain
+identity. It remains the current `0.1.x` public server, but the completed host is
+MyMCP. In the target layout, its configuration, memory domain, MCP adapters, and
+plugin composition live together under `mymcp/plugins/mnemosyne/`.
 
 ## Non-Goals
 
@@ -950,9 +980,11 @@ MyMCP and its built-in Mnemosyne domain are not intended to provide:
 - generic shell execution or unrestricted filesystem access;
 - secret storage;
 - hidden mutation or governance that bypasses visible user consent;
-- a multi-user platform before an explicit threat model supports one; or
-- dynamic plugin loading, installation, lifecycle, or isolation before those
-  contracts are implemented and validated.
+- a multi-user platform before an explicit threat model supports one;
+- MCPB as the native MyMCP plugin format; or
+- unknown-code loading, lifecycle, marketplace, or isolation claims before
+  artifact, supervision, authority, failure, and approval contracts are
+  implemented and validated.
 
 ## Running the Server
 
@@ -1003,6 +1035,12 @@ per-agent permissions can override top-level rules and OpenCode uses the last
 matching Tool-name rule. They deny the broad server prefix first, allow the
 lower-breadth read-only Tools, then ask for remember, revise, archive, restore,
 and forget:
+
+The `mnemosyne` connection key and generated `mnemosyne_*` permission names below
+are the intentional current `0.1.x` compatibility configuration. The later
+public-host cutover will atomically change the official connection and agent key
+to `mymcp` and every matching generated permission name to the `mymcp_*` prefix;
+it is not performed by this documentation change.
 
 ```json
 {
@@ -1073,17 +1111,44 @@ guidance before operating on memory.
 
 ## Roadmap Shape
 
-The next MyMCP phase defines the external plugin-author contract and Tool identity
-rules required before third-party aggregation. Later phases cover minimal plugin
-packaging and configuration, lifecycle and isolation, the client-neutral
-governance gateway, and reusable host services proven by a second real
-integration.
+The roadmap converges on the complete approved end state rather than freezing a
+bundled-only callable or deferring identity and security boundaries:
+
+1. Add kind-qualified Tools-only identity, effect/consent metadata, host-owned
+   bindings, immutable `HostRuntime`, a trusted Mnemosyne adapter, explicit
+   bootstrap, and runtime injection without changing public behavior.
+2. Implement strict shared definition/manifest parity and make Mnemosyne the
+   complete bundled plugin under `mymcp/plugins/mnemosyne/`, retaining one
+   canonical implementation and every compatibility contract.
+3. Perform the mandatory `0.2.0` public-host cutover from Mnemosyne endpoint,
+   application, repository, and official-client identity to MyMCP while
+   preserving all Mnemosyne plugin/domain identities.
+4. Add side-effect-free native wheel inspection, digest-bound receipts,
+   immutable managed environments, bounded configuration/secret references, and
+   persisted bindings without granting execution authority.
+5. Add isolated external activation only after a local unknown-code threat model,
+   supervision, killability, resource bounds, and default-deny
+   filesystem/network enforcement are validated.
+6. Add generation lifecycle, required/optional failures, drain, quarantine,
+   update/rollback and data migration, removal/preservation, and separate purge.
+7. Build authenticated local-client routing, policy-filtered discovery/dispatch,
+   single-use exact-call approval, and bounded security audit behind the one
+   machine-local endpoint.
+8. Generalize host services only after a second real plugin proves them reusable.
+
+MCPB may later package MyMCP as one complete server. It is not the native MyMCP
+plugin distribution, manifest, or execution boundary.
+
+See `docs/PLUGIN_ARCHITECTURE.md` for the target and incremental migration rules.
 
 See `VISION.md` for MyMCP's broader scope and boundaries. See
 `docs/MNEMOSYNE_VISION.md` for the built-in memory domain's notebook model,
 safety contract, and direction.
 
 See `docs/ARCHITECTURE.md` for the current code organization.
+
+See `docs/PLUGIN_ARCHITECTURE.md` for the approved plugin end state and roadmap
+alignment.
 
 See `docs/GETTING_STARTED.md` for repository-level project-memory integration,
 and `docs/MANUAL.md` for operating guidance for agents using memory Tools.

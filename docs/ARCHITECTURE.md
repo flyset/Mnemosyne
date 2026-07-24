@@ -2,13 +2,64 @@
 
 MyMCP is the repository and top-level Python host package. It currently hosts
 the Mnemosyne memory domain in-process and is organized around a small HTTP
-surface and a separate MCP protocol layer. Mnemosyne remains the public server
-and memory-domain identity; plugin extraction is not implemented yet.
+surface and a separate MCP protocol layer. Mnemosyne remains the current public
+server and memory-domain identity in the `0.1.x` compatibility era; plugin
+extraction, the final MyMCP public-host cutover, and native external plugins are
+not implemented yet.
 
 The central distinction is:
 
 - FastAPI routes handle transport: where a request arrives.
 - MCP modules handle protocol meaning: what the request asks the server to do.
+
+## Current and Target Architecture
+
+This document describes the **current implementation**. The package layout is a
+transitional host/domain separation: static integration composition exists, but
+Mnemosyne configuration, memory-domain code, MCP Tool adapters, and integration
+composition are not yet consolidated as a plugin.
+
+The approved target is defined in
+[`docs/PLUGIN_ARCHITECTURE.md`](PLUGIN_ARCHITECTURE.md). In that target:
+
+- `mymcp/plugin/` owns the generic plugin-author contract;
+- `mymcp/host/` owns immutable runtime assembly, explicit built-in bootstrap,
+  inert external installation, lifecycle publication, worker supervision,
+  gateway authority, and bounded security audit;
+- concrete bundled implementations live under `mymcp/plugins/`;
+- all Mnemosyne production implementation and policy live under
+  `mymcp/plugins/mnemosyne/`;
+- bundled and external plugins share logical manifest, definition, capability,
+  configuration, activation, and lifecycle semantics while retaining separate
+  trusted in-process and isolated worker execution adapters;
+- qualified capability identity includes plugin ID, capability kind, and local
+  ID, while the host separately owns the flat endpoint-visible MCP Tool name;
+- host API v1 is Tools-only;
+- a strict inert manifest validates static built-ins and pre-execution external
+  artifacts without granting authority or proving isolation;
+- native external plugins are prebuilt wheels installed into immutable managed
+  environments and are never imported into the host process;
+- unknown external activation requires supervision, killability, resource
+  bounds, and default-deny filesystem/network enforcement;
+- immutable runtime generations, authenticated local client principals,
+  policy-filtered discovery/dispatch, host-verifiable exact-call approval, and
+  bounded security audit are explicit later gates; and
+- after complete Mnemosyne extraction, a mandatory dedicated `0.2.0`
+  compatibility migration makes the endpoint, application, repository metadata,
+  and official client identify MyMCP while preserving Mnemosyne's plugin,
+  `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
+
+Those packages and contracts are architectural commitments, not current
+capabilities. The current filesystem layout documented below remains
+authoritative until later ACTIVE Tracks implement and validate each migration
+chunk.
+
+The current zero-argument `ToolIntegration` and synchronous Python handlers are
+trusted built-in precursors only. They are not the unknown-author execution ABI.
+Likewise, loopback reachability and client-side permission prompts are current
+operational boundaries, not authenticated principal identity or host-verifiable
+exact-call approval. The target must add those controls before claiming
+client-neutral governance for third-party mutations.
 
 ## HTTP Surface
 
