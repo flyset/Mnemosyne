@@ -1,8 +1,12 @@
 from copy import deepcopy
+from importlib.resources import files
 from typing import Any
 
 from mymcp.host.runtime import GenerationFactory, HostRuntime, build_host_runtime
-from mymcp.mcp.integrations.mnemosyne import mnemosyne_contribution
+from mymcp.mcp.integrations.mnemosyne import (
+    mnemosyne_contribution,
+    mnemosyne_plugin_definition,
+)
 from mymcp.mcp.tool_registry import ToolRegistration
 from mymcp.mcp.tools import list_tools
 from mymcp.plugin.composition import PluginContribution
@@ -13,6 +17,8 @@ from mymcp.plugin.contracts import (
     PublicToolBinding,
     QualifiedCapabilityId,
 )
+from mymcp.plugin.definition import HostApiVersion
+from mymcp.plugin.manifest import parse_manifest_bytes, validate_plugin_contract
 
 
 _MNEMOSYNE_PLUGIN_ID = PluginId("mnemosyne")
@@ -62,7 +68,17 @@ def build_production_runtime(
     *,
     generation_factory: GenerationFactory | None = None,
 ) -> HostRuntime:
+    manifest_definition = parse_manifest_bytes(
+        files("mymcp.plugins.mnemosyne").joinpath("manifest.json").read_bytes()
+    )
+    adapter_definition = mnemosyne_plugin_definition()
     contribution = mnemosyne_contribution()
+    validate_plugin_contract(
+        manifest_definition=manifest_definition,
+        adapter_definition=adapter_definition,
+        contribution=contribution,
+        supported_host_api=HostApiVersion(1),
+    )
     bindings = _selected_bindings(contribution)
     if generation_factory is None:
         return build_host_runtime(

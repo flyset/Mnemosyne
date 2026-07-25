@@ -36,23 +36,97 @@ from mymcp.plugin.contracts import (
     QualifiedCapabilityId,
     ToolEffects,
 )
+from mymcp.plugin.definition import (
+    AuthorityDeclaration,
+    CapabilityContractVersion,
+    CapabilityDeclaration,
+    ConfigurationDeclaration,
+    ConfigurationSchema,
+    ConfigurationSchemaVersion,
+    ConfigurationType,
+    FilesystemAuthority,
+    HostApiRange,
+    HostApiVersion,
+    ManifestVersion,
+    PluginDataSchemaVersion,
+    PluginDefinition,
+    PluginDescription,
+    PluginTitle,
+)
 
 
 _PLUGIN_ID = PluginId("mnemosyne")
 _PLUGIN_VERSION = PluginVersion("0.1.0")
+_CAPABILITY_VERSION = CapabilityContractVersion("1.0.0")
 _READ_ONLY_EFFECTS = ToolEffects(True, False, True, False)
 _MUTATING_EFFECTS = ToolEffects(False, False, True, False)
 _DESTRUCTIVE_EFFECTS = ToolEffects(False, True, True, False)
-_TOOL_POLICY = {
-    "memory_recall": (_READ_ONLY_EFFECTS, ConsentRequirement.NONE),
-    "memory_list": (_READ_ONLY_EFFECTS, ConsentRequirement.NONE),
-    "memory_inspect": (_READ_ONLY_EFFECTS, ConsentRequirement.NONE),
-    "memory_archive": (_MUTATING_EFFECTS, ConsentRequirement.PER_CALL),
-    "memory_restore": (_MUTATING_EFFECTS, ConsentRequirement.PER_CALL),
-    "memory_remember": (_MUTATING_EFFECTS, ConsentRequirement.PER_CALL),
-    "memory_revise": (_DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL),
-    "memory_forget": (_DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL),
-}
+
+
+def _capability(
+    local_id: str,
+    effects: ToolEffects,
+    consent: ConsentRequirement,
+) -> CapabilityDeclaration:
+    return CapabilityDeclaration(
+        kind=CapabilityKind.TOOL,
+        local_id=CapabilityLocalId(local_id),
+        version=_CAPABILITY_VERSION,
+        effects=effects,
+        consent=consent,
+    )
+
+
+_CAPABILITY_DECLARATIONS = (
+    _capability("memory_recall", _READ_ONLY_EFFECTS, ConsentRequirement.NONE),
+    _capability("memory_list", _READ_ONLY_EFFECTS, ConsentRequirement.NONE),
+    _capability("memory_inspect", _READ_ONLY_EFFECTS, ConsentRequirement.NONE),
+    _capability(
+        "memory_archive", _MUTATING_EFFECTS, ConsentRequirement.PER_CALL
+    ),
+    _capability(
+        "memory_restore", _MUTATING_EFFECTS, ConsentRequirement.PER_CALL
+    ),
+    _capability(
+        "memory_remember", _MUTATING_EFFECTS, ConsentRequirement.PER_CALL
+    ),
+    _capability(
+        "memory_revise", _DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL
+    ),
+    _capability(
+        "memory_forget", _DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL
+    ),
+)
+
+
+def mnemosyne_plugin_definition() -> PluginDefinition:
+    return PluginDefinition(
+        manifest_version=ManifestVersion(1),
+        plugin_id=_PLUGIN_ID,
+        title=PluginTitle("Mnemosyne"),
+        description=PluginDescription("User-governed local memory for MyMCP."),
+        version=_PLUGIN_VERSION,
+        requires=HostApiRange(HostApiVersion(1), HostApiVersion(1)),
+        capabilities=_CAPABILITY_DECLARATIONS,
+        configuration=ConfigurationDeclaration(
+            schema_version=ConfigurationSchemaVersion(1),
+            schema=ConfigurationSchema(
+                type=ConfigurationType.OBJECT,
+                properties=(),
+                required=(),
+                additional_properties=False,
+            ),
+        ),
+        secret_references=(),
+        data_schema_version=PluginDataSchemaVersion(1),
+        authority=AuthorityDeclaration(
+            filesystem=(
+                FilesystemAuthority.DATA_READ,
+                FilesystemAuthority.DATA_WRITE,
+            ),
+            network=False,
+        ),
+    )
 
 
 def _memory_service(*, mutations_enabled: bool) -> MemoryService:
@@ -225,21 +299,25 @@ def build_mnemosyne_contribution(
         memory_forget_enabled=memory_forget_enabled,
         memory_revise_enabled=memory_revise_enabled,
     )
+    declarations = {
+        capability.local_id.value: capability
+        for capability in _CAPABILITY_DECLARATIONS
+    }
     activated_tools: list[ActivatedTool] = []
     for registration in registrations:
         name = registration.tool["name"]
-        effects, consent = _TOOL_POLICY[name]
+        declaration = declarations[name]
         activated_tools.append(
             ActivatedTool(
                 capability=QualifiedCapabilityId(
                     plugin_id=_PLUGIN_ID,
-                    kind=CapabilityKind.TOOL,
-                    local_id=CapabilityLocalId(name),
+                    kind=declaration.kind,
+                    local_id=declaration.local_id,
                 ),
                 tool=registration.tool,
                 handler=registration.handler,
-                effects=effects,
-                consent=consent,
+                effects=declaration.effects,
+                consent=declaration.consent,
             )
         )
     return PluginContribution(

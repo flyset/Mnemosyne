@@ -1,4 +1,5 @@
 from itertools import product
+from importlib.resources import files
 
 import pytest
 
@@ -19,6 +20,12 @@ from mymcp.plugin.contracts import (
     PluginVersion,
     QualifiedCapabilityId,
     ToolEffects,
+)
+from mymcp.plugin.definition import HostApiVersion
+from mymcp.plugin.manifest import (
+    PluginContractError,
+    PluginContractErrorCode,
+    parse_manifest_bytes,
 )
 
 
@@ -226,7 +233,209 @@ def test_failed_adapter_composition_does_not_create_generation(
 
     monkeypatch.setattr(bootstrap, "mnemosyne_contribution", lambda: duplicate)
 
-    with pytest.raises(ValueError, match="^duplicate qualified capability$"):
+    with pytest.raises(
+        PluginContractError,
+        match="^plugin contribution selects a capability more than once$",
+    ) as captured:
+        build_production_runtime(generation_factory=generation_factory)
+
+    assert captured.value.code is PluginContractErrorCode.DUPLICATE_SELECTED_CAPABILITY
+    assert generation_called is False
+
+
+def test_bootstrap_reads_only_the_fixed_mnemosyne_manifest_resource(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest_bytes = (
+        files("mymcp.plugins.mnemosyne").joinpath("manifest.json").read_bytes()
+    )
+    calls: list[tuple[str, str]] = []
+
+    class ManifestResource:
+        def read_bytes(self) -> bytes:
+            return manifest_bytes
+
+    class PluginPackage:
+        def joinpath(self, resource_name: str) -> ManifestResource:
+            calls.append(("resource", resource_name))
+            return ManifestResource()
+
+    def fixed_package(package_name: str) -> PluginPackage:
+        calls.append(("package", package_name))
+        return PluginPackage()
+
+    monkeypatch.setattr(bootstrap, "files", fixed_package, raising=False)
+
+    runtime = build_production_runtime(generation_factory=lambda: "fixed-resource")
+
+    assert calls == [
+        ("package", "mymcp.plugins.mnemosyne"),
+        ("resource", "manifest.json"),
+    ]
+    assert runtime.generation.value == "fixed-resource"
+
+
+def test_bootstrap_validates_exact_contract_before_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def validate(**arguments) -> None:
+        calls.append("validate")
+        assert arguments["manifest_definition"] == parse_manifest_bytes(
+            files("mymcp.plugins.mnemosyne").joinpath("manifest.json").read_bytes()
+        )
+        assert arguments["adapter_definition"] == mnemosyne.mnemosyne_plugin_definition()
+        assert arguments["contribution"].plugin_id == PluginId("mnemosyne")
+        assert arguments["supported_host_api"] == HostApiVersion(1)
+
+    def generation_factory() -> str:
+        calls.append("generation")
+        return "validated-generation"
+
+    monkeypatch.setattr(
+        bootstrap,
+        "validate_plugin_contract",
+        validate,
+        raising=False,
+    )
+
+    runtime = build_production_runtime(generation_factory=generation_factory)
+
+    assert calls == ["validate", "generation"]
+    assert runtime.generation.value == "validated-generation"
+
+
+def test_manifest_parse_failure_precedes_settings_and_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generation_called = False
+
+    def reject_manifest(_: bytes):
+        raise PluginContractError(
+            PluginContractErrorCode.INVALID_JSON,
+            "plugin manifest resource is not valid JSON",
+        )
+
+    def generation_factory() -> str:
+        nonlocal generation_called
+        generation_called = True
+        return "should-not-run"
+
+    monkeypatch.setattr(bootstrap, "parse_manifest_bytes", reject_manifest, raising=False)
+    monkeypatch.setattr(
+        mnemosyne,
+        "get_memory_tool_settings",
+        lambda: pytest.fail("settings resolved after manifest parse failure"),
+    )
+
+    with pytest.raises(
+        PluginContractError,
+        match="^plugin manifest resource is not valid JSON$",
+    ):
+        build_production_runtime(generation_factory=generation_factory)
+
+    assert generation_called is False
+
+
+def test_manifest_resource_failure_precedes_settings_and_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generation_called = False
+
+    class MissingManifest:
+        def read_bytes(self) -> bytes:
+            raise OSError("manifest unavailable")
+
+    class PluginPackage:
+        def joinpath(self, resource_name: str) -> MissingManifest:
+            assert resource_name == "manifest.json"
+            return MissingManifest()
+
+    def generation_factory() -> str:
+        nonlocal generation_called
+        generation_called = True
+        return "should-not-run"
+
+    monkeypatch.setattr(
+        bootstrap,
+        "files",
+        lambda package_name: (
+            PluginPackage()
+            if package_name == "mymcp.plugins.mnemosyne"
+            else pytest.fail("bootstrap selected another package")
+        ),
+    )
+    monkeypatch.setattr(
+        mnemosyne,
+        "get_memory_tool_settings",
+        lambda: pytest.fail("settings resolved after manifest resource failure"),
+    )
+
+    with pytest.raises(OSError, match="^manifest unavailable$"):
+        build_production_runtime(generation_factory=generation_factory)
+
+    assert generation_called is False
+
+
+def test_adapter_definition_failure_precedes_settings_and_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generation_called = False
+
+    def fail_definition():
+        raise RuntimeError("definition failed")
+
+    def generation_factory() -> str:
+        nonlocal generation_called
+        generation_called = True
+        return "should-not-run"
+
+    monkeypatch.setattr(
+        bootstrap,
+        "mnemosyne_plugin_definition",
+        fail_definition,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        mnemosyne,
+        "get_memory_tool_settings",
+        lambda: pytest.fail("settings resolved after definition failure"),
+    )
+
+    with pytest.raises(RuntimeError, match="^definition failed$"):
+        build_production_runtime(generation_factory=generation_factory)
+
+    assert generation_called is False
+
+
+def test_parity_failure_prevents_generation_and_partial_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generation_called = False
+
+    def reject_parity(**_arguments) -> None:
+        raise PluginContractError(
+            PluginContractErrorCode.DEFINITION_MISMATCH,
+            "plugin definition does not match manifest",
+        )
+
+    def generation_factory() -> str:
+        nonlocal generation_called
+        generation_called = True
+        return "should-not-run"
+
+    monkeypatch.setattr(
+        bootstrap,
+        "validate_plugin_contract",
+        reject_parity,
+        raising=False,
+    )
+
+    with pytest.raises(
+        PluginContractError,
+        match="^plugin definition does not match manifest$",
+    ):
         build_production_runtime(generation_factory=generation_factory)
 
     assert generation_called is False

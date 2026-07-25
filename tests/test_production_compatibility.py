@@ -25,6 +25,7 @@ def test_default_production_factory_preserves_public_read_only_surface(
         memory_inspect.TOOL,
     ]
 
+    version = client.get("/version")
     discovered = client.post("/mcp", json={"id": "tools", "method": "tools/list"})
     reported = client.post(
         "/mcp",
@@ -60,6 +61,12 @@ def test_default_production_factory_preserves_public_read_only_surface(
         },
     )
 
+    assert version.status_code == 200
+    assert version.json() == {
+        "name": "mnemosyne",
+        "version": "0.1.4",
+        "protocolVersion": "2024-11-05",
+    }
     assert discovered.status_code == 200
     assert discovered.json()["result"]["tools"] == expected_tools
     assert reported.json()["result"] == {

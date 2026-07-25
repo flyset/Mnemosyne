@@ -1,0 +1,114 @@
+{
+  "$schema": "https://mymcp.local/schemas/plugin-manifest-v1.json",
+  "manifest_version": 1,
+  "id": "mnemosyne",
+  "title": "Mnemosyne",
+  "description": "User-governed local memory for MyMCP.",
+  "version": "0.1.0",
+  "requires": {
+    "host_api": {
+      "min": 1,
+      "max": 1
+    }
+  },
+  "capabilities": [
+    {
+      "kind": "tool",
+      "id": "memory_recall",
+      "version": "1.0.0",
+      "read_only": true,
+      "destructive": false,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "none"
+    },
+    {
+      "kind": "tool",
+      "id": "memory_list",
+      "version": "1.0.0",
+      "read_only": true,
+      "destructive": false,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "none"
+    },
+    {
+      "kind": "tool",
+      "id": "memory_inspect",
+      "version": "1.0.0",
+      "read_only": true,
+      "destructive": false,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "none"
+    },
+    {
+      "kind": "tool",
+      "id": "memory_archive",
+      "version": "1.0.0",
+      "read_only": false,
+      "destructive": false,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "per_call"
+    },
+    {
+      "kind": "tool",
+      "id": "memory_restore",
+      "version": "1.0.0",
+      "read_only": false,
+      "destructive": false,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "per_call"
+    },
+    {
+      "kind": "tool",
+      "id": "memory_remember",
+      "version": "1.0.0",
+      "read_only": false,
+      "destructive": false,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "per_call"
+    },
+    {
+      "kind": "tool",
+      "id": "memory_revise",
+      "version": "1.0.0",
+      "read_only": false,
+      "destructive": true,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "per_call"
+    },
+    {
+      "kind": "tool",
+      "id": "memory_forget",
+      "version": "1.0.0",
+      "read_only": false,
+      "destructive": true,
+      "idempotent": true,
+      "open_world": false,
+      "consent": "per_call"
+    }
+  ],
+  "configuration": {
+    "schema_version": 1,
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  "secret_references": [],
+  "data_schema_version": 1,
+  "authority": {
+    "filesystem": [
+      "data_read",
+      "data_write"
+    ],
+    "network": false
+  }
+}

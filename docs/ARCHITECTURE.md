@@ -2,11 +2,13 @@
 
 MyMCP is the repository and top-level Python host package. It hosts the Mnemosyne
 memory domain in-process and is organized around a small HTTP surface, a
-runtime-bound MCP protocol layer, and explicit host bootstrap. TRACK_031 implements
-Phase 1 kind-qualified contracts, `ActivatedTool`/`PluginContribution`
+runtime-bound MCP protocol layer, and explicit host bootstrap. TRACK_031
+implements Phase 1 kind-qualified contracts, `ActivatedTool`/`PluginContribution`
 composition, trusted internal effect/consent metadata, host-owned bindings and
 `list_tools`, immutable `HostRuntime` assembly, and opaque runtime generations.
-Mnemosyne remains the public 0.1.4 server and memory-domain identity.
+TRACK_032 adds immutable definition contracts, strict 64 KiB manifest parsing,
+exact parity validation, and fixed packaged declaration loading before runtime
+generation. Mnemosyne remains the public 0.1.4 server and memory-domain identity.
 
 The central distinction is:
 
@@ -16,9 +18,11 @@ The central distinction is:
 ## Current and Target Architecture
 
 This document describes the **current implementation**. The package layout has
-a trusted host/plugin-contract seam, but Mnemosyne configuration, memory-domain
-code, MCP Tool adapters, and production composition are not yet consolidated as
-`mymcp/plugins/mnemosyne/`.
+a trusted host/plugin-contract seam and a packaged inert Mnemosyne declaration,
+but Mnemosyne configuration, memory-domain code, MCP Tool adapters, and
+production composition are not yet consolidated as
+`mymcp/plugins/mnemosyne/`. That package contains declaration packaging only;
+it is not an extracted plugin.
 
 The approved target is defined in
 [`docs/PLUGIN_ARCHITECTURE.md`](PLUGIN_ARCHITECTURE.md). In that target:
@@ -50,13 +54,16 @@ The approved target is defined in
   and official client identify MyMCP while preserving Mnemosyne's plugin,
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
-The target-only packages and contracts remain deferred boundaries. Current
-production uses the explicit trusted Mnemosyne 0.1.0 adapter over canonical
-registrations; it does not use manifests, dynamic discovery, external
-installation/activation/isolation, lifecycle publication, gateway governance, or
-public metadata projection. Loopback reachability and client-side permission
-prompts remain operational boundaries, not authenticated principal identity or
-host-verifiable exact-call approval.
+Current production uses the explicit trusted Mnemosyne 0.1.0 adapter over
+canonical registrations. Bootstrap reads only the fixed
+`mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
+bytes, and validates exact manifest/adapter/selected-contribution parity before
+generation construction. This fixed validation is neither dynamic discovery nor
+authority grant. External installation/activation/isolation, lifecycle
+publication, gateway governance, and public metadata projection remain deferred.
+Loopback reachability and client-side permission prompts remain operational
+boundaries, not authenticated principal identity or host-verifiable exact-call
+approval.
 
 ## HTTP Surface
 
@@ -111,7 +118,13 @@ mymcp/
 
   plugin/
     contracts.py        # kind-qualified contracts and effect/consent metadata
+    definition.py       # immutable inert definition contracts
+    manifest.py         # strict parser and parity validation
     composition.py      # ActivatedTool/PluginContribution composition
+
+  plugins/
+    mnemosyne/
+      manifest.json     # packaged inert declaration only; not implementation
 
   mcp/
     __init__.py
@@ -222,6 +235,17 @@ qualified capability identity, trusted effect/consent metadata, host-owned
 public bindings, and collisions before constructing the registry. It performs no
 manifest, package, entry-point, or network discovery.
 
+### `mymcp/plugin/definition.py` and `mymcp/plugin/manifest.py`
+
+These generic modules own immutable inert declaration values and manifest-v1
+validation. The parser accepts an already-decoded mapping or at most 64 KiB of
+strict UTF-8 JSON bytes, rejects duplicate keys and unknown or invalid fields,
+and performs no path, package, import, metadata, or network discovery. Parity
+requires exact manifest and adapter definitions, host-API compatibility, and an
+ordered selected contribution subset with matching effect/consent metadata.
+Declarations carry no handler, Tool schema, configuration or secret value,
+public Tool name, lifecycle instruction, granted authority, or consent proof.
+
 ### `mymcp/mcp/tool_registry.py`
 
 Owns generic registration and dispatch mechanics without importing Mnemosyne
@@ -235,12 +259,14 @@ integration metadata, gate selection, or plugin lifecycle.
 ### `mymcp/host/bootstrap.py` and `mymcp/host/runtime.py`
 
 `build_production_runtime()` is the explicit production composition root. It
-selects the trusted Mnemosyne 0.1.0 contribution, applies canonical host-owned
-bindings, binds `list_tools`, and builds one immutable `HostRuntime` with an
-opaque generation. `create_app(runtime)` and `MCPDispatcher(runtime)` use that
-runtime for discovery and dispatch. `create_production_app()` is the local
-factory used by the supported Uvicorn target; ordinary imports do not build a
-runtime or global application.
+reads exactly the source-controlled packaged Mnemosyne `manifest.json`, parses
+it, obtains the trusted adapter definition and gate-selected contribution, and
+validates parity before applying canonical host-owned bindings, binding
+`list_tools`, or constructing an immutable `HostRuntime` generation. Any such
+failure returns no runtime. `create_app(runtime)` and `MCPDispatcher(runtime)`
+use that runtime for discovery and dispatch. `create_production_app()` is the
+local factory used by the supported Uvicorn target; ordinary imports do not build
+a runtime or global application.
 
 ### `mymcp/mcp/integrations/mnemosyne.py`
 
@@ -250,8 +276,10 @@ public ordering, independent mutation-gate selection, definition/handler
 binding, and memory service/store composition. Its zero-argument production
 entrypoint contributes a trusted Mnemosyne 0.1.0 `PluginContribution` over
 canonical registrations; it does not contribute `list_tools` or construct the
-final `HostRuntime`. A lower-level helper accepts explicit gate booleans for
-deterministic focused tests.
+final `HostRuntime`. One ordered declaration table also derives its immutable
+complete `PluginDefinition`: all eight possible memory Tools remain declared
+while startup gates select the runtime subset. A lower-level helper accepts
+explicit gate booleans for deterministic focused tests.
 
 The integration lazily resolves the configured root and constructs a fresh
 `FilesystemMemoryStore` and `MemoryService` for each validated operation call.

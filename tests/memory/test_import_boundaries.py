@@ -30,6 +30,8 @@ MCP_PROTOCOL = PROJECT_ROOT / "mymcp" / "mcp" / "protocol.py"
 TOOL_REGISTRY = PROJECT_ROOT / "mymcp" / "mcp" / "tool_registry.py"
 PLUGIN_CONTRACTS = PROJECT_ROOT / "mymcp" / "plugin" / "contracts.py"
 PLUGIN_COMPOSITION = PROJECT_ROOT / "mymcp" / "plugin" / "composition.py"
+PLUGIN_DEFINITION = PROJECT_ROOT / "mymcp" / "plugin" / "definition.py"
+PLUGIN_MANIFEST = PROJECT_ROOT / "mymcp" / "plugin" / "manifest.py"
 HOST_RUNTIME = PROJECT_ROOT / "mymcp" / "host" / "runtime.py"
 HOST_BOOTSTRAP = PROJECT_ROOT / "mymcp" / "host" / "bootstrap.py"
 OBSOLETE_MCP_MODULES = (
@@ -243,7 +245,13 @@ def test_generic_plugin_contracts_composition_and_runtime_are_domain_neutral() -
         "fastapi",
     )
 
-    for module in (PLUGIN_CONTRACTS, PLUGIN_COMPOSITION, HOST_RUNTIME):
+    for module in (
+        PLUGIN_CONTRACTS,
+        PLUGIN_COMPOSITION,
+        PLUGIN_DEFINITION,
+        PLUGIN_MANIFEST,
+        HOST_RUNTIME,
+    ):
         assert all(
             not imported.startswith(forbidden) for imported in _imports(module)
         ), module
@@ -275,16 +283,23 @@ def test_host_bootstrap_is_the_only_host_module_importing_mnemosyne_adapter() ->
 
 def test_host_bootstrap_performs_no_dynamic_or_network_discovery() -> None:
     forbidden = (
-        "importlib",
+        "importlib.metadata",
+        "importlib.util",
         "pkgutil",
         "socket",
         "urllib",
         "http.client",
     )
 
+    assert "importlib.resources" in _imports(HOST_BOOTSTRAP)
     assert all(
         not imported.startswith(forbidden) for imported in _imports(HOST_BOOTSTRAP)
     )
+    source = HOST_BOOTSTRAP.read_text(encoding="utf-8")
+    assert source.count('files("mymcp.plugins.mnemosyne")') == 1
+    assert source.count('joinpath("manifest.json")') == 1
+    assert "import_module" not in source
+    assert "entry_points" not in source
 
 
 def test_ordinary_imports_do_not_compose_the_production_runtime(

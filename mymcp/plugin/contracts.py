@@ -30,6 +30,14 @@ _SEMVER_PATTERN = re.compile(
 )
 
 
+def _is_strict_semver(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) <= _MAX_ID_LENGTH
+        and _SEMVER_PATTERN.fullmatch(value) is not None
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class PluginId:
     value: str
@@ -48,11 +56,7 @@ class PluginVersion:
     value: str
 
     def __post_init__(self) -> None:
-        if (
-            not isinstance(self.value, str)
-            or len(self.value) > _MAX_ID_LENGTH
-            or _SEMVER_PATTERN.fullmatch(self.value) is None
-        ):
+        if not _is_strict_semver(self.value):
             raise ValueError("invalid plugin version")
 
 

@@ -14,22 +14,31 @@ its explicit user-governed boundaries.
 ## Current Status
 
 This repository currently contains a FastAPI-based MCP host with the Mnemosyne
-memory domain built in. Phase 1 now provides kind-qualified contracts,
+memory domain built in. Phase 1 provides kind-qualified contracts,
 `ActivatedTool`/`PluginContribution` composition, trusted internal effect and
 consent metadata, host-owned public bindings and `list_tools`, an immutable
 `HostRuntime` with an opaque generation, explicit `build_production_runtime`,
 and runtime-bound MCP dispatch through `create_app(runtime)`.
 
-The production adapter is still the trusted in-process Mnemosyne 0.1.0 adapter
-over the canonical registrations. `create_production_app()` is the local
-convenience factory and the supported Uvicorn factory target. Ordinary imports
-are side-effect free; no global app, startup/methods modules, static
-`ToolIntegration`, plugin manifests, or dynamic discovery are used.
+Phase 2 has begun with immutable definition contracts, a strict manifest-v1
+parser (JSON/UTF-8, duplicate-key, and 64 KiB bound), exact
+manifest/definition/contribution parity, and static pre-generation bootstrap
+validation. The complete inert Mnemosyne declaration is packaged at
+`mymcp/plugins/mnemosyne/manifest.json` and included in the wheel.
+
+The production adapter remains the trusted in-process Mnemosyne 0.1.0 adapter
+over canonical registrations. Bootstrap reads only that fixed packaged resource,
+validates it against the adapter definition and selected gate-controlled
+contribution, then constructs a runtime. `create_production_app()` is the local
+convenience factory and supported Uvicorn factory target. Ordinary imports are
+side-effect free; no global app, startup/methods modules, static
+`ToolIntegration`, or dynamic discovery are used.
 
 The current public identity and behavior remain Mnemosyne 0.1.4: endpoint,
 Tool names and schemas, configuration, storage, records, and consent behavior
-are unchanged. Manifest/`PluginDefinition` parity, extraction to
-`mymcp/plugins/mnemosyne/`, external installation/activation/isolation,
+are unchanged. `mymcp/plugins/mnemosyne/` currently contains declaration
+packaging only; Mnemosyne implementation remains in its transitional current
+locations and has not been extracted. External installation/activation/isolation,
 lifecycle publication, gateway governance, public metadata projection, and the
 mandatory 0.2.0 MyMCP cutover remain deferred. See
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
@@ -277,11 +286,13 @@ surface and retains trusted origins, effect/consent metadata, plugin inventory,
 and an opaque runtime generation. Duplicate plugin, capability, or public names
 fail composition rather than overwriting a registration.
 
-The explicit production bootstrap currently contributes only the trusted
-Mnemosyne 0.1.0 adapter over canonical registrations. It resolves Mnemosyne's
-immutable mutation settings once, selects and orders memory Tools, and lazily
-resolves the configured root for each validated operation. Runtime-bound MCP
-dispatch, `tools/list`, and `list_tools` all use the same runtime registry.
+The explicit production bootstrap reads the fixed packaged inert Mnemosyne
+manifest, validates exact definition and selected-contribution parity before
+generation construction, then contributes the trusted Mnemosyne 0.1.0 adapter
+over canonical registrations. It resolves Mnemosyne's immutable mutation
+settings once, selects and orders memory Tools, and lazily resolves the
+configured root for each validated operation. Runtime-bound MCP dispatch,
+`tools/list`, and `list_tools` all use the same runtime registry.
 `mymcp/settings.py` retains only host server/process identity, while
 `mymcp/mnemosyne/configuration.py` owns the unchanged `MNEMOSYNE_*`,
 `~/.mnemosyne/config.toml`, and memory-root contracts. Handlers remain narrow
@@ -289,7 +300,8 @@ operation adapters. Synthetic multi-contribution tests prove ordered
 aggregation, complete reporting, dispatch, and collision rejection.
 This internal static seam preserves Mnemosyne's public server identity, Tool
 names, schemas, ordering, gates, results, errors, configuration, and storage
-contracts. It is not plugin extraction or dynamic discovery, adds no public Tool
+contracts. The packaged declaration neither extracts Mnemosyne nor grants its
+requested authority. This is not dynamic discovery, adds no public Tool
 namespacing, and provides no installation or lifecycle system.
 
 ## Revising Memory
@@ -1124,10 +1136,12 @@ bundled-only callable or deferring identity and security boundaries:
 
 1. **Delivered:** kind-qualified Tools-only identity, effect/consent metadata,
    host-owned bindings, immutable `HostRuntime`, a trusted Mnemosyne adapter,
-   explicit bootstrap, and runtime injection without changing public behavior.
-2. Implement strict shared definition/manifest parity and make Mnemosyne the
-   complete bundled plugin under `mymcp/plugins/mnemosyne/`, retaining one
-   canonical implementation and every compatibility contract.
+   explicit bootstrap, runtime injection, immutable definition contracts, strict
+   64 KiB manifest parsing, complete packaged declaration, exact parity, static
+   validation before generation, and wheel inclusion—without changing public
+   behavior.
+2. Complete Phase 2 by extracting the one canonical Mnemosyne implementation
+   under `mymcp/plugins/mnemosyne/`, retaining every compatibility contract.
 3. Perform the mandatory `0.2.0` public-host cutover from Mnemosyne endpoint,
    application, repository, and official-client identity to MyMCP while
    preserving all Mnemosyne plugin/domain identities.

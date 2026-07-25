@@ -15,8 +15,11 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+  "build",
   "pytest",
   "httpx2",
+  "setuptools>=61",
+  "wheel",
 ]
 
 [project.scripts]
@@ -27,6 +30,9 @@ mymcp-test = "mymcp.cli:test"
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+"mymcp.plugins.mnemosyne" = ["manifest.json"]
 
 [build-system]
 requires = ["setuptools>=61"]

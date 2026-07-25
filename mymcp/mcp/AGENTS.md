@@ -1,7 +1,8 @@
 # MCP Scope Rules
 
 - This is the MyMCP host's MCP layer, currently dispatching a runtime-bound
-  Mnemosyne 0.1.4-compatible surface through the trusted 0.1.0 adapter; do not
+  Mnemosyne 0.1.4-compatible surface through the trusted 0.1.0 adapter. Static
+  bootstrap validates a packaged inert declaration before generation; do not
   assume plugin extraction or external activation exists.
 - Own MCP message normalization, JSON-RPC response helpers, method dispatch, tool registration, and tool handlers here.
 - Keep tool behavior narrowly scoped, explicit, and independently callable through the registry.

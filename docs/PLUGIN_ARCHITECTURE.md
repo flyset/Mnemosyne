@@ -1,10 +1,10 @@
 # MyMCP Plugin Architecture
 
-> Status: approved target with the TRACK_031 Phase 1 foundation implemented. This
-> document distinguishes the current kind-qualified runtime seam from deferred
-> plugin extraction, manifest/`PluginDefinition` parity, external installation,
-> activation/isolation, lifecycle management, gateway governance, public
-> metadata projection, and the final MyMCP public-host identity. See
+> Status: approved target with the TRACK_031 Phase 1 foundation and TRACK_032's
+> first Phase 2 declaration/parity unit implemented. This document distinguishes
+> the current static manifest boundary from deferred plugin extraction, external
+> installation, activation/isolation, lifecycle management, gateway governance,
+> public metadata projection, and the final MyMCP public-host identity. See
 > [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current code organization.
 
 ## Purpose
@@ -36,16 +36,20 @@ The current implementation now provides:
 - explicit `build_production_runtime` and runtime-bound MCP dispatch;
 - host-owned complete-surface `list_tools`;
 - one explicit in-process Mnemosyne integration;
-- Mnemosyne-owned configuration; and
-- a Tool-independent memory domain.
+- Mnemosyne-owned configuration;
+- a Tool-independent memory domain;
+- immutable definition contracts and strict manifest-v1 parsing; and
+- fixed packaged Mnemosyne manifest/definition/contribution parity before
+  runtime generation.
 
 The current ownership boundary is physically incomplete. Mnemosyne code is
 spread across `mymcp/mnemosyne/`, `mymcp/memory/`,
 `mymcp/mcp/integrations/mnemosyne.py`, and Mnemosyne-specific packages under
-`mymcp/mcp/tools/`. The TRACK_031 contribution now has plugin identity/version,
+`mymcp/mcp/tools/`. The TRACK_031 contribution has plugin identity/version,
 qualified capability origin, trusted effect/consent metadata, and host-owned
-endpoint-name bindings. Strict manifest/definition parity and the vertical
-`mymcp/plugins/mnemosyne/` move remain deferred.
+endpoint-name bindings. TRACK_032 adds exact complete declaration parity, but
+`mymcp/plugins/mnemosyne/` contains only package markers and `manifest.json`;
+no Mnemosyne production implementation has moved there.
 
 The target is a generic host, coherent bundled plugin implementations, and a
 separately isolated native external-plugin boundary. Bundled and external
@@ -76,6 +80,7 @@ mymcp/
 
   plugin/                         # generic plugin-author contract
     contracts.py
+    definition.py
     manifest.py
     composition.py
 
@@ -188,11 +193,11 @@ contains:
 - the ordered plugin inventory;
 - kind-qualified capability origins;
 - trusted internal effect and consent metadata;
-- validated plugin artifact identities;
 - qualified-to-public Tool bindings; and
 - one host-issued opaque runtime-generation identity.
 
-It contains no Mnemosyne-specific policy. The metadata is retained so later
+It contains no Mnemosyne-specific policy or artifact identity. Artifact identity
+and external activation remain deferred. The metadata is retained so later
 gateway policy can reason about origin and effect without redesigning Tool
 identity or treating a public name as authorization identity.
 
@@ -510,8 +515,9 @@ of truth.
 
 ## Plugin definition, context, and activation
 
-The final Python types are implemented in later TDD Tracks, but these invariants
-are architectural:
+The immutable `PluginDefinition` contracts, strict manifest parser, and static
+parity validation are implemented. `PluginContext` and activation remain target
+architecture. The invariants are:
 
 - `PluginDefinition` is immutable data that exactly agrees with the packaged
   manifest's identity, compatibility, complete capability metadata,
@@ -549,10 +555,10 @@ source-controlled built-ins:
 
 1. Host bootstrap imports each bundled adapter explicitly.
 2. It declares their order and compatibility Tool bindings explicitly.
-3. Each adapter produces one immutable definition and activation result.
-4. The host strictly validates each packaged manifest.
+3. Each adapter produces one immutable definition and selected contribution.
+4. The host strictly parses each fixed packaged manifest (at most 64 KiB).
 5. The host validates plugin identity/version and host API compatibility.
-6. The host validates complete manifest/definition/activation parity.
+6. The host validates complete manifest/definition/contribution parity.
 7. The host validates each selected capability and public binding.
 8. Duplicate plugin IDs, qualified capability identities, public names, and
    claims on host-reserved names fail composition.
@@ -849,12 +855,14 @@ TRACK_031 establishes this generation-ready logical seam and a trusted Mnemosyne
 adapter over canonical registrations. It does not freeze that callable as the
 external execution ABI. The public Mnemosyne 0.1.4 surface is preserved.
 
-### Phase 2 — Definition, manifest, and built-in packaging
+### Phase 2 — Definition, manifest, and built-in packaging (in progress)
 
 Make Mnemosyne the first complete implementation of the contract:
 
-1. implement strict shared definition/manifest parsing and parity;
-2. package and validate Mnemosyne's complete manifest;
+1. **Delivered:** strict shared definition/manifest parsing and exact selected
+   contribution parity;
+2. **Delivered:** package and validate Mnemosyne's complete inert manifest,
+   including wheel inclusion;
 3. move Mnemosyne MCP adapters under `mymcp/plugins/mnemosyne/mcp/`;
 4. move configuration under the same plugin boundary;
 5. move the canonical memory package under
@@ -863,6 +871,7 @@ Make Mnemosyne the first complete implementation of the contract:
 7. remove transitional locations and any temporary re-exports.
 
 Startup remains explicit, static, and in-process throughout this phase.
+The currently packaged declaration does not itself perform any of these moves.
 
 ### Mandatory compatibility cutover — MyMCP public host
 
