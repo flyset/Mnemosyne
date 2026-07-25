@@ -1,16 +1,22 @@
 import json
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
-from mymcp.app import app
-from mymcp.mcp import methods as mcp_methods
+from mymcp.app import create_app
+from mymcp.host.bootstrap import build_production_runtime
+from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
 from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
-client = TestClient(app)
+client = TestClient(
+    create_app(
+        build_production_runtime(generation_factory=lambda: "route-test-generation")
+    )
+)
 
 
 def test_mcp_logs_compact_success_events(caplog) -> None:
@@ -62,6 +68,13 @@ def test_mcp_cancellation_notification_returns_no_content() -> None:
 
     assert response.status_code == 202
     assert response.content == b""
+
+
+def test_mcp_explicit_null_id_remains_response_bearing() -> None:
+    response = client.post("/mcp", json={"id": None, "method": "ping"})
+
+    assert response.status_code == 200
+    assert response.json() == {"jsonrpc": "2.0", "id": None, "result": {}}
 
 
 def test_mcp_cancellation_notification_is_quiet_at_info_level(caplog) -> None:
@@ -405,17 +418,40 @@ def test_mcp_rejects_non_object_tool_arguments() -> None:
 
 
 def test_mcp_route_preserves_claude_style_revise_argument_strings(
-    monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO, logger="mcp")
     observed: list[tuple[object, object]] = []
 
-    def capture(tool_name, arguments):
-        observed.append((tool_name, arguments))
+    def capture(arguments):
+        observed.append(("memory_revise", arguments))
         return {"content": [{"type": "text", "text": "captured"}]}
 
-    monkeypatch.setattr(mcp_methods, "call_tool", capture)
+    runtime = SimpleNamespace(
+        registry=ToolRegistry(
+            (
+                ToolRegistration(
+                    tool={
+                        "name": "memory_revise",
+                        "description": "Synthetic transport Tool.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "reference": {"type": "string"},
+                                "expected_revision": {"type": "string"},
+                                "namespace_label": {"type": "string"},
+                                "title": {"type": "string"},
+                                "content": {"type": "string"},
+                                "tags": {"type": "string"},
+                            },
+                        },
+                    },
+                    handler=capture,
+                ),
+            )
+        )
+    )
+    transport_client = TestClient(create_app(runtime))
     reference = (
         '{"schema_version": 2, "scope": "relationship", '
         '"namespace_id": "transport-marker", "collection_id": null, '
@@ -423,7 +459,7 @@ def test_mcp_route_preserves_claude_style_revise_argument_strings(
     )
     tags = '["transport-marker"]'
 
-    response = client.post(
+    response = transport_client.post(
         "/mcp",
         json={
             "id": "transport",

@@ -1,9 +1,10 @@
 # MyMCP Plugin Architecture
 
-> Status: approved architectural target. This document defines where MyMCP is
-> going; it does not claim that plugin extraction, manifests, external
-> installation, lifecycle management, isolation, gateway governance, or the
-> final MyMCP public-host identity are implemented today. See
+> Status: approved target with the TRACK_031 Phase 1 foundation implemented. This
+> document distinguishes the current kind-qualified runtime seam from deferred
+> plugin extraction, manifest/`PluginDefinition` parity, external installation,
+> activation/isolation, lifecycle management, gateway governance, public
+> metadata projection, and the final MyMCP public-host identity. See
 > [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current code organization.
 
 ## Purpose
@@ -27,10 +28,12 @@ identity.
 
 ## Current position and target
 
-The current implementation already has useful precursors:
+The current implementation now provides:
 
 - a generic immutable Tool registry;
-- host-owned static ordered integration composition;
+- `ActivatedTool`/`PluginContribution` composition with trusted effect/consent;
+- immutable `HostRuntime` with opaque generation identity;
+- explicit `build_production_runtime` and runtime-bound MCP dispatch;
 - host-owned complete-surface `list_tools`;
 - one explicit in-process Mnemosyne integration;
 - Mnemosyne-owned configuration; and
@@ -39,9 +42,10 @@ The current implementation already has useful precursors:
 The current ownership boundary is physically incomplete. Mnemosyne code is
 spread across `mymcp/mnemosyne/`, `mymcp/memory/`,
 `mymcp/mcp/integrations/mnemosyne.py`, and Mnemosyne-specific packages under
-`mymcp/mcp/tools/`. The existing anonymous `ToolIntegration` callable also has
-no plugin identity, version, compatibility, manifest, origin, effect, consent,
-or endpoint-name binding contract.
+`mymcp/mcp/tools/`. The TRACK_031 contribution now has plugin identity/version,
+qualified capability origin, trusted effect/consent metadata, and host-owned
+endpoint-name bindings. Strict manifest/definition parity and the vertical
+`mymcp/plugins/mnemosyne/` move remain deferred.
 
 The target is a generic host, coherent bundled plugin implementations, and a
 separately isolated native external-plugin boundary. Bundled and external
@@ -64,7 +68,7 @@ mymcp/
   mcp/                            # transport-neutral MCP behavior
     messages.py
     protocol.py
-    methods.py
+    dispatcher.py                 # runtime-bound MCP dispatch
     tool_arguments.py
     tool_registry.py
     tools/
@@ -176,7 +180,8 @@ contain a concrete plugin.
 
 ### Host runtime and bootstrap
 
-`mymcp/host/runtime.py` owns an immutable `HostRuntime`. The target runtime
+`mymcp/host/runtime.py` owns the implemented immutable `HostRuntime`. The
+current runtime
 contains:
 
 - the final immutable Tool registry;
@@ -192,10 +197,11 @@ gateway policy can reason about origin and effect without redesigning Tool
 identity or treating a public name as authorization identity.
 
 `mymcp/host/bootstrap.py` is the only generic-host module permitted to import
-concrete bundled plugin adapters. Initial bootstrap uses one explicit,
-source-controlled ordered tuple. External definitions and activated worker
-adapters later enter through host-owned validated installation and supervision,
-not configured imports. Bootstrap performs no source-directory, arbitrary
+concrete bundled plugin adapters. Current bootstrap uses one explicit,
+source-controlled Mnemosyne contribution. External definitions and activated
+worker adapters later enter through host-owned validated installation and
+supervision, not configured imports. Bootstrap performs no source-directory,
+arbitrary
 manifest-path, network, marketplace, or configured-module discovery.
 
 Application assembly constructs the runtime explicitly. Importing an ordinary
@@ -827,7 +833,7 @@ the MyMCP public-host cutover mandatory, and adds the native distribution,
 activation, lifecycle, gateway, and version end-state requirements. Neither
 Track changes runtime behavior.
 
-### Phase 1 — Kind-qualified runtime foundation
+### Phase 1 — Kind-qualified runtime foundation (implemented by TRACK_031)
 
 Implement generic contracts before moving Mnemosyne:
 
@@ -839,10 +845,9 @@ Implement generic contracts before moving Mnemosyne:
 6. transport-neutral MCP/runtime injection and removal of ordinary-import
    production composition.
 
-The first runtime Track establishes this generation-ready logical seam and a
-trusted bundled adapter over the existing Mnemosyne integration. It does not
-freeze that callable as the external execution ABI. Every step preserves the
-current Mnemosyne surface.
+TRACK_031 establishes this generation-ready logical seam and a trusted Mnemosyne 0.1.0
+adapter over canonical registrations. It does not freeze that callable as the
+external execution ABI. The public Mnemosyne 0.1.4 surface is preserved.
 
 ### Phase 2 — Definition, manifest, and built-in packaging
 

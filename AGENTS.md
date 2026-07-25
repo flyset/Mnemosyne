@@ -16,8 +16,9 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 
 ## Current Scope
 
-This is an early FastAPI MCP skeleton. The Mnemosyne domain has not been
-extracted into a plugin; keep changes minimal and protocol-aware.
+This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam.
+The Mnemosyne domain has not been extracted into a plugin; keep changes minimal
+and protocol-aware.
 
 ## Project Memory
 

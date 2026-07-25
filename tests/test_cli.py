@@ -7,7 +7,7 @@ import pytest
 from mymcp import cli
 
 
-def test_main_starts_the_shared_application_import(
+def test_main_starts_the_production_application_factory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runner = Mock()
@@ -16,13 +16,14 @@ def test_main_starts_the_shared_application_import(
     cli.main()
 
     runner.assert_called_once_with(
-        "mymcp.app:app",
+        "mymcp.app:create_production_app",
         host="127.0.0.1",
         port=8000,
+        factory=True,
     )
 
 
-def test_dev_starts_the_shared_application_import_with_reload(
+def test_dev_starts_the_production_application_factory_with_reload(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     runner = Mock()
@@ -31,10 +32,11 @@ def test_dev_starts_the_shared_application_import_with_reload(
     cli.dev()
 
     runner.assert_called_once_with(
-        "mymcp.app:app",
+        "mymcp.app:create_production_app",
         host="127.0.0.1",
         port=8000,
         reload=True,
+        factory=True,
     )
 
 

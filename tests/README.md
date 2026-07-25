@@ -15,9 +15,16 @@ The suite uses pytest importlib mode and discovers tests below `tests/`.
 
 ## Layout
 
-- `tests/mcp/` covers message parsing, JSON-RPC helpers, method dispatch, and
-  tool registration or handlers.
+- `tests/mcp/` covers message parsing, JSON-RPC helpers, runtime-bound dispatch,
+  tool registration, composition, and handlers.
+- `tests/plugin/` covers kind-qualified contracts and
+  `ActivatedTool`/`PluginContribution` composition.
+- `tests/host/` covers immutable `HostRuntime` and explicit production bootstrap.
 - `tests/routes/` covers FastAPI HTTP transport through `TestClient`.
+- `tests/test_app.py` covers runtime-injected app assembly, production factory,
+  and side-effect-free ordinary imports.
+- `tests/test_production_compatibility.py` covers the default unmocked production
+  factory, exact read-only Tool surface, and no-write startup/dispatch behavior.
 - `tests/test_test_foundation.py` is the minimal test-runner discovery check.
 
 ## Conventions

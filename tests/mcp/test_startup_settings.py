@@ -18,12 +18,12 @@ MEMORY_ROOT_ENV = "MNEMOSYNE_MEMORY_ROOT"
 STARTUP_PROBE = """
 import json
 
-from mymcp.mcp.methods import handle_message
+from mymcp.host.bootstrap import build_production_runtime
+from mymcp.mcp.dispatcher import MCPDispatcher
 
 
 def request(message):
-    response = handle_message(message)
-    return json.loads(response.body)
+    return MCPDispatcher(build_production_runtime()).dispatch(message)
 
 
 tools_list = request({"id": "tools", "method": "tools/list"})
@@ -119,12 +119,16 @@ STARTUP_FIXED_PROBE = """
 import json
 from pathlib import Path
 
-from mymcp.mcp.methods import handle_message
+from mymcp.host.bootstrap import build_production_runtime
+from mymcp.mcp.dispatcher import MCPDispatcher
+
+
+dispatcher = MCPDispatcher(build_production_runtime())
 
 
 def tool_names():
-    response = handle_message({"id": "tools", "method": "tools/list"})
-    body = json.loads(response.body)
+    response = dispatcher.dispatch({"id": "tools", "method": "tools/list"})
+    body = response
     return [tool["name"] for tool in body["result"]["tools"]]
 
 
@@ -154,20 +158,22 @@ def counted_open(path, *args, **kwargs):
 
 os.open = counted_open
 
-from mymcp.mcp.methods import handle_message
+from mymcp.host.bootstrap import build_production_runtime
+from mymcp.mcp.dispatcher import MCPDispatcher
 
 
-first = handle_message({"id": "first", "method": "tools/list"})
-second = handle_message({"id": "second", "method": "tools/list"})
+dispatcher = MCPDispatcher(build_production_runtime())
+first = dispatcher.dispatch({"id": "first", "method": "tools/list"})
+second = dispatcher.dispatch({"id": "second", "method": "tools/list"})
 print(
     json.dumps(
         {
             "settings_file_opens": settings_file_opens,
             "first": [
-                tool["name"] for tool in json.loads(first.body)["result"]["tools"]
+                tool["name"] for tool in first["result"]["tools"]
             ],
             "second": [
-                tool["name"] for tool in json.loads(second.body)["result"]["tools"]
+                tool["name"] for tool in second["result"]["tools"]
             ],
         },
         sort_keys=True,

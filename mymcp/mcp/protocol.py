@@ -1,21 +1,15 @@
 from typing import Any
 
-from fastapi.responses import JSONResponse
-
-
-def mcp_result(request_id: Any, result: dict[str, Any]) -> JSONResponse:
-    response = {
+def mcp_result(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
+    return {
         "jsonrpc": "2.0",
         "id": request_id,
         "result": result,
     }
-    return JSONResponse(
-        response
-    )
 
 
-def mcp_error(request_id: Any, code: int, message: str) -> JSONResponse:
-    response = {
+def mcp_error(request_id: Any, code: int, message: str) -> dict[str, Any]:
+    return {
         "jsonrpc": "2.0",
         "id": request_id,
         "error": {
@@ -23,6 +17,3 @@ def mcp_error(request_id: Any, code: int, message: str) -> JSONResponse:
             "message": message,
         },
     }
-    return JSONResponse(
-        response
-    )

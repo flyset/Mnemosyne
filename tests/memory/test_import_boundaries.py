@@ -1,5 +1,8 @@
 import ast
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -22,10 +25,18 @@ FORGET_HELPER = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "_memory_forget.py"
 MNEMOSYNE_INTEGRATION = (
     PROJECT_ROOT / "mymcp" / "mcp" / "integrations" / "mnemosyne.py"
 )
-MCP_METHODS = PROJECT_ROOT / "mymcp" / "mcp" / "methods.py"
-MCP_STARTUP = PROJECT_ROOT / "mymcp" / "mcp" / "startup.py"
-MCP_COMPOSITION = PROJECT_ROOT / "mymcp" / "mcp" / "composition.py"
+MCP_DISPATCHER = PROJECT_ROOT / "mymcp" / "mcp" / "dispatcher.py"
+MCP_PROTOCOL = PROJECT_ROOT / "mymcp" / "mcp" / "protocol.py"
 TOOL_REGISTRY = PROJECT_ROOT / "mymcp" / "mcp" / "tool_registry.py"
+PLUGIN_CONTRACTS = PROJECT_ROOT / "mymcp" / "plugin" / "contracts.py"
+PLUGIN_COMPOSITION = PROJECT_ROOT / "mymcp" / "plugin" / "composition.py"
+HOST_RUNTIME = PROJECT_ROOT / "mymcp" / "host" / "runtime.py"
+HOST_BOOTSTRAP = PROJECT_ROOT / "mymcp" / "host" / "bootstrap.py"
+OBSOLETE_MCP_MODULES = (
+    PROJECT_ROOT / "mymcp" / "mcp" / "methods.py",
+    PROJECT_ROOT / "mymcp" / "mcp" / "startup.py",
+    PROJECT_ROOT / "mymcp" / "mcp" / "composition.py",
+)
 MEMORY_CONFIGURATION_MODULES = {
     "mymcp.settings",
     "mymcp.mnemosyne.configuration",
@@ -174,7 +185,7 @@ def test_shared_memory_domain_imports_no_host_or_transport_modules() -> None:
     assert {name: imports for name, imports in violations.items() if imports} == {}
 
 
-def test_generic_mcp_composition_registry_and_methods_own_no_memory_configuration(
+def test_generic_mcp_registry_and_dispatcher_own_no_memory_configuration(
 ) -> None:
     forbidden_names = {
         "MemoryToolSettings",
@@ -192,20 +203,126 @@ def test_generic_mcp_composition_registry_and_methods_own_no_memory_configuratio
     }
 
     assert _imports(TOOL_REGISTRY).isdisjoint(generic_forbidden_imports)
-    assert _imports(MCP_COMPOSITION).isdisjoint(generic_forbidden_imports)
     assert _imported_names(TOOL_REGISTRY).isdisjoint(forbidden_names)
-    assert _imported_names(MCP_COMPOSITION).isdisjoint(forbidden_names)
-    assert _imported_names(MCP_METHODS).isdisjoint(forbidden_names)
-    assert _imports(MCP_STARTUP).isdisjoint(MEMORY_CONFIGURATION_MODULES)
-    assert all(
-        not imported.startswith(("mymcp.mcp.tools", "mymcp.memory"))
-        for imported in _imports(MCP_STARTUP)
+    assert _imported_names(MCP_DISPATCHER).isdisjoint(forbidden_names)
+
+
+def test_runtime_bound_dispatcher_and_protocol_are_transport_domain_neutral() -> None:
+    forbidden = (
+        "fastapi",
+        "mymcp.routes",
+        "mymcp.host.bootstrap",
+        "mymcp.mcp.integrations",
+        "mymcp.mcp.tools",
+        "mymcp.memory",
+        "mymcp.mnemosyne",
+        "mymcp.plugins",
     )
-    assert _imported_names(MCP_STARTUP).isdisjoint(forbidden_names)
+
+    for module in (MCP_DISPATCHER, MCP_PROTOCOL):
+        assert all(
+            not imported.startswith(forbidden) for imported in _imports(module)
+        ), module
+
     assert {
-        "compose_tool_registry",
-        "mnemosyne_integration",
-    } <= _imported_names(MCP_STARTUP)
+        "mymcp.mcp.messages",
+        "mymcp.mcp.protocol",
+        "mymcp.mcp.tool_registry",
+        "mymcp.settings",
+    } <= _imports(MCP_DISPATCHER)
+
+
+def test_generic_plugin_contracts_composition_and_runtime_are_domain_neutral() -> None:
+    forbidden = (
+        "mymcp.mcp.integrations",
+        "mymcp.mcp.tools",
+        "mymcp.memory",
+        "mymcp.mnemosyne",
+        "mymcp.plugins",
+        "mymcp.routes",
+        "fastapi",
+    )
+
+    for module in (PLUGIN_CONTRACTS, PLUGIN_COMPOSITION, HOST_RUNTIME):
+        assert all(
+            not imported.startswith(forbidden) for imported in _imports(module)
+        ), module
+
+    assert {
+        "mymcp.mcp.tool_registry",
+        "mymcp.plugin.composition",
+        "mymcp.plugin.contracts",
+    } <= _imports(HOST_RUNTIME)
+
+
+def test_host_bootstrap_is_the_only_host_module_importing_mnemosyne_adapter() -> None:
+    adapter = "mymcp.mcp.integrations.mnemosyne"
+    host_modules = tuple((PROJECT_ROOT / "mymcp" / "host").glob("*.py"))
+    importers = {module.name for module in host_modules if adapter in _imports(module)}
+
+    assert importers == {"bootstrap.py"}
+    assert {
+        "mymcp.host.runtime",
+        "mymcp.mcp.integrations.mnemosyne",
+        "mymcp.mcp.tool_registry",
+        "mymcp.mcp.tools",
+    } <= _imports(HOST_BOOTSTRAP)
+    assert all(
+        not imported.startswith(("mymcp.memory", "mymcp.mnemosyne.configuration"))
+        for imported in _imports(HOST_BOOTSTRAP)
+    )
+
+
+def test_host_bootstrap_performs_no_dynamic_or_network_discovery() -> None:
+    forbidden = (
+        "importlib",
+        "pkgutil",
+        "socket",
+        "urllib",
+        "http.client",
+    )
+
+    assert all(
+        not imported.startswith(forbidden) for imported in _imports(HOST_BOOTSTRAP)
+    )
+
+
+def test_ordinary_imports_do_not_compose_the_production_runtime(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    settings_directory = home / ".mnemosyne"
+    settings_directory.mkdir(parents=True)
+    (settings_directory / "config.toml").write_text(
+        "not valid toml",
+        encoding="utf-8",
+    )
+    environment = os.environ | {
+        "HOME": str(home),
+        "PYTHONPATH": str(PROJECT_ROOT),
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import mymcp; import mymcp.app; import mymcp.host; "
+                "import mymcp.mcp.dispatcher; import mymcp.plugin"
+            ),
+        ],
+        cwd=PROJECT_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_obsolete_static_composition_modules_are_deleted() -> None:
+    assert all(not module.exists() for module in OBSOLETE_MCP_MODULES)
 
 
 def test_listing_has_no_top_level_runtime_store_import() -> None:

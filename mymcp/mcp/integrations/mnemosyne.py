@@ -26,6 +26,33 @@ from mymcp.mnemosyne.configuration import (
     get_memory_root,
     get_memory_tool_settings,
 )
+from mymcp.plugin.composition import ActivatedTool, PluginContribution
+from mymcp.plugin.contracts import (
+    CapabilityKind,
+    CapabilityLocalId,
+    ConsentRequirement,
+    PluginId,
+    PluginVersion,
+    QualifiedCapabilityId,
+    ToolEffects,
+)
+
+
+_PLUGIN_ID = PluginId("mnemosyne")
+_PLUGIN_VERSION = PluginVersion("0.1.0")
+_READ_ONLY_EFFECTS = ToolEffects(True, False, True, False)
+_MUTATING_EFFECTS = ToolEffects(False, False, True, False)
+_DESTRUCTIVE_EFFECTS = ToolEffects(False, True, True, False)
+_TOOL_POLICY = {
+    "memory_recall": (_READ_ONLY_EFFECTS, ConsentRequirement.NONE),
+    "memory_list": (_READ_ONLY_EFFECTS, ConsentRequirement.NONE),
+    "memory_inspect": (_READ_ONLY_EFFECTS, ConsentRequirement.NONE),
+    "memory_archive": (_MUTATING_EFFECTS, ConsentRequirement.PER_CALL),
+    "memory_restore": (_MUTATING_EFFECTS, ConsentRequirement.PER_CALL),
+    "memory_remember": (_MUTATING_EFFECTS, ConsentRequirement.PER_CALL),
+    "memory_revise": (_DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL),
+    "memory_forget": (_DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL),
+}
 
 
 def _memory_service(*, mutations_enabled: bool) -> MemoryService:
@@ -185,9 +212,46 @@ def build_mnemosyne_registrations(
     return tuple(registrations)
 
 
-def mnemosyne_integration() -> tuple[ToolRegistration, ...]:
+def build_mnemosyne_contribution(
+    memory_remember_enabled: bool,
+    *,
+    memory_archive_restore_enabled: bool = False,
+    memory_forget_enabled: bool = False,
+    memory_revise_enabled: bool = False,
+) -> PluginContribution:
+    registrations = build_mnemosyne_registrations(
+        memory_remember_enabled=memory_remember_enabled,
+        memory_archive_restore_enabled=memory_archive_restore_enabled,
+        memory_forget_enabled=memory_forget_enabled,
+        memory_revise_enabled=memory_revise_enabled,
+    )
+    activated_tools: list[ActivatedTool] = []
+    for registration in registrations:
+        name = registration.tool["name"]
+        effects, consent = _TOOL_POLICY[name]
+        activated_tools.append(
+            ActivatedTool(
+                capability=QualifiedCapabilityId(
+                    plugin_id=_PLUGIN_ID,
+                    kind=CapabilityKind.TOOL,
+                    local_id=CapabilityLocalId(name),
+                ),
+                tool=registration.tool,
+                handler=registration.handler,
+                effects=effects,
+                consent=consent,
+            )
+        )
+    return PluginContribution(
+        plugin_id=_PLUGIN_ID,
+        version=_PLUGIN_VERSION,
+        tools=activated_tools,
+    )
+
+
+def mnemosyne_contribution() -> PluginContribution:
     settings = get_memory_tool_settings()
-    return build_mnemosyne_registrations(
+    return build_mnemosyne_contribution(
         memory_remember_enabled=settings.remember_enabled,
         memory_archive_restore_enabled=settings.archive_restore_enabled,
         memory_forget_enabled=settings.forget_enabled,

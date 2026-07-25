@@ -5,11 +5,17 @@ single user run narrowly scoped integrations behind one machine-local endpoint
 without surrendering control of Tools, data, or mutation approval to a specific
 AI client or plugin author.
 
-MyMCP currently hosts the Mnemosyne user-governed memory domain in-process. The
-host/domain boundary is real, but plugin extraction, native external
-installation, lifecycle generations, isolation, authenticated gateway policy,
-and the final MyMCP public-host identity are not implemented yet. The current
-`0.1.x` endpoint and official client remain Mnemosyne compatibility surfaces.
+MyMCP currently hosts the Mnemosyne user-governed memory domain in-process.
+TRACK_031 delivers the Phase 1 kind-qualified contracts, immutable `HostRuntime` with an
+opaque generation, `ActivatedTool`/`PluginContribution` composition, trusted
+internal effect/consent metadata, host-owned bindings and `list_tools`, explicit
+production bootstrap, and runtime-bound dispatch. The public Mnemosyne 0.1.4
+identity and behavior remain unchanged.
+
+Manifest/`PluginDefinition` parity, `mymcp/plugins/mnemosyne/` extraction,
+external installation/activation/isolation, lifecycle publication, gateway
+governance, public metadata projection, and the 0.2.0 public-host cutover are
+deferred.
 
 ## Role
 
@@ -29,16 +35,18 @@ its memory taxonomy, record semantics, retrieval, lifecycle policy, public
 
 ## Current Foundation
 
-The repository already provides the MyMCP distribution and top-level Python host
-package, a generic immutable Tool registry, an explicit Mnemosyne integration and
-configuration boundary, and host-owned static ordered integration composition.
-The production surface still contains only the built-in Mnemosyne integration.
+The repository provides the MyMCP distribution and top-level Python host package,
+kind-qualified immutable contracts, an explicit Mnemosyne contribution, host-owned
+bindings and `list_tools`, and an immutable runtime assembled by explicit
+`build_production_runtime`. `create_app(runtime)` and runtime-bound MCP dispatch
+keep ordinary imports side-effect free; `create_production_app` is the supported
+local Uvicorn factory target. The production surface still contains only the
+trusted Mnemosyne 0.1.0 adapter over canonical registrations.
 
-The next product step is a kind-qualified immutable host runtime and trusted
-bundled activation adapter that preserve the current Mnemosyne surface without
-freezing its in-process callable as the unknown-author ABI. Complete Mnemosyne
-packaging, the mandatory MyMCP public-host cutover, inert native installation,
-isolated activation, generation lifecycle, client-neutral gateway policy, and
+The next product step is strict shared definition/manifest parity and complete
+Mnemosyne packaging under `mymcp/plugins/mnemosyne/`. The mandatory MyMCP
+public-host cutover, inert native installation, isolated activation, lifecycle
+publication, client-neutral gateway policy, public metadata projection, and
 reusable host services then follow in that dependency order.
 
 ## Approved Target Architecture
@@ -113,7 +121,7 @@ MyMCP should not become:
 ## Built-in Mnemosyne Domain
 
 Mnemosyne remains the built-in user-governed memory domain and the current
-`0.1.x` public server identity. The finished host is MyMCP, while Mnemosyne's
+`0.1.4` public server identity. The finished host is MyMCP, while Mnemosyne's
 plugin, notebook, Tool, configuration, storage, record, safety, and
 domain-specific identity remain intact. Its direction is preserved in
 [the Mnemosyne vision](docs/MNEMOSYNE_VISION.md).

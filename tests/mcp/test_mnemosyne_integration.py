@@ -5,12 +5,13 @@ from typing import Any
 
 import pytest
 
-from mymcp.mcp import methods
-from mymcp.mcp.composition import compose_tool_registry
+from mymcp.host import bootstrap
+from mymcp.host.bootstrap import build_production_runtime
 from mymcp.mcp.integrations import mnemosyne
 from mymcp.mcp.integrations.mnemosyne import (
+    build_mnemosyne_contribution,
     build_mnemosyne_registrations,
-    mnemosyne_integration,
+    mnemosyne_contribution,
 )
 from mymcp.mcp.tool_registry import ToolRegistration
 from mymcp.mcp.tools import (
@@ -23,16 +24,17 @@ from mymcp.mcp.tools import (
     memory_revise,
     memory_restore,
 )
-from mymcp.mcp.startup import REGISTRY as STARTUP_REGISTRY
 from mymcp.memory.errors import MemorySourceUnavailable
 from mymcp.mnemosyne.configuration import MemoryToolSettings
+from mymcp.plugin.composition import PluginContribution
+from mymcp.plugin.contracts import PluginId, PluginVersion
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 INTEGRATION_MODULE = (
     PROJECT_ROOT / "mymcp" / "mcp" / "integrations" / "mnemosyne.py"
 )
-STARTUP_MODULE = PROJECT_ROOT / "mymcp" / "mcp" / "startup.py"
+BOOTSTRAP_MODULE = PROJECT_ROOT / "mymcp" / "host" / "bootstrap.py"
 OLD_REGISTRY_MODULE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "registry.py"
 DEFAULT_TOOL_NAMES = [
     "list_tools",
@@ -61,17 +63,12 @@ def _imports(path: Path) -> set[str]:
     return imports
 
 
-def _registry_for_settings(settings: MemoryToolSettings):
-    return compose_tool_registry(
-        (
-            lambda: build_mnemosyne_registrations(
-                memory_remember_enabled=settings.remember_enabled,
-                memory_archive_restore_enabled=settings.archive_restore_enabled,
-                memory_forget_enabled=settings.forget_enabled,
-                memory_revise_enabled=settings.revise_enabled,
-            ),
-        )
-    )
+def _runtime_for_settings(
+    settings: MemoryToolSettings,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(mnemosyne, "get_memory_tool_settings", lambda: settings)
+    return build_production_runtime(generation_factory=lambda: "test-generation")
 
 
 def test_mnemosyne_integration_contributes_ordered_registrations_without_list_tools(
@@ -85,7 +82,21 @@ def test_mnemosyne_integration_contributes_ordered_registrations_without_list_to
     )
 
 
-def test_mnemosyne_integration_resolves_settings_once(
+def test_trusted_adapter_wraps_ordered_registrations_without_list_tools() -> None:
+    contribution = build_mnemosyne_contribution(False)
+
+    assert isinstance(contribution, PluginContribution)
+    assert contribution.plugin_id == PluginId("mnemosyne")
+    assert contribution.version == PluginVersion("0.1.0")
+    assert [tool.tool["name"] for tool in contribution.tools] == (
+        DEFAULT_INTEGRATION_TOOL_NAMES
+    )
+    assert [tool.capability.local_id.value for tool in contribution.tools] == (
+        DEFAULT_INTEGRATION_TOOL_NAMES
+    )
+
+
+def test_trusted_adapter_resolves_settings_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = 0
@@ -93,24 +104,23 @@ def test_mnemosyne_integration_resolves_settings_once(
     def resolve_settings() -> MemoryToolSettings:
         nonlocal calls
         calls += 1
-        return MemoryToolSettings(remember_enabled=True)
+        return MemoryToolSettings(remember_enabled=True, revise_enabled=True)
 
     monkeypatch.setattr(mnemosyne, "get_memory_tool_settings", resolve_settings)
 
-    registrations = mnemosyne_integration()
+    contribution = mnemosyne_contribution()
 
     assert calls == 1
-    assert [item.tool["name"] for item in registrations] == (
-        DEFAULT_INTEGRATION_TOOL_NAMES + ["memory_remember"]
+    assert [tool.capability.local_id.value for tool in contribution.tools] == (
+        DEFAULT_INTEGRATION_TOOL_NAMES + ["memory_remember", "memory_revise"]
     )
 
 
-def test_startup_uses_fixed_host_composition_sequence() -> None:
-    startup_imports = _imports(STARTUP_MODULE)
+def test_bootstrap_is_the_explicit_production_composition_root() -> None:
+    bootstrap_imports = _imports(BOOTSTRAP_MODULE)
 
-    assert "mymcp.mcp.composition" in startup_imports
-    assert "mymcp.mcp.integrations.mnemosyne" in startup_imports
-    assert methods.REGISTRY is STARTUP_REGISTRY
+    assert "mymcp.mcp.integrations.mnemosyne" in bootstrap_imports
+    assert "mymcp.mcp.composition" not in bootstrap_imports
 
 
 @pytest.mark.parametrize(
@@ -144,18 +154,21 @@ def test_startup_uses_fixed_host_composition_sequence() -> None:
 def test_mnemosyne_composition_preserves_ordered_gate_selection(
     settings: MemoryToolSettings,
     suffix: list[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    registry = _registry_for_settings(settings)
+    registry = _runtime_for_settings(settings, monkeypatch).registry
 
     assert [tool["name"] for tool in registry.tools] == DEFAULT_TOOL_NAMES + suffix
     for name in suffix:
         assert registry.call_tool(name, {}) is not None
 
 
-def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface() -> None:
-    registry = _registry_for_settings(
-        MemoryToolSettings(remember_enabled=True, revise_enabled=True)
-    )
+def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = _runtime_for_settings(
+        MemoryToolSettings(remember_enabled=True, revise_enabled=True), monkeypatch
+    ).registry
 
     assert registry.call_tool("list_tools", {}) == {
         "content": [
@@ -171,21 +184,17 @@ def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface() -> Non
     }
 
 
-def test_startup_and_methods_share_one_composed_registry() -> None:
-    assert methods.REGISTRY is STARTUP_REGISTRY
-
-
-def test_integration_owns_memory_configuration_while_startup_owns_neither() -> None:
+def test_integration_owns_memory_configuration_while_bootstrap_owns_neither() -> None:
     integration_imports = _imports(INTEGRATION_MODULE)
-    startup_imports = _imports(STARTUP_MODULE)
+    bootstrap_imports = _imports(BOOTSTRAP_MODULE)
 
     assert "mymcp.mcp.tools" in integration_imports
     assert "mymcp.mnemosyne.configuration" in integration_imports
     assert all(
         not imported.startswith(
-            ("mymcp.mcp.tools", "mymcp.memory", "mymcp.mnemosyne")
+            ("mymcp.memory", "mymcp.mnemosyne")
         )
-        for imported in startup_imports
+        for imported in bootstrap_imports
     )
     assert not OLD_REGISTRY_MODULE.exists()
 
@@ -220,14 +229,15 @@ def test_composition_and_invalid_requests_do_not_construct_memory_services(
         "get_memory_root",
         lambda: pytest.fail("memory root was resolved"),
     )
-    registry = _registry_for_settings(
+    registry = _runtime_for_settings(
         MemoryToolSettings(
             remember_enabled=True,
             archive_restore_enabled=True,
             revise_enabled=True,
             forget_enabled=True,
-        )
-    )
+        ),
+        monkeypatch,
+    ).registry
 
     for tool_name in (
         "memory_recall",
@@ -255,7 +265,7 @@ def test_memory_root_is_resolved_for_each_operation_after_composition(
         return root
 
     monkeypatch.setattr(mnemosyne, "get_memory_root", get_root)
-    registry = _registry_for_settings(MemoryToolSettings())
+    registry = _runtime_for_settings(MemoryToolSettings(), monkeypatch).registry
 
     first = registry.call_tool("memory_list", {"scope": "project"})
     active_root["value"] = tmp_path / "second"
@@ -333,14 +343,15 @@ def test_all_valid_memory_tool_paths_invoke_fresh_expected_operations(
     monkeypatch.setattr(mnemosyne, "get_memory_root", get_root)
     monkeypatch.setattr(mnemosyne, "FilesystemMemoryStore", build_store)
     monkeypatch.setattr(mnemosyne, "MemoryService", build_service)
-    registry = _registry_for_settings(
+    registry = _runtime_for_settings(
         MemoryToolSettings(
             remember_enabled=True,
             archive_restore_enabled=True,
             revise_enabled=True,
             forget_enabled=True,
-        )
-    )
+        ),
+        monkeypatch,
+    ).registry
     remember_arguments = {
         "scope": "project",
         "namespace": {"kind": "project", "id": "mnemosyne", "label": None},

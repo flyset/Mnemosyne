@@ -2,33 +2,40 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.mcp.composition import compose_tool_registry
-from mymcp.mcp.integrations.mnemosyne import build_mnemosyne_registrations
-from mymcp.mcp.startup import REGISTRY as STARTUP_REGISTRY
+from mymcp.host.bootstrap import build_production_runtime
+from mymcp.mcp.integrations import mnemosyne
+from mymcp.mnemosyne.configuration import MemoryToolSettings
 from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
 from mymcp.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
 
 
 def _registry(
+    monkeypatch: pytest.MonkeyPatch,
     memory_remember_enabled: bool,
     memory_archive_restore_enabled: bool = False,
     memory_forget_enabled: bool = False,
     *,
     memory_revise_enabled: bool = False,
 ) -> ToolRegistry:
-    def mnemosyne_test_integration() -> tuple[ToolRegistration, ...]:
-        return build_mnemosyne_registrations(
-            memory_remember_enabled,
-            memory_archive_restore_enabled=memory_archive_restore_enabled,
-            memory_forget_enabled=memory_forget_enabled,
-            memory_revise_enabled=memory_revise_enabled,
-        )
+    monkeypatch.setattr(
+        mnemosyne,
+        "get_memory_tool_settings",
+        lambda: MemoryToolSettings(
+            remember_enabled=memory_remember_enabled,
+            archive_restore_enabled=memory_archive_restore_enabled,
+            forget_enabled=memory_forget_enabled,
+            revise_enabled=memory_revise_enabled,
+        ),
+    )
+    return build_production_runtime(
+        generation_factory=lambda: "test-generation"
+    ).registry
 
-    return compose_tool_registry((mnemosyne_test_integration,))
 
-
-def test_call_tool_returns_none_for_an_unknown_tool() -> None:
-    assert STARTUP_REGISTRY.call_tool("missing", {}) is None
+def test_call_tool_returns_none_for_an_unknown_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert _registry(monkeypatch, False).call_tool("missing", {}) is None
 
 
 def test_call_tool_dispatches_memory_recall(
@@ -37,7 +44,7 @@ def test_call_tool_dispatches_memory_recall(
 ) -> None:
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
 
-    assert STARTUP_REGISTRY.call_tool(
+    assert _registry(monkeypatch, False).call_tool(
         "memory_recall",
         {"query": "current project", "scope": "project"},
     ) == {
@@ -57,7 +64,7 @@ def test_call_tool_dispatches_memory_inspect(
     root = tmp_path / "missing" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
 
-    result = STARTUP_REGISTRY.call_tool(
+    result = _registry(monkeypatch, False).call_tool(
         "memory_inspect",
         {
             "reference": {
@@ -84,7 +91,7 @@ def test_call_tool_dispatches_memory_list_without_initializing_the_root(
     root = tmp_path / "missing" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
 
-    result = STARTUP_REGISTRY.call_tool(
+    result = _registry(monkeypatch, False).call_tool(
         "memory_list",
         {"scope": "project", "page_size": "2"},
     )
@@ -103,7 +110,7 @@ def test_call_tool_normalizes_stringified_inspect_reference(
     root = tmp_path / "missing" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
 
-    result = STARTUP_REGISTRY.call_tool(
+    result = _registry(monkeypatch, False).call_tool(
         "memory_inspect",
         {
             "reference": (
@@ -118,9 +125,11 @@ def test_call_tool_normalizes_stringified_inspect_reference(
     assert not (tmp_path / "missing").exists()
 
 
-def test_startup_registry_exposes_forget_only_when_independently_enabled() -> None:
-    disabled = _registry(False, False, False)
-    enabled = _registry(False, False, True)
+def test_startup_registry_exposes_forget_only_when_independently_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    disabled = _registry(monkeypatch, False, False, False)
+    enabled = _registry(monkeypatch, False, False, True)
 
     assert "memory_forget" not in [tool["name"] for tool in disabled.tools]
     assert disabled.call_tool("memory_forget", {}) is None
@@ -136,9 +145,11 @@ def test_startup_registry_exposes_forget_only_when_independently_enabled() -> No
     assert '"code":"invalid_reference"' in result["content"][0]["text"]
 
 
-def test_startup_registry_exposes_revise_only_when_independently_enabled() -> None:
-    disabled = _registry(False)
-    enabled = _registry(False, memory_revise_enabled=True)
+def test_startup_registry_exposes_revise_only_when_independently_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    disabled = _registry(monkeypatch, False)
+    enabled = _registry(monkeypatch, False, memory_revise_enabled=True)
 
     assert disabled.call_tool("memory_revise", {}) is None
     assert [tool["name"] for tool in enabled.tools] == [
@@ -153,8 +164,11 @@ def test_startup_registry_exposes_revise_only_when_independently_enabled() -> No
     assert '"code":"invalid_reference"' in result["content"][0]["text"]
 
 
-def test_startup_registry_orders_forget_after_other_mutations() -> None:
+def test_startup_registry_orders_forget_after_other_mutations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     registry = _registry(
+        monkeypatch,
         True,
         True,
         True,
@@ -191,8 +205,8 @@ def test_startup_registry_connects_inspect_and_real_remember_only_when_enabled(
         "origin": "user_approved_proposal",
     }
 
-    disabled = _registry(False)
-    enabled = _registry(True)
+    disabled = _registry(monkeypatch, False)
+    enabled = _registry(monkeypatch, True)
     inspect_arguments = {
         "reference": {
             "schema_version": 1,
@@ -232,7 +246,7 @@ def test_startup_registry_accepts_captured_stringified_remember_arguments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
-    registry = _registry(True)
+    registry = _registry(monkeypatch, True)
     arguments = {
         "scope": "project",
         "namespace": (
@@ -260,8 +274,8 @@ def test_startup_registry_exposes_archive_and_restore_only_as_an_enabled_pair(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
-    disabled = _registry(False, False)
-    enabled = _registry(False, True)
+    disabled = _registry(monkeypatch, False, False)
+    enabled = _registry(monkeypatch, False, True)
 
     assert [tool["name"] for tool in disabled.tools] == [
         "list_tools",
@@ -309,7 +323,7 @@ def test_startup_registry_normalizes_stringified_lifecycle_arguments(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(tmp_path))
-    registry = _registry(False, True)
+    registry = _registry(monkeypatch, False, True)
     reference = (
         '{"schema_version": 2, "scope": "project", '
         '"namespace_id": "mnemosyne", "collection_id": null, '
@@ -331,7 +345,7 @@ def test_startup_registry_normalizes_stringified_revise_arguments(
 ) -> None:
     root = tmp_path / "missing" / "memory"
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ROOT", str(root))
-    registry = _registry(False, memory_revise_enabled=True)
+    registry = _registry(monkeypatch, False, memory_revise_enabled=True)
     arguments = {
         "reference": (
             '{"schema_version": 2, "scope": "project", '

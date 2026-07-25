@@ -1,11 +1,12 @@
 # Architecture
 
-MyMCP is the repository and top-level Python host package. It currently hosts
-the Mnemosyne memory domain in-process and is organized around a small HTTP
-surface and a separate MCP protocol layer. Mnemosyne remains the current public
-server and memory-domain identity in the `0.1.x` compatibility era; plugin
-extraction, the final MyMCP public-host cutover, and native external plugins are
-not implemented yet.
+MyMCP is the repository and top-level Python host package. It hosts the Mnemosyne
+memory domain in-process and is organized around a small HTTP surface, a
+runtime-bound MCP protocol layer, and explicit host bootstrap. TRACK_031 implements
+Phase 1 kind-qualified contracts, `ActivatedTool`/`PluginContribution`
+composition, trusted internal effect/consent metadata, host-owned bindings and
+`list_tools`, immutable `HostRuntime` assembly, and opaque runtime generations.
+Mnemosyne remains the public 0.1.4 server and memory-domain identity.
 
 The central distinction is:
 
@@ -14,10 +15,10 @@ The central distinction is:
 
 ## Current and Target Architecture
 
-This document describes the **current implementation**. The package layout is a
-transitional host/domain separation: static integration composition exists, but
-Mnemosyne configuration, memory-domain code, MCP Tool adapters, and integration
-composition are not yet consolidated as a plugin.
+This document describes the **current implementation**. The package layout has
+a trusted host/plugin-contract seam, but Mnemosyne configuration, memory-domain
+code, MCP Tool adapters, and production composition are not yet consolidated as
+`mymcp/plugins/mnemosyne/`.
 
 The approved target is defined in
 [`docs/PLUGIN_ARCHITECTURE.md`](PLUGIN_ARCHITECTURE.md). In that target:
@@ -49,17 +50,13 @@ The approved target is defined in
   and official client identify MyMCP while preserving Mnemosyne's plugin,
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
-Those packages and contracts are architectural commitments, not current
-capabilities. The current filesystem layout documented below remains
-authoritative until later ACTIVE Tracks implement and validate each migration
-chunk.
-
-The current zero-argument `ToolIntegration` and synchronous Python handlers are
-trusted built-in precursors only. They are not the unknown-author execution ABI.
-Likewise, loopback reachability and client-side permission prompts are current
-operational boundaries, not authenticated principal identity or host-verifiable
-exact-call approval. The target must add those controls before claiming
-client-neutral governance for third-party mutations.
+The target-only packages and contracts remain deferred boundaries. Current
+production uses the explicit trusted Mnemosyne 0.1.0 adapter over canonical
+registrations; it does not use manifests, dynamic discovery, external
+installation/activation/isolation, lifecycle publication, gateway governance, or
+public metadata projection. Loopback reachability and client-side permission
+prompts remain operational boundaries, not authenticated principal identity or
+host-verifiable exact-call approval.
 
 ## HTTP Surface
 
@@ -108,13 +105,19 @@ mymcp/
     health.py         # GET /health
     version.py        # GET /version
 
+  host/
+    bootstrap.py        # explicit production runtime construction
+    runtime.py          # immutable HostRuntime and opaque generation
+
+  plugin/
+    contracts.py        # kind-qualified contracts and effect/consent metadata
+    composition.py      # ActivatedTool/PluginContribution composition
+
   mcp/
     __init__.py
     messages.py       # MCP message parsing and normalization
-    methods.py        # MCP/JSON-RPC method dispatch
+    dispatcher.py      # runtime-bound MCP/JSON-RPC dispatch
     protocol.py       # JSON-RPC result/error helpers
-    startup.py        # single process startup composition root
-    composition.py    # generic static integration aggregation and list_tools
     tool_registry.py  # generic immutable Tool registration and dispatch
     tool_arguments.py # schema-aware client argument compatibility
 
@@ -198,7 +201,7 @@ Owns MCP protocol concerns:
 - JSON-RPC request-parameter validation and errors
 - JSON-RPC response shape
 - MCP method dispatch
-- static integration composition
+- kind-qualified contribution composition
 - tool registry and dispatch
 - individual tool definitions and execution handlers
 
@@ -211,21 +214,13 @@ second schema validator: malformed, wrong-type, ambiguous string-permitted, or
 repeatedly encoded values remain unchanged for the Tool's existing validation.
 Native arguments and legitimate text fields remain unchanged.
 
-### `mymcp/mcp/composition.py`
+### `mymcp/plugin/composition.py`
 
-Owns generic static integration aggregation. A `ToolIntegration` is a
-zero-argument callable returning an ordered finite tuple of complete
-`ToolRegistration` values. `compose_tool_registry()` invokes an explicitly
-supplied integration sequence once in declaration order, snapshots the complete
-selected surface, prepends and binds host-owned `list_tools`, and delegates final
-immutable construction to `ToolRegistry`.
-
-Final registry construction rejects duplicate names within or across
-integrations, including an integration attempt to claim `list_tools`, without
-returning a partial registry. Composition imports no Mnemosyne integration,
-memory domain, or Mnemosyne configuration. It performs no module, filesystem,
-package, manifest, entry-point, or network discovery and owns no integration
-identity, origin metadata, configuration, lifecycle, or isolation contract.
+Owns Phase 1 composition of immutable `ActivatedTool` values into
+`PluginContribution` values and a complete bound Tool surface. It validates
+qualified capability identity, trusted effect/consent metadata, host-owned
+public bindings, and collisions before constructing the registry. It performs no
+manifest, package, entry-point, or network discovery.
 
 ### `mymcp/mcp/tool_registry.py`
 
@@ -237,14 +232,15 @@ snapshots discovery definitions defensively, and dispatches known calls through
 schema-aware one-layer argument normalization. It has no dynamic loading,
 integration metadata, gate selection, or plugin lifecycle.
 
-### `mymcp/mcp/startup.py`
+### `mymcp/host/bootstrap.py` and `mymcp/host/runtime.py`
 
-Is the one process startup composition root. It explicitly declares the fixed
-production integration sequence, currently `(mnemosyne_integration,)`, passes it
-to host-owned static composition once, and stores the resulting generic
-immutable registry. It imports no Mnemosyne configuration, memory Tool package,
-or memory domain. MCP `tools/list`, the `list_tools` Tool, and `tools/call` all
-use that same registry until restart.
+`build_production_runtime()` is the explicit production composition root. It
+selects the trusted Mnemosyne 0.1.0 contribution, applies canonical host-owned
+bindings, binds `list_tools`, and builds one immutable `HostRuntime` with an
+opaque generation. `create_app(runtime)` and `MCPDispatcher(runtime)` use that
+runtime for discovery and dispatch. `create_production_app()` is the local
+factory used by the supported Uvicorn target; ordinary imports do not build a
+runtime or global application.
 
 ### `mymcp/mcp/integrations/mnemosyne.py`
 
@@ -252,10 +248,10 @@ Owns the explicit in-process Mnemosyne integration: current memory Tool imports,
 one immutable startup resolution of Mnemosyne-owned mutation settings, fixed
 public ordering, independent mutation-gate selection, definition/handler
 binding, and memory service/store composition. Its zero-argument production
-entrypoint contributes an ordered tuple of memory `ToolRegistration` values; it
-does not contribute `list_tools` or construct the final `ToolRegistry`. A single
-lower-level helper accepts explicit gate booleans for deterministic focused tests
-without restoring integration-owned aggregation.
+entrypoint contributes a trusted Mnemosyne 0.1.0 `PluginContribution` over
+canonical registrations; it does not contribute `list_tools` or construct the
+final `HostRuntime`. A lower-level helper accepts explicit gate booleans for
+deterministic focused tests.
 
 The integration lazily resolves the configured root and constructs a fresh
 `FilesystemMemoryStore` and `MemoryService` for each validated operation call.

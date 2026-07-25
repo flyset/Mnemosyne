@@ -1,10 +1,17 @@
 from fastapi.testclient import TestClient
 
-from mymcp.app import app
+from mymcp.app import create_app
+from mymcp.host.bootstrap import build_production_runtime
 from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
-client = TestClient(app)
+client = TestClient(
+    create_app(
+        build_production_runtime(
+            generation_factory=lambda: "operational-test-generation"
+        )
+    )
+)
 
 
 def test_health_returns_ok() -> None:
