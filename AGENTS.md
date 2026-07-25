@@ -28,6 +28,29 @@ and protocol-aware.
 - Follow every instruction in `MEMORY.md`; its project-local rules are
   non-negotiable.
 
+## Subagents
+
+- Use `@explore` for read-only repository discovery, analysis, and review; it
+  must not edit files or run state-changing commands.
+- Use `@general` for distinct, bounded, multi-step work with explicit scope and
+  verification requirements.
+- Use `@test` for independent test review and automated verification. It may
+  modify tests only within an explicitly approved TDD chunk and must not change
+  production code.
+- Use `@repo` only for read-only Git status, diff, history, and repository
+  structure inspection; it must not modify files or implement behavior, tests,
+  or documentation.
+- Use `@docs` for explicitly approved documentation authoring and review. It may
+  modify documentation only and must not change production code, tests,
+  configuration, Tracks, or durable memory.
+- Do not duplicate work already delegated to another subagent.
+- Before delegating state-changing work, obtain the user's approval and
+  explicitly grant permission for the approved scope.
+- Subagents must follow applicable repository guidance, ACTIVE Track gates,
+  declared TDD steps, and automated verification requirements.
+- The primary agent remains responsible for reviewing results, integrating
+  decisions, validating changes, and reporting evidence.
+
 ## Before Editing
 
 - Read `docs/AI_WORKFLOW.md` before planning any state-changing action.
