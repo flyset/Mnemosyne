@@ -1,8 +1,8 @@
 # MyMCP
 
 MyMCP is the repository and Python host package for an experimental local MCP
-server. The local `0.2.0` cutover candidate identifies the host, application,
-package, and official tracked client as MyMCP/`mymcp`. It hosts Mnemosyne, the
+server. The `0.2.0` release candidate identifies the host, application, package,
+and official tracked client as MyMCP/`mymcp`. It hosts Mnemosyne, the
 user-governed AI memory domain, through a bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
@@ -34,14 +34,18 @@ and supported Uvicorn factory target. Ordinary imports are side-effect free; no
 global app, startup/methods modules, static `ToolIntegration`, or dynamic
 discovery are used.
 
-TRACK_034 delivers the local MyMCP `0.2.0` cutover candidate: server/application
-identity, package metadata, and the tracked OpenCode policy use MyMCP/`mymcp`.
-Routes and protocol remain unchanged. Mnemosyne permanently retains plugin
+TRACK_034 delivers the MyMCP `0.2.0` public-host cutover: server/application
+identity, package metadata, the canonical repository, and the tracked OpenCode
+policy use MyMCP/`mymcp`. The prior repository URL redirects to the canonical
+repository. Routes and protocol remain unchanged. Mnemosyne permanently retains plugin
 `mnemosyne`, `memory_*` Tools, `MNEMOSYNE_*` configuration, `~/.mnemosyne`, and
-its storage, record, logging, and consent semantics. Repository rename,
-operational reconnect and direct approval checks, tag/release publication,
-external installation/activation/isolation, lifecycle, and gateway governance
-are not yet completed. See
+its storage, record, logging, and consent semantics. Repository/origin/history/
+tag/placeholder checks, the tracked and ignored OpenCode migration with Claude
+exclusion, the normal endpoint and final client reconnect, and isolated
+approved-once and rejected/no-Tools-call checks are complete. Only annotated tag
+creation and GitHub release publication remain for `0.2.0`; external
+installation/activation/isolation, lifecycle, and gateway governance remain
+deferred. See
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
 Implemented tools:
@@ -1011,9 +1015,8 @@ git clone https://github.com/flyset/MyMCP.git
 cd MyMCP
 ```
 
-The repository rename and remote verification have not yet been performed, so
-this is the canonical post-cutover URL rather than evidence of a completed
-GitHub migration.
+The canonical repository is <https://github.com/flyset/MyMCP>; the former URL
+redirects here.
 
 The MCP endpoint is exposed at:
 
@@ -1065,8 +1068,11 @@ allows exactly four read-only Tools (`list_tools`, `memory_recall`,
 `memory_inspect`, and `memory_list`), then asks for the five exact mutation
 Tools (remember, revise, archive, restore, and forget). The order matters:
 OpenCode uses the last matching Tool-name rule and per-agent permissions can
-override top-level rules. This tracked-policy change is local-candidate evidence;
-operational restart/reconnect and direct denial/approval checks are still pending.
+override top-level rules. The tracked and ignored OpenCode migration is complete;
+the legacy Claude configuration is excluded. The normal MyMCP endpoint and final
+client reconnect were verified. In isolated checks, one approved mutation was
+approved once and one rejected mutation made no Tools call; neither check changed
+the memory root.
 
 ```json
 {
@@ -1151,10 +1157,10 @@ bundled-only callable or deferring identity and security boundaries:
     validation before generation, wheel inclusion, and the one canonical
     Mnemosyne implementation under `mymcp/plugins/mnemosyne/`—without changing
     public behavior.
-2. **Local candidate delivered:** use MyMCP/`mymcp` `0.2.0` host, application,
-   package, and tracked-client identity while preserving all Mnemosyne
-   plugin/domain identities. Repository rename, operational validation, and
-   tag/release publication remain required before public completion.
+2. **Release candidate complete:** MyMCP/`mymcp` `0.2.0` host, application,
+   package, repository, and tracked-client identity preserve all Mnemosyne
+   plugin/domain identities. Only annotated tag creation and GitHub release
+   publication remain before release completion.
 3. Add side-effect-free native wheel inspection, digest-bound receipts,
    immutable managed environments, bounded configuration/secret references, and
    persisted bindings without granting execution authority.

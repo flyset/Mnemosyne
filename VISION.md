@@ -12,12 +12,16 @@ manifest parsing, the complete packaged Mnemosyne declaration, exact
 definition/contribution parity, and static bootstrap validation before
 generation. TRACK_033's extraction implementation now places the canonical
 Mnemosyne adapter, configuration, memory domain, and MCP adapters under
-`mymcp/plugins/mnemosyne/`. TRACK_034 delivers the local MyMCP/`mymcp` `0.2.0`
-public-host candidate while permanently preserving Mnemosyne domain behavior and
-identity.
+`mymcp/plugins/mnemosyne/`. TRACK_034 delivers the MyMCP/`mymcp` `0.2.0`
+public-host release candidate while permanently preserving Mnemosyne domain
+behavior and identity.
 
-Repository rename, operational reconnect/direct approval checks, and tag/release
-publication remain pending. External installation/activation/isolation,
+The canonical repository is <https://github.com/flyset/MyMCP>; the former URL
+redirects there. Repository/origin/history/tag/placeholder verification, tracked
+and ignored OpenCode migration with Claude exclusion, normal endpoint/client
+reconnect, and isolated approved-once and rejected/no-Tools-call checks are
+complete. Only annotated tag creation and GitHub release publication remain.
+External installation/activation/isolation,
 lifecycle publication, gateway governance, and public metadata projection remain
 deferred.
 
@@ -50,9 +54,9 @@ local Uvicorn factory target. The production surface contains the trusted
 Mnemosyne 0.1.0 adapter over canonical registrations from the extracted bundled
 plugin.
 
-The local candidate completes the code and tracked-policy portion of the
-mandatory MyMCP public-host cutover. Its repository and operational publication
-steps remain pending. Inert native installation, isolated activation, lifecycle
+The release candidate completes the mandatory MyMCP public-host cutover,
+including repository and operational verification. Only release-publication
+steps remain. Inert native installation, isolated activation, lifecycle
 publication, client-neutral gateway policy, public metadata projection, and
 reusable host services then follow in that dependency order.
 
@@ -73,10 +77,11 @@ and cannot activate without exact artifact approval, supervision, killability,
 resource bounds, and default-deny filesystem/network enforcement. A manifest is
 inert metadata, not authority, consent proof, or isolation.
 
-The local `0.2.0` compatibility candidate makes the endpoint/server, FastAPI
+The `0.2.0` release candidate makes the endpoint/server, FastAPI
 application, package metadata, and tracked official client identify MyMCP. The
 canonical repository target is `https://github.com/flyset/MyMCP`; repository
-rename and release publication remain pending. Mnemosyne remains plugin
+migration is complete and the former URL redirects. Annotated tag creation and
+GitHub release publication remain pending. Mnemosyne remains plugin
 `mnemosyne` and retains every
 `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, record, and memory-domain
 identity.
@@ -130,7 +135,7 @@ MyMCP should not become:
 ## Built-in Mnemosyne Domain
 
 Mnemosyne remains the built-in user-governed memory domain. MyMCP/`mymcp`
-`0.2.0` is the local public-host candidate, while Mnemosyne's plugin, notebook,
+`0.2.0` is the public-host release candidate, while Mnemosyne's plugin, notebook,
 Tool, configuration, storage, record, logging, consent, safety, and
 domain-specific identity remain intact. Its direction is preserved in
 [the Mnemosyne vision](docs/MNEMOSYNE_VISION.md).

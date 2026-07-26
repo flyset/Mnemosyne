@@ -21,8 +21,9 @@ delivered Phase 2 bundled Mnemosyne extraction, and a local MyMCP/`mymcp` `0.2.0
 public-host cutover candidate. The canonical Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
-remain host-owned. Repository migration, operational reconnect/approval checks,
-and release publication remain pending. Keep changes minimal and protocol-aware.
+remain host-owned. Repository migration and operational reconnect/approval
+checks are complete; annotated tag creation and release publication remain
+pending. Keep changes minimal and protocol-aware.
 
 ## Project Memory
 

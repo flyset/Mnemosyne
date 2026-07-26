@@ -10,7 +10,7 @@ TRACK_032 adds immutable definition contracts, strict 64 KiB manifest parsing,
 exact parity validation, and fixed packaged declaration loading before runtime
 generation. TRACK_033's implemented vertical extraction places the canonical
 Mnemosyne adapter, configuration, memory domain, and MCP Tool adapters in its
-bundled plugin. TRACK_034 delivers the local MyMCP/`mymcp` `0.2.0` public-host
+bundled plugin. TRACK_034 delivers the MyMCP/`mymcp` `0.2.0` public-host release
 candidate while Mnemosyne retains its memory-domain identity.
 
 The central distinction is:
@@ -50,10 +50,11 @@ The approved target is defined in
 - immutable runtime generations, authenticated local client principals,
   policy-filtered discovery/dispatch, host-verifiable exact-call approval, and
   bounded security audit are explicit later gates; and
-- the local dedicated `0.2.0` compatibility candidate makes the endpoint,
+- the dedicated `0.2.0` release candidate makes the endpoint,
   application, package metadata, and tracked official client identify MyMCP;
-  repository rename, operational validation, and release publication remain
-  pending while preserving Mnemosyne's plugin,
+  repository and operational validation are complete, while annotated tag
+  creation and GitHub release publication remain pending; it preserves
+  Mnemosyne's plugin,
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
 Current production uses the explicit trusted Mnemosyne 0.1.0 bundled-plugin
@@ -63,11 +64,14 @@ bytes, and validates exact manifest/adapter/selected-contribution parity before
 generation construction. This fixed validation is neither dynamic discovery nor
 authority grant. External installation/activation/isolation, lifecycle
 publication, gateway governance, and public metadata projection remain deferred.
-The canonical repository target is `https://github.com/flyset/MyMCP`, but its
-GitHub rename and remote verification have not yet occurred. The tracked
-OpenCode policy uses connection/agent/prefix `mymcp` with deny-first, four
-read-only allows, and five exact mutation asks; operational reconnect and direct
-denial/approval checks remain pending. Loopback reachability and client-side
+The canonical repository is `https://github.com/flyset/MyMCP`, and the former
+URL redirects there. Local origin/history/tag/placeholder verification is
+complete. The tracked and ignored OpenCode migration uses connection/agent/prefix
+`mymcp` with deny-first, four read-only allows, and five exact mutation asks;
+Claude configuration is excluded. The normal endpoint and final client reconnect
+were verified. Isolated approved-once and rejected/no-Tools-call checks passed
+without changing the memory root. Only annotated tag creation and GitHub release
+publication remain. Loopback reachability and client-side
 permission prompts remain operational boundaries, not authenticated principal
 identity or host-verifiable exact-call approval.
 
@@ -528,7 +532,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.2.0` for the local cutover candidate, is kept equal to the package
+is `mymcp 0.2.0` for the public-host release candidate, is kept equal to the package
 version, and is also returned by initialize and `/version`. This marker identifies
 stale processes after public-contract updates; it is not a dynamic Git identifier
 or a replacement for reconnecting Tool discovery.

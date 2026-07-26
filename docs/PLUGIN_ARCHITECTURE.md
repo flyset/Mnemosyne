@@ -5,9 +5,9 @@
 > distinguishes the current
 > extracted bundled-plugin boundary from deferred external installation,
 > activation/isolation, lifecycle management, gateway governance, and public
-> metadata projection. TRACK_034 delivers the local MyMCP/`mymcp` `0.2.0`
-> public-host candidate; repository migration, operational checks, and release
-> publication remain pending. See
+> metadata projection. TRACK_034 delivers the MyMCP/`mymcp` `0.2.0` public-host
+> release candidate. Repository migration and operational checks are complete;
+> only annotated tag creation and GitHub release publication remain pending. See
 > [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current code organization.
 
 ## Purpose
@@ -45,12 +45,15 @@ The current implementation now provides:
 - fixed packaged Mnemosyne manifest/definition/contribution parity before
   runtime generation.
 
-The local `0.2.0` candidate identifies the host endpoint/application, package,
+The `0.2.0` release candidate identifies the host endpoint/application, package,
 and tracked official OpenCode connection/agent as MyMCP/`mymcp`. Its tracked
 policy denies `mymcp_*` first, allows four read-only Tools, and asks for five
 exact mutations. The canonical repository target is
-`https://github.com/flyset/MyMCP`. Repository rename, client reconnect and
-direct denial/approval verification, and tag/release publication remain pending.
+`https://github.com/flyset/MyMCP`, and the former URL redirects there.
+Repository/origin/history/tag/placeholder verification, tracked and ignored
+OpenCode migration with Claude exclusion, normal endpoint/client reconnect, and
+isolated approved-once and rejected/no-Tools-call checks are complete. Only
+annotated tag creation and GitHub release publication remain pending.
 Routes, MCP protocol, `list_tools`, and every Mnemosyne compatibility identity
 remain unchanged.
 
@@ -301,18 +304,18 @@ runtime-generation dimensions solve different problems and are validated
 independently. Existing Mnemosyne record schema versions remain plugin-owned.
 
 The host-controlled product, endpoint, FastAPI application, distribution
-metadata, and tracked official client identity are MyMCP in the local `0.2.0`
+metadata, and tracked official client identity are MyMCP in the `0.2.0` release
 candidate. The existing `0.1.x` line is the prior Mnemosyne-public-host
-compatibility era. Repository rename, operational validation, and release
-publication remain required before public completion; external activation and
-gateway operation remain later gates.
+compatibility era. Repository migration and operational validation are complete;
+only annotated tag creation and GitHub release publication remain before public
+completion. External activation and gateway operation remain later gates.
 
-| Public-host dimension | Prior `0.1.x` era | Local `0.2.0` candidate / final action |
+| Public-host dimension | Prior `0.1.x` era | `0.2.0` release candidate / final action |
 | --- | --- | --- |
 | Product, distribution, package, commands | MyMCP; `mymcp`; `mymcp*` commands | MyMCP; `mymcp`; `mymcp*` commands; package version `0.2.0` |
 | MCP server machine name | `mnemosyne` | `mymcp` |
 | FastAPI application title | `Mnemosyne MCP Server` | `MyMCP` |
-| Canonical repository | `flyset/Mnemosyne` | Target `https://github.com/flyset/MyMCP` (rename pending) |
+| Canonical repository | `flyset/Mnemosyne` | `https://github.com/flyset/MyMCP` (former URL redirects; publication pending) |
 | Official client and agent key | `mnemosyne` | `mymcp` |
 | Client-generated permission prefix | `mnemosyne_*` | `mymcp_*` |
 | Routes and host Tool | `/mcp`, `/health`, `/version`, `list_tools` | Preserve |
@@ -369,9 +372,9 @@ default algorithm.
 
 Client-created prefixes such as the prior-era OpenCode
 `mnemosyne_memory_recall` are client-side names derived from the configured
-connection key and are not host binding inputs. The tracked local candidate uses
+connection key and are not host binding inputs. The tracked release candidate uses
 official key `mymcp` and `mymcp_*` permission names; endpoint-visible `memory_*`
-names do not change. Direct operational approval checks remain pending.
+names do not change. Direct operational approval checks are complete.
 
 ## Trusted Tool effect and consent metadata
 
@@ -645,14 +648,15 @@ that module may only re-export canonical objects and must be removed within the
 extraction phase. It must never duplicate dataclasses, cursor state, locks, or
 domain implementation.
 
-The local candidate completes the code and tracked-policy portion of the
-mandatory separate public-host identity migration. It changes server/application,
+The release candidate completes the mandatory separate public-host identity
+migration. It changes server/application,
 package, and official tracked-client identity from Mnemosyne to MyMCP in the
 first `0.2.0` build while preserving the plugin compatibility list above. Client
 connection-key and permission-prefix changes are atomic so no mutation Tool
 becomes callable under a new prefix without its exact approval rule. Restart/
 reconnect and direct discovery, denial/no-call, and exact-call approval checks,
-plus repository rename and publication, remain pending. There is no duplicate
+plus repository migration, are complete. Only annotated tag creation and GitHub
+release publication remain pending. There is no duplicate
 endpoint, Tool alias, or runtime identity fallback.
 
 ## Security and trust boundary
@@ -893,12 +897,13 @@ bundled adapter and performs composition.
 
 ### Mandatory compatibility cutover — MyMCP public host
 
-**Local candidate delivered:** endpoint/server, FastAPI application, package,
+**Release candidate complete:** endpoint/server, FastAPI application, package,
 and tracked official client identity are MyMCP/`mymcp` `0.2.0`, preserving every
 Mnemosyne plugin, Tool, configuration, storage, record, logging, and consent
 identity. The canonical repository target is `https://github.com/flyset/MyMCP`.
-Repository rename, operational reconnect/direct approval checks, and tag/release
-publication remain pending. This gate must fully complete before external
+Repository migration and operational reconnect/direct approval checks are
+complete. Only annotated tag creation and GitHub release publication remain
+pending. This gate must fully complete before external
 activation or gateway operation.
 
 ### Phase 3A — Native installation

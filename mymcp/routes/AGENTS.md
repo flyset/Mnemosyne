@@ -2,8 +2,8 @@
 
 - This is the MyMCP host's HTTP transport layer for the runtime-bound
   MyMCP/`mymcp` `0.2.0` local cutover candidate and its compatible bundled
-  Mnemosyne plugin surface. Extraction and the local host-identity candidate are
-  implemented; repository/operational publication and external activation remain
+  Mnemosyne plugin surface. Extraction, repository migration, and operational
+  verification are complete; release publication and external activation remain
   pending.
 - Own HTTP paths, request and response transport, and lightweight operational endpoints here.
 - Keep routes thin: delegate MCP parsing, dispatch, and tool execution to `mymcp/mcp/`.
