@@ -10,8 +10,8 @@ TRACK_032 adds immutable definition contracts, strict 64 KiB manifest parsing,
 exact parity validation, and fixed packaged declaration loading before runtime
 generation. TRACK_033's implemented vertical extraction places the canonical
 Mnemosyne adapter, configuration, memory domain, and MCP Tool adapters in its
-bundled plugin. TRACK_034 delivers the MyMCP/`mymcp` `0.2.0` public-host release
-candidate while Mnemosyne retains its memory-domain identity.
+bundled plugin. TRACK_034 delivered the MyMCP/`mymcp` `0.2.0` public-host release
+while Mnemosyne retains its memory-domain identity.
 
 The central distinction is:
 
@@ -50,10 +50,10 @@ The approved target is defined in
 - immutable runtime generations, authenticated local client principals,
   policy-filtered discovery/dispatch, host-verifiable exact-call approval, and
   bounded security audit are explicit later gates; and
-- the dedicated `0.2.0` release candidate makes the endpoint,
+- released `0.2.0` makes the endpoint,
   application, package metadata, and tracked official client identify MyMCP;
-  repository and operational validation are complete, while annotated tag
-  creation and GitHub release publication remain pending; it preserves
+  repository and operational validation are complete; the public, non-draft,
+  non-prerelease release is tagged `mymcp-v0.2.0` at `c2852bc`; it preserves
   Mnemosyne's plugin,
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
@@ -70,8 +70,8 @@ complete. The tracked and ignored OpenCode migration uses connection/agent/prefi
 `mymcp` with deny-first, four read-only allows, and five exact mutation asks;
 Claude configuration is excluded. The normal endpoint and final client reconnect
 were verified. Isolated approved-once and rejected/no-Tools-call checks passed
-without changing the memory root. Only annotated tag creation and GitHub release
-publication remain. Loopback reachability and client-side
+without changing the memory root. The public release is available at
+<https://github.com/flyset/MyMCP/releases/tag/mymcp-v0.2.0>. Loopback reachability and client-side
 permission prompts remain operational boundaries, not authenticated principal
 identity or host-verifiable exact-call approval.
 
@@ -532,7 +532,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.2.0` for the public-host release candidate, is kept equal to the package
+is `mymcp 0.2.0` for the public-host release, is kept equal to the package
 version, and is also returned by initialize and `/version`. This marker identifies
 stale processes after public-contract updates; it is not a dynamic Git identifier
 or a replacement for reconnecting Tool discovery.

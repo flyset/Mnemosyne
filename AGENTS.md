@@ -17,13 +17,13 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 ## Current Scope
 
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam, a
-delivered Phase 2 bundled Mnemosyne extraction, and a local MyMCP/`mymcp` `0.2.0`
-public-host cutover candidate. The canonical Mnemosyne adapter, configuration,
+delivered Phase 2 bundled Mnemosyne extraction, and the released MyMCP/`mymcp`
+`0.2.0` public host. The canonical Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
-remain host-owned. Repository migration and operational reconnect/approval
-checks are complete; annotated tag creation and release publication remain
-pending. Keep changes minimal and protocol-aware.
+remain host-owned. Repository migration, operational reconnect/approval checks,
+annotated tag creation, and release publication are complete. Keep changes
+minimal and protocol-aware.
 
 ## Project Memory
 

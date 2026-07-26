@@ -13,12 +13,14 @@ active.
 
 The suite uses pytest importlib mode and discovers tests below `tests/`.
 
-The MyMCP `0.2.0` release candidate keeps Mnemosyne compatibility tests alongside
+Released MyMCP `0.2.0` keeps Mnemosyne compatibility tests alongside
 host identity and tracked OpenCode policy coverage. The completed release
 verification includes 1,139 full-suite tests and two packaging tests. Automated
-tests complement, but do not replace, repository/client/operational checks;
-annotated tag creation and GitHub release publication remain pending. External
-plugin, lifecycle, and gateway work remains deferred.
+tests complement, but do not replace, repository/client/operational checks. The
+public, non-draft, non-prerelease release is
+[`MyMCP 0.2.0: public-host cutover`](https://github.com/flyset/MyMCP/releases/tag/mymcp-v0.2.0),
+tagged `mymcp-v0.2.0` at `c2852bc`. External plugin, lifecycle, and gateway work
+remains deferred.
 
 ## Layout
 

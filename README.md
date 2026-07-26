@@ -1,7 +1,7 @@
 # MyMCP
 
 MyMCP is the repository and Python host package for an experimental local MCP
-server. The `0.2.0` release candidate identifies the host, application, package,
+server. Released `0.2.0` identifies the host, application, package,
 and official tracked client as MyMCP/`mymcp`. It hosts Mnemosyne, the
 user-governed AI memory domain, through a bundled plugin.
 
@@ -34,7 +34,7 @@ and supported Uvicorn factory target. Ordinary imports are side-effect free; no
 global app, startup/methods modules, static `ToolIntegration`, or dynamic
 discovery are used.
 
-TRACK_034 delivers the MyMCP `0.2.0` public-host cutover: server/application
+TRACK_034 delivered the MyMCP `0.2.0` public-host cutover: server/application
 identity, package metadata, the canonical repository, and the tracked OpenCode
 policy use MyMCP/`mymcp`. The prior repository URL redirects to the canonical
 repository. Routes and protocol remain unchanged. Mnemosyne permanently retains plugin
@@ -42,10 +42,14 @@ repository. Routes and protocol remain unchanged. Mnemosyne permanently retains 
 its storage, record, logging, and consent semantics. Repository/origin/history/
 tag/placeholder checks, the tracked and ignored OpenCode migration with Claude
 exclusion, the normal endpoint and final client reconnect, and isolated
-approved-once and rejected/no-Tools-call checks are complete. Only annotated tag
-creation and GitHub release publication remain for `0.2.0`; external
-installation/activation/isolation, lifecycle, and gateway governance remain
-deferred. See
+approved-once and rejected/no-Tools-call checks are complete. The public,
+non-draft, non-prerelease GitHub release
+[`MyMCP 0.2.0: public-host cutover`](https://github.com/flyset/MyMCP/releases/tag/mymcp-v0.2.0)
+is tagged `mymcp-v0.2.0` at `c2852bc` and contains one wheel,
+`mymcp-0.2.0-py3-none-any.whl`, with matching GitHub/local SHA-256
+`531cc9a603d16399b12650fd09d3bc76f43b4d5d1b15fed0377a6197c820e3e7`.
+External installation/activation/isolation, lifecycle, and gateway governance
+remain deferred. See
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
 Implemented tools:
@@ -1157,10 +1161,10 @@ bundled-only callable or deferring identity and security boundaries:
     validation before generation, wheel inclusion, and the one canonical
     Mnemosyne implementation under `mymcp/plugins/mnemosyne/`—without changing
     public behavior.
-2. **Release candidate complete:** MyMCP/`mymcp` `0.2.0` host, application,
-   package, repository, and tracked-client identity preserve all Mnemosyne
-   plugin/domain identities. Only annotated tag creation and GitHub release
-   publication remain before release completion.
+2. **Released:** MyMCP/`mymcp` `0.2.0` host, application, package, repository,
+   and tracked-client identity preserve all Mnemosyne plugin/domain identities.
+   The public non-draft, non-prerelease release is tagged `mymcp-v0.2.0` at
+   `c2852bc`.
 3. Add side-effect-free native wheel inspection, digest-bound receipts,
    immutable managed environments, bounded configuration/secret references, and
    persisted bindings without granting execution authority.
