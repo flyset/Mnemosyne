@@ -1,7 +1,9 @@
 # Mnemosyne Vision
 
-Mnemosyne is a personal, local-first MCP server that gives AI agents controlled
-access to a user-governed memory substitute.
+Mnemosyne is a personal, local-first memory domain bundled in the MyMCP MCP host.
+It gives AI agents controlled access to a user-governed memory substitute while
+retaining its plugin, Tool, configuration, storage, record, logging, and consent
+identity.
 
 The goal is not to make an agent omniscient or pretend that a model possesses
 durable personal memory. The goal is to provide a small, trustworthy local

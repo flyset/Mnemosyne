@@ -1,8 +1,10 @@
 # Route Scope Rules
 
-- This is the MyMCP host's HTTP transport layer for the runtime-bound Mnemosyne
-  0.1.4-compatible bundled-plugin surface. Extraction is implemented; external
-  activation and the separate MyMCP public-host cutover do not exist yet.
+- This is the MyMCP host's HTTP transport layer for the runtime-bound
+  MyMCP/`mymcp` `0.2.0` local cutover candidate and its compatible bundled
+  Mnemosyne plugin surface. Extraction and the local host-identity candidate are
+  implemented; repository/operational publication and external activation remain
+  pending.
 - Own HTTP paths, request and response transport, and lightweight operational endpoints here.
 - Keep routes thin: delegate MCP parsing, dispatch, and tool execution to `mymcp/mcp/`.
 - Bind routers to an explicitly supplied dispatcher; routes must not bootstrap or

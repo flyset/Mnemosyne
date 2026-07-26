@@ -13,6 +13,12 @@ active.
 
 The suite uses pytest importlib mode and discovers tests below `tests/`.
 
+The local MyMCP `0.2.0` cutover candidate keeps Mnemosyne compatibility tests
+alongside host identity and tracked OpenCode policy coverage. Automated tests do
+not establish the pending repository rename, client reconnect/direct
+denial-or-approval checks, tag/release publication, or deferred external-plugin,
+lifecycle, and gateway work.
+
 ## Layout
 
 - `tests/mcp/` covers host MCP message parsing, JSON-RPC helpers, runtime-bound

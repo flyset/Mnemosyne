@@ -1,9 +1,9 @@
 # Mnemosyne Plugin Scope Rules
 
 - This trusted bundled plugin owns `plugin.py`, `configuration.py`, `memory/`,
-  and `mcp/tools/`. Preserve Mnemosyne `0.1.4` public Tool, configuration,
-  storage, record, and consent compatibility until the separate public-host
-  cutover.
+  and `mcp/tools/`. Across the MyMCP/`mymcp` `0.2.0` host cutover, permanently
+  preserve Mnemosyne plugin identity and public Tool, configuration, storage,
+  record, logging, and consent compatibility.
 - `plugin.py` may depend only on generic plugin/MCP contracts and this plugin.
   It supplies the definition and gate-selected contribution; it must not build a
   host runtime, bind public names, or contribute `list_tools`.

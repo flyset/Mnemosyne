@@ -24,7 +24,7 @@ The layers have distinct responsibilities:
 | Mnemosyne Manual | General operating guidance for an agent using memory Tools. |
 | `MEMORY.md` | Repository-specific workflow and memory map. |
 | Tool descriptions and schemas | The actions a model may request and their valid argument shapes. |
-| Mnemosyne server | Validation, local persistence, record identity, revision and lifecycle rules, and consent-gated mutation. |
+| MyMCP host / Mnemosyne domain | Validation, local persistence, record identity, revision and lifecycle rules, and consent-gated mutation. |
 | Repository, Git, backlog, and docs | Authoritative engineering record. |
 
 The model sees Tools, their descriptions, and their input schemas. MCP is the

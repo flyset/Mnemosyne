@@ -4,8 +4,10 @@
 > Phase 2 declaration/parity and bundled Mnemosyne extraction. This document
 > distinguishes the current
 > extracted bundled-plugin boundary from deferred external installation,
-> activation/isolation, lifecycle management, gateway governance, public metadata
-> projection, and the final MyMCP public-host identity. See
+> activation/isolation, lifecycle management, gateway governance, and public
+> metadata projection. TRACK_034 delivers the local MyMCP/`mymcp` `0.2.0`
+> public-host candidate; repository migration, operational checks, and release
+> publication remain pending. See
 > [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current code organization.
 
 ## Purpose
@@ -42,6 +44,15 @@ The current implementation now provides:
 - immutable definition contracts and strict manifest-v1 parsing; and
 - fixed packaged Mnemosyne manifest/definition/contribution parity before
   runtime generation.
+
+The local `0.2.0` candidate identifies the host endpoint/application, package,
+and tracked official OpenCode connection/agent as MyMCP/`mymcp`. Its tracked
+policy denies `mymcp_*` first, allows four read-only Tools, and asks for five
+exact mutations. The canonical repository target is
+`https://github.com/flyset/MyMCP`. Repository rename, client reconnect and
+direct denial/approval verification, and tag/release publication remain pending.
+Routes, MCP protocol, `list_tools`, and every Mnemosyne compatibility identity
+remain unchanged.
 
 The current ownership boundary is physically complete for the bundled
 implementation. `mymcp/plugins/mnemosyne/` owns `manifest.json`, `plugin.py`,
@@ -289,27 +300,27 @@ protocol, plugin, capability, configuration, plugin-data, policy, artifact, and
 runtime-generation dimensions solve different problems and are validated
 independently. Existing Mnemosyne record schema versions remain plugin-owned.
 
-The final host-controlled product, endpoint, FastAPI application, repository,
-distribution metadata, and official client identity are MyMCP. The first public
-host cutover build is `0.2.0`; the existing `0.1.x` line remains the
-Mnemosyne-public-host compatibility era. The cutover occurs in one dedicated
-compatibility Track after the implemented Mnemosyne extraction and before unknown
-external activation or gateway operation.
+The host-controlled product, endpoint, FastAPI application, distribution
+metadata, and tracked official client identity are MyMCP in the local `0.2.0`
+candidate. The existing `0.1.x` line is the prior Mnemosyne-public-host
+compatibility era. Repository rename, operational validation, and release
+publication remain required before public completion; external activation and
+gateway operation remain later gates.
 
-| Public-host dimension | Current `0.1.x` value | Final value/action |
+| Public-host dimension | Prior `0.1.x` era | Local `0.2.0` candidate / final action |
 | --- | --- | --- |
-| Product, distribution, package, commands | MyMCP; `mymcp`; `mymcp*` commands | Preserve; publish version `0.2.0` and complete MyMCP description/repository metadata |
+| Product, distribution, package, commands | MyMCP; `mymcp`; `mymcp*` commands | MyMCP; `mymcp`; `mymcp*` commands; package version `0.2.0` |
 | MCP server machine name | `mnemosyne` | `mymcp` |
 | FastAPI application title | `Mnemosyne MCP Server` | `MyMCP` |
-| Canonical repository | `flyset/Mnemosyne` | `flyset/MyMCP` |
+| Canonical repository | `flyset/Mnemosyne` | Target `https://github.com/flyset/MyMCP` (rename pending) |
 | Official client and agent key | `mnemosyne` | `mymcp` |
 | Client-generated permission prefix | `mnemosyne_*` | `mymcp_*` |
 | Routes and host Tool | `/mcp`, `/health`, `/version`, `list_tools` | Preserve |
 | Mnemosyne identity | plugin `mnemosyne`, `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, memory formats and paths | Preserve |
 
-The endpoint marker changes from `mnemosyne 0.1.x` to `mymcp 0.2.0` without a
-duplicate endpoint, fallback identity, or Tool alias. The MCP protocol version
-changes only for an independent protocol-compatibility reason.
+The candidate endpoint marker changes from `mnemosyne 0.1.x` to `mymcp 0.2.0`
+without a duplicate endpoint, fallback identity, or Tool alias. The MCP protocol
+version changes only for an independent protocol-compatibility reason.
 
 ## Capability identity and public Tool binding
 
@@ -356,12 +367,11 @@ candidate generation without overwrite, suffix fallback, shadowing, or duplicate
 aliases. A persisted binding remains stable if a later release changes its
 default algorithm.
 
-Client-created prefixes such as OpenCode's current
+Client-created prefixes such as the prior-era OpenCode
 `mnemosyne_memory_recall` are client-side names derived from the configured
-connection key and are not host binding inputs. During the public-host cutover,
-the official key becomes `mymcp` and all consent-sensitive generated permission
-names migrate atomically to the `mymcp_*` prefix; endpoint-visible `memory_*`
-names do not change.
+connection key and are not host binding inputs. The tracked local candidate uses
+official key `mymcp` and `mymcp_*` permission names; endpoint-visible `memory_*`
+names do not change. Direct operational approval checks remain pending.
 
 ## Trusted Tool effect and consent metadata
 
@@ -612,11 +622,12 @@ Plugin extraction is an ownership change, not permission to redesign
 Mnemosyne. Structural migration preserves:
 
 - `/mcp`, `/health`, and `/version` behavior;
-- the current server identity and compatibility marker;
+- the MyMCP/`mymcp` `0.2.0` candidate server identity and compatibility marker;
 - `list_tools` ownership, output, and first position;
 - all existing `memory_*` names, order, schemas, results, and errors;
 - host-generic one-layer Tool-argument normalization;
-- existing client-prefixed permission names;
+- tracked `mymcp_*` client-prefixed permission names and their deny-first,
+  read-only-allow, exact-mutation-ask order;
 - independent default-off mutation gates and startup-fixed availability;
 - per-call approval requirements for exact mutation calls;
 - `MNEMOSYNE_*` variables and strict `~/.mnemosyne/config.toml` behavior;
@@ -634,14 +645,15 @@ that module may only re-export canonical objects and must be removed within the
 extraction phase. It must never duplicate dataclasses, cursor state, locks, or
 domain implementation.
 
-Complete extraction is followed by a mandatory separate public-host identity
-migration. That Track changes server/application/repository/official-client
-identity from Mnemosyne to MyMCP in the first `0.2.0` build while preserving the
-plugin compatibility list above. Client connection-key and permission-prefix
-changes are atomic so no mutation Tool becomes callable under a new prefix
-without its exact approval rule. The migration requires restart/reconnect and
-direct discovery, denial/no-call, and exact-call approval checks. There is no
-duplicate endpoint, Tool alias, or runtime identity fallback.
+The local candidate completes the code and tracked-policy portion of the
+mandatory separate public-host identity migration. It changes server/application,
+package, and official tracked-client identity from Mnemosyne to MyMCP in the
+first `0.2.0` build while preserving the plugin compatibility list above. Client
+connection-key and permission-prefix changes are atomic so no mutation Tool
+becomes callable under a new prefix without its exact approval rule. Restart/
+reconnect and direct discovery, denial/no-call, and exact-call approval checks,
+plus repository rename and publication, remain pending. There is no duplicate
+endpoint, Tool alias, or runtime identity fallback.
 
 ## Security and trust boundary
 
@@ -881,12 +893,13 @@ bundled adapter and performs composition.
 
 ### Mandatory compatibility cutover — MyMCP public host
 
-After extraction, atomically move endpoint/server, FastAPI application,
-repository, and official client identity to MyMCP; release the already-MyMCP
-distribution/package as `0.2.0` with aligned description and repository
-metadata. Preserve every Mnemosyne plugin, Tool, configuration, storage, and
-record identity. This gate must pass before external activation or gateway
-operation.
+**Local candidate delivered:** endpoint/server, FastAPI application, package,
+and tracked official client identity are MyMCP/`mymcp` `0.2.0`, preserving every
+Mnemosyne plugin, Tool, configuration, storage, record, logging, and consent
+identity. The canonical repository target is `https://github.com/flyset/MyMCP`.
+Repository rename, operational reconnect/direct approval checks, and tag/release
+publication remain pending. This gate must fully complete before external
+activation or gateway operation.
 
 ### Phase 3A — Native installation
 

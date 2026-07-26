@@ -1,10 +1,9 @@
 # MyMCP
 
 MyMCP is the repository and Python host package for an experimental local MCP
-server. It currently hosts Mnemosyne, the user-governed AI memory domain,
-through a bundled plugin. Mnemosyne remains the current `0.1.4` public server
-and memory-domain identity; the separate MyMCP public-host cutover is not yet
-implemented.
+server. The local `0.2.0` cutover candidate identifies the host, application,
+package, and official tracked client as MyMCP/`mymcp`. It hosts Mnemosyne, the
+user-governed AI memory domain, through a bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
 that composes narrowly scoped integrations behind one machine-local endpoint.
@@ -35,12 +34,14 @@ and supported Uvicorn factory target. Ordinary imports are side-effect free; no
 global app, startup/methods modules, static `ToolIntegration`, or dynamic
 discovery are used.
 
-The current public identity and behavior remain Mnemosyne 0.1.4: endpoint, Tool
-names and schemas, configuration, storage, records, and consent behavior are
-unchanged. TRACK_033 delivered the complete bundled extraction. External
-installation/activation/isolation, lifecycle publication, gateway governance,
-public metadata projection, and the mandatory 0.2.0 MyMCP cutover remain
-deferred. See
+TRACK_034 delivers the local MyMCP `0.2.0` cutover candidate: server/application
+identity, package metadata, and the tracked OpenCode policy use MyMCP/`mymcp`.
+Routes and protocol remain unchanged. Mnemosyne permanently retains plugin
+`mnemosyne`, `memory_*` Tools, `MNEMOSYNE_*` configuration, `~/.mnemosyne`, and
+its storage, record, logging, and consent semantics. Repository rename,
+operational reconnect and direct approval checks, tag/release publication,
+external installation/activation/isolation, lifecycle, and gateway governance
+are not yet completed. See
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
 Implemented tools:
@@ -456,7 +457,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mnemosyne 0.1.4.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.2.0.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -984,11 +985,9 @@ and bounded security audit remain unimplemented.
 
 Mnemosyne remains the bundled user-governed memory domain. It gives agents
 controlled access to approved durable records and bounded retrieval while
-preserving its existing Tool, configuration, storage, record, and memory-domain
-identity. It remains the current `0.1.4` public server. Its configuration,
-memory domain, MCP adapters, and plugin composition now live under
-`mymcp/plugins/mnemosyne/`; the public MyMCP host identity awaits the mandatory
-`0.2.0` cutover.
+permanently preserving its Tool, configuration, storage, record, logging,
+consent, and memory-domain identity. Its configuration, memory domain, MCP
+adapters, and plugin composition live under `mymcp/plugins/mnemosyne/`.
 
 ## Non-Goals
 
@@ -1004,6 +1003,17 @@ MyMCP and its built-in Mnemosyne domain are not intended to provide:
   implemented and validated.
 
 ## Running the Server
+
+Clone the canonical MyMCP repository target:
+
+```bash
+git clone https://github.com/flyset/MyMCP.git
+cd MyMCP
+```
+
+The repository rename and remote verification have not yet been performed, so
+this is the canonical post-cutover URL rather than evidence of a completed
+GitHub migration.
 
 The MCP endpoint is exposed at:
 
@@ -1049,51 +1059,50 @@ mymcp-test
 
 ## OpenCode Configuration
 
-The included `opencode.json` registers this server as a remote MCP server,
-explicitly allows read-only inventory listing, and requires approval for each
-exact prefixed mutation Tool. The agent-level rules are explicit because
-per-agent permissions can override top-level rules and OpenCode uses the last
-matching Tool-name rule. They deny the broad server prefix first, allow the
-lower-breadth read-only Tools, then ask for remember, revise, archive, restore,
-and forget:
-
-The `mnemosyne` connection key and generated `mnemosyne_*` permission names below
-are the intentional current `0.1.4` compatibility configuration. The later
-public-host cutover will atomically change the official connection and agent key
-to `mymcp` and every matching generated permission name to the `mymcp_*` prefix;
-it is not performed by this documentation change.
+The tracked `opencode.json` registers this server as remote connection and agent
+`mymcp`. At both policy levels it denies the broad `mymcp_*` prefix first, then
+allows exactly four read-only Tools (`list_tools`, `memory_recall`,
+`memory_inspect`, and `memory_list`), then asks for the five exact mutation
+Tools (remember, revise, archive, restore, and forget). The order matters:
+OpenCode uses the last matching Tool-name rule and per-agent permissions can
+override top-level rules. This tracked-policy change is local-candidate evidence;
+operational restart/reconnect and direct denial/approval checks are still pending.
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
-    "mnemosyne_memory_list": "allow",
-    "mnemosyne_memory_remember": "ask",
-    "mnemosyne_memory_revise": "ask",
-    "mnemosyne_memory_archive": "ask",
-    "mnemosyne_memory_restore": "ask",
-    "mnemosyne_memory_forget": "ask"
+    "mymcp_*": "deny",
+    "mymcp_list_tools": "allow",
+    "mymcp_memory_recall": "allow",
+    "mymcp_memory_inspect": "allow",
+    "mymcp_memory_list": "allow",
+    "mymcp_memory_remember": "ask",
+    "mymcp_memory_revise": "ask",
+    "mymcp_memory_archive": "ask",
+    "mymcp_memory_restore": "ask",
+    "mymcp_memory_forget": "ask"
   },
   "mcp": {
-    "mnemosyne": {
+    "mymcp": {
       "type": "remote",
       "url": "http://127.0.0.1:8000/mcp",
       "enabled": true
     }
   },
   "agent": {
-    "mnemosyne": {
+    "mymcp": {
       "permission": {
-        "mnemosyne_*": "deny",
-        "mnemosyne_list_tools": "allow",
-        "mnemosyne_memory_recall": "allow",
-        "mnemosyne_memory_inspect": "allow",
-        "mnemosyne_memory_list": "allow",
-        "mnemosyne_memory_remember": "ask",
-        "mnemosyne_memory_revise": "ask",
-        "mnemosyne_memory_archive": "ask",
-        "mnemosyne_memory_restore": "ask",
-        "mnemosyne_memory_forget": "ask"
+        "mymcp_*": "deny",
+        "mymcp_list_tools": "allow",
+        "mymcp_memory_recall": "allow",
+        "mymcp_memory_inspect": "allow",
+        "mymcp_memory_list": "allow",
+        "mymcp_memory_remember": "ask",
+        "mymcp_memory_revise": "ask",
+        "mymcp_memory_archive": "ask",
+        "mymcp_memory_restore": "ask",
+        "mymcp_memory_forget": "ask"
       }
     }
   }
@@ -1111,7 +1120,7 @@ therefore produces no write. Do not start OpenCode with `--auto` or enable
 interactive auto-approval while memory mutation is enabled: each bypasses
 approval on later exact calls. If either mode was used, disable server mutation
 and restart both the server and OpenCode before continuing. Any additional
-per-agent permission override must preserve this order: broad `mnemosyne_*`
+per-agent permission override must preserve this order: broad `mymcp_*`
 denial first, explicit lower-breadth read-only allows (including `memory_list`)
 next, and the exact mutation asks last.
 
@@ -1142,9 +1151,10 @@ bundled-only callable or deferring identity and security boundaries:
     validation before generation, wheel inclusion, and the one canonical
     Mnemosyne implementation under `mymcp/plugins/mnemosyne/`—without changing
     public behavior.
-2. Perform the mandatory `0.2.0` public-host cutover from Mnemosyne endpoint,
-   application, repository, and official-client identity to MyMCP while
-   preserving all Mnemosyne plugin/domain identities.
+2. **Local candidate delivered:** use MyMCP/`mymcp` `0.2.0` host, application,
+   package, and tracked-client identity while preserving all Mnemosyne
+   plugin/domain identities. Repository rename, operational validation, and
+   tag/release publication remain required before public completion.
 3. Add side-effect-free native wheel inspection, digest-bound receipts,
    immutable managed environments, bounded configuration/secret references, and
    persisted bindings without granting execution authority.

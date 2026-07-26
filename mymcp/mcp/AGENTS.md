@@ -1,9 +1,10 @@
 # MCP Scope Rules
 
-- This is the MyMCP host's MCP layer, dispatching a runtime-bound Mnemosyne
-  0.1.4-compatible surface through the extracted trusted bundled 0.1.0 adapter.
-  Static bootstrap validates its packaged inert declaration before generation.
-  External activation does not exist.
+- This is the MyMCP host's MCP layer, dispatching the runtime-bound
+  MyMCP/`mymcp` `0.2.0` endpoint surface through the extracted trusted bundled
+  Mnemosyne 0.1.0 adapter. Static bootstrap validates its packaged inert
+  declaration before generation. Mnemosyne Tool and domain compatibility remain
+  preserved; external activation does not exist.
 - Own MCP message normalization, JSON-RPC response helpers, method dispatch,
   generic tool registration, schema-aware argument normalization, and host-owned
   `list_tools` here. Mnemosyne Tool definitions and handlers belong under

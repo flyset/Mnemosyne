@@ -173,7 +173,7 @@ def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mnemosyne 0.1.4. Available tools: "
+                    "Server: mymcp 0.2.0. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect, "
                     "memory_remember, memory_revise"
                 ),

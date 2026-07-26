@@ -1,33 +1,37 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "permission": {
-    "mnemosyne_memory_list": "allow",
-    "mnemosyne_memory_remember": "ask",
-    "mnemosyne_memory_revise": "ask",
-    "mnemosyne_memory_archive": "ask",
-    "mnemosyne_memory_restore": "ask",
-    "mnemosyne_memory_forget": "ask"
+    "mymcp_*": "deny",
+    "mymcp_list_tools": "allow",
+    "mymcp_memory_recall": "allow",
+    "mymcp_memory_inspect": "allow",
+    "mymcp_memory_list": "allow",
+    "mymcp_memory_remember": "ask",
+    "mymcp_memory_revise": "ask",
+    "mymcp_memory_archive": "ask",
+    "mymcp_memory_restore": "ask",
+    "mymcp_memory_forget": "ask"
   },
   "mcp": {
-    "mnemosyne": {
+    "mymcp": {
       "type": "remote",
       "url": "http://127.0.0.1:8000/mcp",
       "enabled": true
     }
   },
   "agent": {
-    "mnemosyne": {
+    "mymcp": {
       "permission": {
-        "mnemosyne_*": "deny",
-        "mnemosyne_list_tools": "allow",
-        "mnemosyne_memory_recall": "allow",
-        "mnemosyne_memory_inspect": "allow",
-        "mnemosyne_memory_list": "allow",
-        "mnemosyne_memory_remember": "ask",
-        "mnemosyne_memory_revise": "ask",
-        "mnemosyne_memory_archive": "ask",
-        "mnemosyne_memory_restore": "ask",
-        "mnemosyne_memory_forget": "ask"
+        "mymcp_*": "deny",
+        "mymcp_list_tools": "allow",
+        "mymcp_memory_recall": "allow",
+        "mymcp_memory_inspect": "allow",
+        "mymcp_memory_list": "allow",
+        "mymcp_memory_remember": "ask",
+        "mymcp_memory_revise": "ask",
+        "mymcp_memory_archive": "ask",
+        "mymcp_memory_restore": "ask",
+        "mymcp_memory_forget": "ask"
       }
     },
     "explore": {
