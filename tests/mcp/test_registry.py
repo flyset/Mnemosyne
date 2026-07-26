@@ -3,10 +3,10 @@ from pathlib import Path
 import pytest
 
 from mymcp.host.bootstrap import build_production_runtime
-from mymcp.mcp.integrations import mnemosyne
-from mymcp.mnemosyne.configuration import MemoryToolSettings
+from mymcp.plugins.mnemosyne import plugin as mnemosyne
+from mymcp.plugins.mnemosyne.configuration import MemoryToolSettings
 from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
-from mymcp.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
+from mymcp.plugins.mnemosyne.mcp.tools.memory_revise import TOOL as MEMORY_REVISE_TOOL
 
 
 def _registry(

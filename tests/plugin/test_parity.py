@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.mcp.integrations.mnemosyne import (
+from mymcp.plugins.mnemosyne.plugin import (
     build_mnemosyne_contribution,
     mnemosyne_plugin_definition,
 )
@@ -442,7 +442,7 @@ def test_generic_parity_validation_imports_no_concrete_plugin_or_runtime() -> No
                 "mymcp.host",
                 "mymcp.mcp.integrations",
                 "mymcp.mcp.tools",
-                "mymcp.memory",
+                "mymcp.plugins.mnemosyne.memory",
                 "mymcp.mnemosyne",
                 "mymcp.routes",
                 "fastapi",

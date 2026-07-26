@@ -2,15 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.memory.errors import UnsafeMemoryPath
-from mymcp.memory.paths import (
+from mymcp.plugins.mnemosyne.memory.errors import UnsafeMemoryPath
+from mymcp.plugins.mnemosyne.memory.paths import (
     ensure_record_path,
     relative_path_for_record,
     relative_path_for_reference,
     scope_directory,
 )
-from mymcp.memory.records import MemoryRecordV2, MemoryReference, parse_memory_record
-from mymcp.memory.scopes import MemoryScope
+from mymcp.plugins.mnemosyne.memory.records import MemoryRecordV2, MemoryReference, parse_memory_record
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
 
 
 def _record(*, collection: bool = True) -> MemoryRecordV2:

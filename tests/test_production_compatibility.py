@@ -3,7 +3,12 @@ import json
 from fastapi.testclient import TestClient
 
 from mymcp.app import create_production_app
-from mymcp.mcp.tools import list_tools, memory_inspect, memory_list, memory_recall
+from mymcp.mcp.tools import list_tools
+from mymcp.plugins.mnemosyne.mcp.tools import (
+    memory_inspect,
+    memory_list,
+    memory_recall,
+)
 
 
 def test_default_production_factory_preserves_public_read_only_surface(

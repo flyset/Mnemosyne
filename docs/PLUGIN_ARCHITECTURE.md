@@ -1,10 +1,11 @@
 # MyMCP Plugin Architecture
 
-> Status: approved target with the TRACK_031 Phase 1 foundation and TRACK_032's
-> first Phase 2 declaration/parity unit implemented. This document distinguishes
-> the current static manifest boundary from deferred plugin extraction, external
-> installation, activation/isolation, lifecycle management, gateway governance,
-> public metadata projection, and the final MyMCP public-host identity. See
+> Status: approved target with the TRACK_031 Phase 1 foundation and implemented
+> Phase 2 declaration/parity and bundled Mnemosyne extraction. This document
+> distinguishes the current
+> extracted bundled-plugin boundary from deferred external installation,
+> activation/isolation, lifecycle management, gateway governance, public metadata
+> projection, and the final MyMCP public-host identity. See
 > [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current code organization.
 
 ## Purpose
@@ -22,8 +23,8 @@ reversed. MyMCP therefore uses **architectural minimalism**:
 > declared target, not the smallest temporary structure that can be refactored
 > after the architecture is invented later.
 
-The first proof is Mnemosyne. It should become a vertically owned built-in
-plugin without losing its public memory Tool, configuration, storage, or record
+The first proof is Mnemosyne. It is now a vertically owned built-in plugin
+without losing its public memory Tool, configuration, storage, or record
 identity.
 
 ## Current position and target
@@ -42,14 +43,15 @@ The current implementation now provides:
 - fixed packaged Mnemosyne manifest/definition/contribution parity before
   runtime generation.
 
-The current ownership boundary is physically incomplete. Mnemosyne code is
-spread across `mymcp/mnemosyne/`, `mymcp/memory/`,
-`mymcp/mcp/integrations/mnemosyne.py`, and Mnemosyne-specific packages under
-`mymcp/mcp/tools/`. The TRACK_031 contribution has plugin identity/version,
-qualified capability origin, trusted effect/consent metadata, and host-owned
-endpoint-name bindings. TRACK_032 adds exact complete declaration parity, but
-`mymcp/plugins/mnemosyne/` contains only package markers and `manifest.json`;
-no Mnemosyne production implementation has moved there.
+The current ownership boundary is physically complete for the bundled
+implementation. `mymcp/plugins/mnemosyne/` owns `manifest.json`, `plugin.py`,
+`configuration.py`, the complete `memory/` domain, and all Mnemosyne MCP Tool
+adapters under `mcp/tools/`. The TRACK_031 contribution has plugin
+identity/version, qualified capability origin, trusted effect/consent metadata,
+and host-owned endpoint-name bindings; TRACK_032 adds exact complete declaration
+parity. Generic host MCP retains argument normalization, registry/dispatch, and
+host-owned `list_tools`; explicit host bootstrap retains composition, bindings,
+fixed manifest loading, parity validation, and runtime construction.
 
 The target is a generic host, coherent bundled plugin implementations, and a
 separately isolated native external-plugin boundary. Bundled and external
@@ -291,7 +293,7 @@ The final host-controlled product, endpoint, FastAPI application, repository,
 distribution metadata, and official client identity are MyMCP. The first public
 host cutover build is `0.2.0`; the existing `0.1.x` line remains the
 Mnemosyne-public-host compatibility era. The cutover occurs in one dedicated
-compatibility Track after complete Mnemosyne extraction and before unknown
+compatibility Track after the implemented Mnemosyne extraction and before unknown
 external activation or gateway operation.
 
 | Public-host dimension | Current `0.1.x` value | Final value/action |
@@ -855,7 +857,9 @@ TRACK_031 establishes this generation-ready logical seam and a trusted Mnemosyne
 adapter over canonical registrations. It does not freeze that callable as the
 external execution ABI. The public Mnemosyne 0.1.4 surface is preserved.
 
-### Phase 2 — Definition, manifest, and built-in packaging (in progress)
+### Phase 2 — Definition, manifest, and built-in packaging
+
+Implementation is delivered by TRACK_032 and TRACK_033.
 
 Make Mnemosyne the first complete implementation of the contract:
 
@@ -863,15 +867,17 @@ Make Mnemosyne the first complete implementation of the contract:
    contribution parity;
 2. **Delivered:** package and validate Mnemosyne's complete inert manifest,
    including wheel inclusion;
-3. move Mnemosyne MCP adapters under `mymcp/plugins/mnemosyne/mcp/`;
-4. move configuration under the same plugin boundary;
-5. move the canonical memory package under
+3. **Delivered:** move Mnemosyne MCP adapters under
+   `mymcp/plugins/mnemosyne/mcp/`;
+4. **Delivered:** move configuration under the same plugin boundary;
+5. **Delivered:** move the canonical memory package under
    `mymcp/plugins/mnemosyne/memory/`;
-6. update import-boundary and compatibility tests; and
-7. remove transitional locations and any temporary re-exports.
+6. **Delivered:** update import-boundary and compatibility tests; and
+7. **Delivered:** remove transitional locations and any temporary re-exports.
 
-Startup remains explicit, static, and in-process throughout this phase.
-The currently packaged declaration does not itself perform any of these moves.
+Startup remains explicit, static, and in-process throughout this phase. The
+packaged manifest remains inert; explicit host bootstrap imports the trusted
+bundled adapter and performs composition.
 
 ### Mandatory compatibility cutover — MyMCP public host
 

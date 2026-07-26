@@ -5,12 +5,12 @@ import pytest
 
 from mymcp.host import bootstrap
 from mymcp.host.bootstrap import build_production_runtime
-from mymcp.mcp.integrations import mnemosyne
-from mymcp.mcp.integrations.mnemosyne import (
+from mymcp.plugins.mnemosyne import plugin as mnemosyne
+from mymcp.plugins.mnemosyne.plugin import (
     build_mnemosyne_contribution,
     build_mnemosyne_registrations,
 )
-from mymcp.mnemosyne.configuration import MemoryToolSettings
+from mymcp.plugins.mnemosyne.configuration import MemoryToolSettings
 from mymcp.plugin.composition import HostToolOrigin, PluginContribution
 from mymcp.plugin.contracts import (
     CapabilityKind,

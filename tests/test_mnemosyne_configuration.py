@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-import mymcp.mnemosyne.configuration as settings
-from mymcp.mnemosyne.configuration import (
+import mymcp.plugins.mnemosyne.configuration as settings
+from mymcp.plugins.mnemosyne.configuration import (
     SETTINGS_MAX_BYTES,
     SettingsError,
     get_memory_archive_restore_enabled,

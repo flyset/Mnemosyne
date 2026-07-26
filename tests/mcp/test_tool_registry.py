@@ -41,7 +41,7 @@ def test_generic_registry_module_imports_no_mnemosyne_tools_or_settings() -> Non
     }
 
     assert all(
-        not imported.startswith(("mymcp.mcp.tools", "mymcp.memory"))
+        not imported.startswith(("mymcp.mcp.tools", "mymcp.plugins.mnemosyne.memory"))
         for imported in imports
     )
     assert "mymcp.settings" not in imports

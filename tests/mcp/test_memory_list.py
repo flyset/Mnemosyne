@@ -6,17 +6,17 @@ from typing import Any
 
 import pytest
 
-from mymcp.mcp.tools.memory_list import TOOL, handle as public_handle
-from mymcp.mcp.tools.memory_list import handler as handler_module
-from mymcp.mcp.tools.memory_list.definition import TOOL as DEFINED_TOOL
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.mcp.tools.memory_list import TOOL, handle as public_handle
+from mymcp.plugins.mnemosyne.mcp.tools.memory_list import handler as handler_module
+from mymcp.plugins.mnemosyne.mcp.tools.memory_list.definition import TOOL as DEFINED_TOOL
+from mymcp.plugins.mnemosyne.memory.errors import (
     CandidateLimitExceeded,
     InvalidMemoryListCursor,
     MemorySourceUnavailable,
     StaleMemoryListCursor,
     UnsafeMemoryPath,
 )
-from mymcp.memory.listing import (
+from mymcp.plugins.mnemosyne.memory.listing import (
     CollectionSelectionMode,
     MemoryCollectionSelector,
     MemoryInspectability,
@@ -25,15 +25,15 @@ from mymcp.memory.listing import (
     MemoryListResult,
     MemoryListSelector,
 )
-from mymcp.memory.records import (
+from mymcp.plugins.mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     MemoryRecordV2,
     parse_memory_record,
 )
-from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore, StoredMemory
-from mymcp.mnemosyne.configuration import get_memory_root
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.plugins.mnemosyne.memory.service import MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore, StoredMemory
+from mymcp.plugins.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"

@@ -4,26 +4,26 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.memory.errors import (
     InvalidMemoryListCursor,
     MemoryValidationError,
     StaleMemoryListCursor,
 )
-from mymcp.memory.listing import (
+from mymcp.plugins.mnemosyne.memory.listing import (
     MemoryInspectability,
     MemoryCollectionSelector,
     MemoryListCursorCodec,
     MemoryListSelector,
     select_listable_memories,
 )
-from mymcp.memory.records import (
+from mymcp.plugins.mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     MemoryRecordV2,
     parse_memory_record,
 )
-from mymcp.memory.scopes import MemoryScope
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore, StoredMemory
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
+from mymcp.plugins.mnemosyne.memory.service import MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore, StoredMemory
 
 
 def _legacy(

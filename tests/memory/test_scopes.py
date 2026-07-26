@@ -1,13 +1,13 @@
 import pytest
 
-from mymcp.memory.errors import MemoryValidationError
-from mymcp.memory.scopes import (
+from mymcp.plugins.mnemosyne.memory.errors import MemoryValidationError
+from mymcp.plugins.mnemosyne.memory.scopes import (
     SCOPE_DEFINITIONS,
     SCOPE_VALUES,
     MemoryScope,
     parse_scope,
 )
-from mymcp.mcp.tools.memory_recall import TOOL
+from mymcp.plugins.mnemosyne.mcp.tools.memory_recall import TOOL
 
 
 def test_scope_registry_is_the_canonical_ordered_contract() -> None:

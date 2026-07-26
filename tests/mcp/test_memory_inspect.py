@@ -6,25 +6,25 @@ from typing import Any
 
 import pytest
 
-from mymcp.mcp.tools.memory_inspect import TOOL, handle as public_handle
-from mymcp.mcp.tools.memory_inspect import handler as handler_module
-from mymcp.mcp.tools.memory_inspect.definition import TOOL as DEFINED_TOOL
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.mcp.tools.memory_inspect import TOOL, handle as public_handle
+from mymcp.plugins.mnemosyne.mcp.tools.memory_inspect import handler as handler_module
+from mymcp.plugins.mnemosyne.mcp.tools.memory_inspect.definition import TOOL as DEFINED_TOOL
+from mymcp.plugins.mnemosyne.memory.errors import (
     AmbiguousMemoryReference,
     CandidateLimitExceeded,
     MemoryNotFound,
     MemorySourceUnavailable,
     UnsafeMemoryPath,
 )
-from mymcp.memory.records import (
+from mymcp.plugins.mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
     MemoryReference,
 )
-from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.mnemosyne.configuration import get_memory_root
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.plugins.mnemosyne.memory.service import MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
+from mymcp.plugins.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"

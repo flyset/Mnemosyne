@@ -121,7 +121,7 @@ def test_generic_composition_imports_no_concrete_tool_or_domain_package() -> Non
                 "mymcp.mcp.tools",
                 "mymcp.plugins",
                 "mymcp.mnemosyne",
-                "mymcp.memory",
+                "mymcp.plugins.mnemosyne.memory",
             )
         )
         for imported in imports

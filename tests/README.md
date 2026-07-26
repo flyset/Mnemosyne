@@ -15,10 +15,11 @@ The suite uses pytest importlib mode and discovers tests below `tests/`.
 
 ## Layout
 
-- `tests/mcp/` covers message parsing, JSON-RPC helpers, runtime-bound dispatch,
-  tool registration, composition, and handlers.
+- `tests/mcp/` covers host MCP message parsing, JSON-RPC helpers, runtime-bound
+  dispatch, tool registration, argument normalization, host `list_tools`, and
+  Mnemosyne Tool compatibility.
 - `tests/plugin/` covers kind-qualified contracts, immutable definition values,
-  strict manifest parsing, packaged Mnemosyne declaration parity, and
+  strict manifest parsing, extracted bundled Mnemosyne declaration parity, and
   `ActivatedTool`/`PluginContribution` composition.
 - `tests/host/` covers immutable `HostRuntime` and explicit production bootstrap,
   including validation before runtime generation.
@@ -28,7 +29,8 @@ The suite uses pytest importlib mode and discovers tests below `tests/`.
 - `tests/test_production_compatibility.py` covers the default unmocked production
   factory, exact read-only Tool surface, and no-write startup/dispatch behavior.
 - `tests/test_packaging.py` builds an offline wheel without installing it and
-  verifies the exact packaged Mnemosyne declaration resource and parser parity.
+  verifies the complete extracted Mnemosyne plugin source-to-wheel inventory,
+  fixed manifest resource, and parser parity.
 - `tests/test_test_foundation.py` is the minimal test-runner discovery check.
 
 ## Conventions

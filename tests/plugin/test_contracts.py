@@ -209,9 +209,9 @@ def test_generic_contracts_import_no_concrete_plugin_or_domain(module: Path) -> 
             (
                 "mymcp.plugins",
                 "mymcp.mnemosyne",
-                "mymcp.memory",
+                "mymcp.plugins.mnemosyne.memory",
                 "mymcp.mcp.tools",
-                "mymcp.mcp.integrations.mnemosyne",
+                "mymcp.plugins.mnemosyne.plugin",
             )
         )
         for imported in imports

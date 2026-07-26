@@ -8,7 +8,10 @@ composition, trusted internal effect/consent metadata, host-owned bindings and
 `list_tools`, immutable `HostRuntime` assembly, and opaque runtime generations.
 TRACK_032 adds immutable definition contracts, strict 64 KiB manifest parsing,
 exact parity validation, and fixed packaged declaration loading before runtime
-generation. Mnemosyne remains the public 0.1.4 server and memory-domain identity.
+generation. TRACK_033's implemented vertical extraction places the canonical
+Mnemosyne adapter, configuration, memory domain, and MCP Tool adapters in its
+bundled plugin. Mnemosyne remains the public 0.1.4 server and memory-domain
+identity.
 
 The central distinction is:
 
@@ -18,11 +21,9 @@ The central distinction is:
 ## Current and Target Architecture
 
 This document describes the **current implementation**. The package layout has
-a trusted host/plugin-contract seam and a packaged inert Mnemosyne declaration,
-but Mnemosyne configuration, memory-domain code, MCP Tool adapters, and
-production composition are not yet consolidated as
-`mymcp/plugins/mnemosyne/`. That package contains declaration packaging only;
-it is not an extracted plugin.
+a trusted host/plugin-contract seam and one extracted bundled Mnemosyne plugin.
+`mymcp/plugins/mnemosyne/` owns Mnemosyne configuration, memory-domain code,
+MCP Tool adapters, the trusted adapter, and its packaged inert declaration.
 
 The approved target is defined in
 [`docs/PLUGIN_ARCHITECTURE.md`](PLUGIN_ARCHITECTURE.md). In that target:
@@ -49,13 +50,14 @@ The approved target is defined in
 - immutable runtime generations, authenticated local client principals,
   policy-filtered discovery/dispatch, host-verifiable exact-call approval, and
   bounded security audit are explicit later gates; and
-- after complete Mnemosyne extraction, a mandatory dedicated `0.2.0`
+- after the completed Mnemosyne extraction implementation, a mandatory dedicated
+  `0.2.0`
   compatibility migration makes the endpoint, application, repository metadata,
   and official client identify MyMCP while preserving Mnemosyne's plugin,
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
-Current production uses the explicit trusted Mnemosyne 0.1.0 adapter over
-canonical registrations. Bootstrap reads only the fixed
+Current production uses the explicit trusted Mnemosyne 0.1.0 bundled-plugin
+adapter over canonical registrations. Bootstrap reads only the fixed
 `mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
 bytes, and validates exact manifest/adapter/selected-contribution parity before
 generation construction. This fixed validation is neither dynamic discovery nor
@@ -89,23 +91,6 @@ mymcp/
   cli.py              # console entrypoints
   settings.py         # retained server/process identity constants
 
-  mnemosyne/
-    __init__.py       # in-process Mnemosyne ownership boundary
-    configuration.py  # memory root and bounded startup configuration
-
-  memory/
-    __init__.py       # stable shared-domain exports
-    scopes.py         # canonical scopes and namespace-kind policy
-    records.py        # versioned records, drafts, revisions, and references
-    normalization.py  # Unicode, identifiers, language, and tags
-    paths.py          # deterministic safe filesystem projection
-    errors.py         # shared domain and storage errors
-    policy.py         # bounded remember/revision content-refusal policy
-    store.py          # bounded reads and atomic filesystem persistence
-    retrieval.py      # eligibility, ranking, and match evidence
-    listing.py        # selectors, ordering, pages, and authenticated cursors
-    service.py        # recall, listing, remember, revision, and lifecycle policy
-
   routes/
     __init__.py
     mcp.py            # HTTP transport for /mcp
@@ -123,8 +108,13 @@ mymcp/
     composition.py      # ActivatedTool/PluginContribution composition
 
   plugins/
-    mnemosyne/
-      manifest.json     # packaged inert declaration only; not implementation
+    mnemosyne/          # trusted bundled Mnemosyne implementation
+      manifest.json     # fixed packaged inert declaration
+      plugin.py         # definition, selected contribution, service composition
+      configuration.py  # memory root and bounded startup configuration
+      memory/           # records, storage, retrieval, listing, and lifecycle
+      mcp/
+        tools/          # eight memory_* adapters and private helpers
 
   mcp/
     __init__.py
@@ -134,59 +124,10 @@ mymcp/
     tool_registry.py  # generic immutable Tool registration and dispatch
     tool_arguments.py # schema-aware client argument compatibility
 
-    integrations/
-      __init__.py     # explicit in-process integration boundary
-      mnemosyne.py    # Mnemosyne registrations and service composition
-
     tools/
       __init__.py
-      _memory_content_refusal.py # shared non-content remediation message
-      _memory_lifecycle.py # private lifecycle schemas, projections, errors, logs
-      _memory_revise.py # private revise schema, parsing, projection, errors, logs
-      _memory_forget.py # private forget projection, errors, and content-free logs
-
       list_tools/
-        __init__.py   # list_tools tool schema and handler
-
-      memory_recall/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # Tool schema derived from canonical shared scopes
-        handler.py    # typed recall operation adapter and Tool results
-
-      memory_list/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # strict initial and continuation selector schemas
-        handler.py    # typed list operation adapter and compact projections
-
-      memory_inspect/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # strict versioned-reference schema
-        handler.py    # typed inspect operation adapter and public projections
-
-      memory_remember/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # scope/dimension-derived mutation schema
-        handler.py    # typed remember operation adapter and mutation gate
-
-      memory_revise/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # complete canonical revision schema
-        handler.py    # narrow operation adapter over the private revise adapter
-
-      memory_archive/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # strict canonical reference/revision schema
-        handler.py    # narrow archive operation adapter
-
-      memory_restore/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # strict canonical reference/revision schema
-        handler.py    # narrow restore operation adapter
-
-      memory_forget/
-        __init__.py   # public TOOL and handle re-exports
-        definition.py # strict canonical reference/revision schema
-        handler.py    # narrow forget operation adapter
+        __init__.py   # host-owned complete-surface Tool
 ```
 
 ## Responsibilities
@@ -214,9 +155,11 @@ Owns MCP protocol concerns:
 - JSON-RPC request-parameter validation and errors
 - JSON-RPC response shape
 - MCP method dispatch
-- kind-qualified contribution composition
 - tool registry and dispatch
-- individual tool definitions and execution handlers
+- schema-aware argument normalization
+- host-owned `list_tools`
+
+It owns no Mnemosyne Tool definition, handler, configuration, or memory policy.
 
 Before a known Tool handler runs, the immutable registry normalizes its arguments
 against the same selected `inputSchema` used for discovery. This compatibility
@@ -268,18 +211,18 @@ use that runtime for discovery and dispatch. `create_production_app()` is the
 local factory used by the supported Uvicorn target; ordinary imports do not build
 a runtime or global application.
 
-### `mymcp/mcp/integrations/mnemosyne.py`
+### `mymcp/plugins/mnemosyne/plugin.py`
 
-Owns the explicit in-process Mnemosyne integration: current memory Tool imports,
-one immutable startup resolution of Mnemosyne-owned mutation settings, fixed
-public ordering, independent mutation-gate selection, definition/handler
-binding, and memory service/store composition. Its zero-argument production
-entrypoint contributes a trusted Mnemosyne 0.1.0 `PluginContribution` over
-canonical registrations; it does not contribute `list_tools` or construct the
-final `HostRuntime`. One ordered declaration table also derives its immutable
-complete `PluginDefinition`: all eight possible memory Tools remain declared
-while startup gates select the runtime subset. A lower-level helper accepts
-explicit gate booleans for deterministic focused tests.
+Owns the trusted in-process Mnemosyne integration: memory Tool imports, one
+immutable startup resolution of Mnemosyne-owned mutation settings, fixed public
+ordering, independent mutation-gate selection, definition/handler binding, and
+memory service/store composition. Its zero-argument production entrypoint
+contributes a trusted Mnemosyne 0.1.0 `PluginContribution` over canonical
+registrations; it does not contribute `list_tools`, public bindings, or the final
+`HostRuntime`. One ordered declaration table also derives its immutable complete
+`PluginDefinition`: all eight possible memory Tools remain declared while startup
+gates select the runtime subset. A lower-level helper accepts explicit gate
+booleans for deterministic focused tests.
 
 The integration lazily resolves the configured root and constructs a fresh
 `FilesystemMemoryStore` and `MemoryService` for each validated operation call.
@@ -291,9 +234,9 @@ gates.
 Each memory handler receives only its narrow typed operation. Handlers retain
 request parsing, Tool-level gate checks, result projection, bounded error
 mapping, and content-free logging; they do not resolve roots or import or
-construct concrete stores and services. This is an internal composition seam,
-not an extracted plugin, dynamic discovery system, production second
-integration, or public Tool namespace.
+construct concrete stores and services. This is a trusted bundled plugin, not a
+dynamic discovery system, production second integration, or public Tool
+namespace.
 
 Public Tool schemas with argument variants must keep the complete caller-visible
 field set in top-level `properties` with top-level required fields. Composition
@@ -306,7 +249,7 @@ schema.
 
 This is where the protocol surface should grow.
 
-### `mymcp/memory/`
+### `mymcp/plugins/mnemosyne/memory/`
 
 Owns tool-independent memory meaning and local persistence:
 
@@ -647,7 +590,7 @@ assembly, routes, MCP initialization, and `list_tools`: `SERVER_NAME`,
 `SERVER_VERSION`, `PROTOCOL_VERSION`, and `APP_TITLE`. It owns no memory root,
 mutation gate, environment name, local-file parser, or memory settings model.
 
-### `mymcp/mnemosyne/configuration.py`
+### `mymcp/plugins/mnemosyne/configuration.py`
 
 Owns the in-process Mnemosyne operator-configuration contract: dynamic
 resolution of the memory root and strict environment-first/fixed-file startup
@@ -656,8 +599,8 @@ enablement. Each supplied environment value overrides only its matching
 setting; unresolved values use at most one strict file read. It owns the fixed
 local settings path, schema, bounded source checks, and stable configuration
 failures without creating or editing operator configuration. It imports no MCP
-Tool package, FastAPI, or route module. This ownership seam is not an extracted
-plugin, dynamic configuration system, or public plugin contract.
+Tool package, FastAPI, or route module. This plugin-owned boundary is not a
+dynamic configuration system or public plugin contract.
 
 ### `mymcp/cli.py`
 

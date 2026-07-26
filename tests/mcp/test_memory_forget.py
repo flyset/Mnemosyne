@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.memory.errors import (
     DeletionOutcomeUncertain,
     MemoryNotArchived,
     MemoryNotFound,
@@ -16,14 +16,14 @@ from mymcp.memory.errors import (
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mymcp.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
-from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mymcp.memory.service import ForgetResult, MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.mcp.tools.memory_forget import TOOL, handle as public_handle
-from mymcp.mcp.tools.memory_forget import handler as handler_module
-from mymcp.mcp.tools.memory_forget.definition import TOOL as DEFINED_TOOL
-from mymcp.mnemosyne.configuration import get_memory_root
+from mymcp.plugins.mnemosyne.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.plugins.mnemosyne.memory.service import ForgetResult, MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
+from mymcp.plugins.mnemosyne.mcp.tools.memory_forget import TOOL, handle as public_handle
+from mymcp.plugins.mnemosyne.mcp.tools.memory_forget import handler as handler_module
+from mymcp.plugins.mnemosyne.mcp.tools.memory_forget.definition import TOOL as DEFINED_TOOL
+from mymcp.plugins.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
@@ -485,9 +485,9 @@ def test_memory_forget_deletes_one_archived_record_and_all_read_paths_report_abs
     assert unrelated.read_text(encoding="utf-8") == "unrelated"
     assert sorted(item.name for item in path.parent.iterdir()) == ["unrelated.txt"]
 
-    from mymcp.mcp.tools.memory_inspect import handle as inspect
-    from mymcp.mcp.tools.memory_recall import handle as recall
-    from mymcp.mcp.tools.memory_restore import handle as restore
+    from mymcp.plugins.mnemosyne.mcp.tools.memory_inspect import handle as inspect
+    from mymcp.plugins.mnemosyne.mcp.tools.memory_recall import handle as recall
+    from mymcp.plugins.mnemosyne.mcp.tools.memory_restore import handle as restore
 
     read_service = MemoryService(FilesystemMemoryStore(tmp_path))
     mutation_service = MemoryService(

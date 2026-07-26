@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.memory.errors import (
     ContentRefusalReason,
     DisallowedMemoryContent,
     MemoryNotArchived,
@@ -18,16 +18,16 @@ from mymcp.memory.errors import (
     MutationDisabled,
     RevisionConflict,
 )
-from mymcp.memory.records import (
+from mymcp.plugins.mnemosyne.memory.records import (
     LegacyMemoryReference,
     LifecycleState,
     MemoryDraft,
     MemoryReference,
     MemoryRevision,
 )
-from mymcp.memory.scopes import MemoryScope
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
+from mymcp.plugins.mnemosyne.memory.service import MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
 
 
 MEMORY_ID = "mem_0123456789abcdef0123456789abcdef"

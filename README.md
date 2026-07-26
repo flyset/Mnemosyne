@@ -2,9 +2,9 @@
 
 MyMCP is the repository and Python host package for an experimental local MCP
 server. It currently hosts Mnemosyne, the user-governed AI memory domain,
-in-process. Mnemosyne remains the current `0.1.4` public server and
-memory-domain identity; no plugin extraction or public-host cutover is
-implemented by this package rename.
+through a bundled plugin. Mnemosyne remains the current `0.1.4` public server
+and memory-domain identity; the separate MyMCP public-host cutover is not yet
+implemented.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
 that composes narrowly scoped integrations behind one machine-local endpoint.
@@ -20,27 +20,27 @@ consent metadata, host-owned public bindings and `list_tools`, an immutable
 `HostRuntime` with an opaque generation, explicit `build_production_runtime`,
 and runtime-bound MCP dispatch through `create_app(runtime)`.
 
-Phase 2 has begun with immutable definition contracts, a strict manifest-v1
-parser (JSON/UTF-8, duplicate-key, and 64 KiB bound), exact
-manifest/definition/contribution parity, and static pre-generation bootstrap
-validation. The complete inert Mnemosyne declaration is packaged at
-`mymcp/plugins/mnemosyne/manifest.json` and included in the wheel.
+Phase 2's declaration/parity boundary and vertical Mnemosyne extraction are
+implemented. The bundled plugin owns its inert manifest, trusted adapter,
+configuration, memory domain, and `memory_*` MCP adapters under
+`mymcp/plugins/mnemosyne/`. Manifest-v1 parsing remains strict (JSON/UTF-8,
+duplicate-key, and 64 KiB bound), and bootstrap validates exact
+manifest/definition/contribution parity before generation construction.
 
-The production adapter remains the trusted in-process Mnemosyne 0.1.0 adapter
-over canonical registrations. Bootstrap reads only that fixed packaged resource,
-validates it against the adapter definition and selected gate-controlled
-contribution, then constructs a runtime. `create_production_app()` is the local
-convenience factory and supported Uvicorn factory target. Ordinary imports are
-side-effect free; no global app, startup/methods modules, static
-`ToolIntegration`, or dynamic discovery are used.
+The plugin's trusted in-process Mnemosyne 0.1.0 adapter supplies canonical
+registrations. Host bootstrap reads only the fixed packaged resource, validates
+it against the plugin definition and selected gate-controlled contribution, then
+constructs a runtime. `create_production_app()` is the local convenience factory
+and supported Uvicorn factory target. Ordinary imports are side-effect free; no
+global app, startup/methods modules, static `ToolIntegration`, or dynamic
+discovery are used.
 
-The current public identity and behavior remain Mnemosyne 0.1.4: endpoint,
-Tool names and schemas, configuration, storage, records, and consent behavior
-are unchanged. `mymcp/plugins/mnemosyne/` currently contains declaration
-packaging only; Mnemosyne implementation remains in its transitional current
-locations and has not been extracted. External installation/activation/isolation,
-lifecycle publication, gateway governance, public metadata projection, and the
-mandatory 0.2.0 MyMCP cutover remain deferred. See
+The current public identity and behavior remain Mnemosyne 0.1.4: endpoint, Tool
+names and schemas, configuration, storage, records, and consent behavior are
+unchanged. TRACK_033 delivered the complete bundled extraction. External
+installation/activation/isolation, lifecycle publication, gateway governance,
+public metadata projection, and the mandatory 0.2.0 MyMCP cutover remain
+deferred. See
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
 Implemented tools:
@@ -271,8 +271,9 @@ paths, exception details, and tracebacks. Shared skipped-record warnings likewis
 contain only scope and a bounded reason.
 
 Memory scopes, records, paths, storage, retrieval, listing selection, ordering,
-pagination, cursor policy, content policy, and lifecycle policy live in a shared
-`mymcp/memory/` domain rather than inside individual MCP Tools. The domain
+pagination, cursor policy, content policy, and lifecycle policy live in the
+plugin-owned `mymcp/plugins/mnemosyne/memory/` domain rather than inside
+individual MCP Tools. The domain
 includes mutation-disabled revise, archive, restore, and physical-delete
 primitives. `memory_remember`, `memory_revise`, paired
 `memory_archive` / `memory_restore`, and `memory_forget` are absent from
@@ -288,21 +289,20 @@ fail composition rather than overwriting a registration.
 
 The explicit production bootstrap reads the fixed packaged inert Mnemosyne
 manifest, validates exact definition and selected-contribution parity before
-generation construction, then contributes the trusted Mnemosyne 0.1.0 adapter
-over canonical registrations. It resolves Mnemosyne's immutable mutation
-settings once, selects and orders memory Tools, and lazily resolves the
-configured root for each validated operation. Runtime-bound MCP dispatch,
-`tools/list`, and `list_tools` all use the same runtime registry.
-`mymcp/settings.py` retains only host server/process identity, while
-`mymcp/mnemosyne/configuration.py` owns the unchanged `MNEMOSYNE_*`,
-`~/.mnemosyne/config.toml`, and memory-root contracts. Handlers remain narrow
-operation adapters. Synthetic multi-contribution tests prove ordered
-aggregation, complete reporting, dispatch, and collision rejection.
-This internal static seam preserves Mnemosyne's public server identity, Tool
-names, schemas, ordering, gates, results, errors, configuration, and storage
-contracts. The packaged declaration neither extracts Mnemosyne nor grants its
-requested authority. This is not dynamic discovery, adds no public Tool
-namespacing, and provides no installation or lifecycle system.
+generation construction, then composes the trusted Mnemosyne 0.1.0 adapter over
+canonical registrations. The plugin resolves immutable mutation settings once,
+selects and orders memory Tools, and lazily resolves the configured root for each
+validated operation. Runtime-bound MCP dispatch, `tools/list`, and `list_tools`
+all use the same runtime registry. `mymcp/settings.py` retains only host
+server/process identity; plugin-owned `configuration.py` retains the unchanged
+`MNEMOSYNE_*`, `~/.mnemosyne/config.toml`, and memory-root contracts. Handlers
+remain narrow operation adapters. Synthetic multi-contribution tests prove
+ordered aggregation, complete reporting, dispatch, and collision rejection.
+This static bundled-plugin seam preserves Mnemosyne's public server identity,
+Tool names, schemas, ordering, gates, results, errors, configuration, and
+storage contracts. The manifest grants no requested authority. This is not
+dynamic discovery, adds no public Tool namespacing, and provides no installation
+or lifecycle system.
 
 ## Revising Memory
 
@@ -982,12 +982,13 @@ bootstrap remains explicit. Native installation, lifecycle generations,
 isolation, authenticated client policy, host-verifiable exact-call approval,
 and bounded security audit remain unimplemented.
 
-Mnemosyne remains the built-in user-governed memory domain. It gives agents
+Mnemosyne remains the bundled user-governed memory domain. It gives agents
 controlled access to approved durable records and bounded retrieval while
 preserving its existing Tool, configuration, storage, record, and memory-domain
-identity. It remains the current `0.1.4` public server, but the completed host is
-MyMCP. In the target layout, its configuration, memory domain, MCP adapters, and
-plugin composition live together under `mymcp/plugins/mnemosyne/`.
+identity. It remains the current `0.1.4` public server. Its configuration,
+memory domain, MCP adapters, and plugin composition now live under
+`mymcp/plugins/mnemosyne/`; the public MyMCP host identity awaits the mandatory
+`0.2.0` cutover.
 
 ## Non-Goals
 
@@ -1138,25 +1139,24 @@ bundled-only callable or deferring identity and security boundaries:
    host-owned bindings, immutable `HostRuntime`, a trusted Mnemosyne adapter,
    explicit bootstrap, runtime injection, immutable definition contracts, strict
    64 KiB manifest parsing, complete packaged declaration, exact parity, static
-   validation before generation, and wheel inclusion—without changing public
-   behavior.
-2. Complete Phase 2 by extracting the one canonical Mnemosyne implementation
-   under `mymcp/plugins/mnemosyne/`, retaining every compatibility contract.
-3. Perform the mandatory `0.2.0` public-host cutover from Mnemosyne endpoint,
+    validation before generation, wheel inclusion, and the one canonical
+    Mnemosyne implementation under `mymcp/plugins/mnemosyne/`—without changing
+    public behavior.
+2. Perform the mandatory `0.2.0` public-host cutover from Mnemosyne endpoint,
    application, repository, and official-client identity to MyMCP while
    preserving all Mnemosyne plugin/domain identities.
-4. Add side-effect-free native wheel inspection, digest-bound receipts,
+3. Add side-effect-free native wheel inspection, digest-bound receipts,
    immutable managed environments, bounded configuration/secret references, and
    persisted bindings without granting execution authority.
-5. Add isolated external activation only after a local unknown-code threat model,
+4. Add isolated external activation only after a local unknown-code threat model,
    supervision, killability, resource bounds, and default-deny
    filesystem/network enforcement are validated.
-6. Add generation lifecycle, required/optional failures, drain, quarantine,
+5. Add generation lifecycle, required/optional failures, drain, quarantine,
    update/rollback and data migration, removal/preservation, and separate purge.
-7. Build authenticated local-client routing, policy-filtered discovery/dispatch,
+6. Build authenticated local-client routing, policy-filtered discovery/dispatch,
    single-use exact-call approval, and bounded security audit behind the one
    machine-local endpoint.
-8. Generalize host services only after a second real plugin proves them reusable.
+7. Generalize host services only after a second real plugin proves them reusable.
 
 MCPB may later package MyMCP as one complete server. It is not the native MyMCP
 plugin distribution, manifest, or execution boundary.

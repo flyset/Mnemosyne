@@ -5,23 +5,23 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.memory.errors import (
     AmbiguousMemoryReference,
     CandidateLimitExceeded,
     MemoryNotFound,
     MemorySourceUnavailable,
     UnsafeMemoryPath,
 )
-from mymcp.memory.listing import MemoryCollectionSelector, MemoryListSelector
-from mymcp.memory.records import (
+from mymcp.plugins.mnemosyne.memory.listing import MemoryCollectionSelector, MemoryListSelector
+from mymcp.plugins.mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     LegacyMemoryReference,
     LifecycleState,
     MemoryRecordV2,
     MemoryReference,
 )
-from mymcp.memory.scopes import MemoryScope
-from mymcp.memory.store import FilesystemMemoryStore
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
 
 
 def _write(path: Path, payload: object) -> None:

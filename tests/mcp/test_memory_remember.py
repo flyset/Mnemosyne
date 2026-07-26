@@ -5,21 +5,21 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.mcp.tools.memory_remember import TOOL, handle as public_handle
-from mymcp.mcp.tools.memory_remember import handler as handler_module
-from mymcp.mcp.tools.memory_remember.definition import TOOL as DEFINED_TOOL
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.mcp.tools.memory_remember import TOOL, handle as public_handle
+from mymcp.plugins.mnemosyne.mcp.tools.memory_remember import handler as handler_module
+from mymcp.plugins.mnemosyne.mcp.tools.memory_remember.definition import TOOL as DEFINED_TOOL
+from mymcp.plugins.mnemosyne.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
     MutationDisabled,
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mymcp.memory.records import KIND_DEFINITIONS, MemoryDraft, MemoryReference
-from mymcp.memory.scopes import SCOPE_DEFINITIONS
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.mnemosyne.configuration import get_memory_root
+from mymcp.plugins.mnemosyne.memory.records import KIND_DEFINITIONS, MemoryDraft, MemoryReference
+from mymcp.plugins.mnemosyne.memory.scopes import SCOPE_DEFINITIONS
+from mymcp.plugins.mnemosyne.memory.service import MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
+from mymcp.plugins.mnemosyne.configuration import get_memory_root
 
 
 REQUIRED_FIELDS = {

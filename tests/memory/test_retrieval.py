@@ -1,15 +1,15 @@
 import json
 from pathlib import Path
 
-from mymcp.memory.records import (
+from mymcp.plugins.mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     MemoryRecordV2,
     parse_memory_record,
 )
-from mymcp.memory.retrieval import MemoryMatch, rank_memories
-from mymcp.memory.scopes import MemoryScope
-from mymcp.memory.service import MemoryService
-from mymcp.memory.store import FilesystemMemoryStore, StoredMemory
+from mymcp.plugins.mnemosyne.memory.retrieval import MemoryMatch, rank_memories
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
+from mymcp.plugins.mnemosyne.memory.service import MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore, StoredMemory
 
 
 def _legacy(

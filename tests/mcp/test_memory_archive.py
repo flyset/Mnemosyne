@@ -5,11 +5,11 @@ from typing import Any
 
 import pytest
 
-from mymcp.mcp.tools._memory_lifecycle import parse_lifecycle_request
-from mymcp.mcp.tools.memory_archive import TOOL, handle as public_handle
-from mymcp.mcp.tools.memory_archive import handler as handler_module
-from mymcp.mcp.tools.memory_archive.definition import TOOL as DEFINED_TOOL
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.mcp.tools._memory_lifecycle import parse_lifecycle_request
+from mymcp.plugins.mnemosyne.mcp.tools.memory_archive import TOOL, handle as public_handle
+from mymcp.plugins.mnemosyne.mcp.tools.memory_archive import handler as handler_module
+from mymcp.plugins.mnemosyne.mcp.tools.memory_archive.definition import TOOL as DEFINED_TOOL
+from mymcp.plugins.mnemosyne.memory.errors import (
     MemoryNotFound,
     MemorySourceUnavailable,
     MemoryValidationError,
@@ -19,11 +19,11 @@ from mymcp.memory.errors import (
     UnsafeMemoryPath,
     WriteConflict,
 )
-from mymcp.memory.records import MemoryReference, parse_memory_record
-from mymcp.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
-from mymcp.memory.service import MemoryResult, MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.mnemosyne.configuration import get_memory_root
+from mymcp.plugins.mnemosyne.memory.records import MemoryReference, parse_memory_record
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope, SCOPE_DEFINITIONS
+from mymcp.plugins.mnemosyne.memory.service import MemoryResult, MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
+from mymcp.plugins.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_0123456789abcdef0123456789abcdef"
@@ -340,7 +340,7 @@ def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspectio
     record = _record(state="active", revision=1, event=True)
     path = tmp_path / "project" / "mnemosyne" / "decisions" / f"{CANONICAL_ID}.json"
     path.parent.mkdir(parents=True)
-    from mymcp.memory.records import serialize_memory_record
+    from mymcp.plugins.mnemosyne.memory.records import serialize_memory_record
     path.write_text(json.dumps(serialize_memory_record(record)), encoding="utf-8")
     unrelated = tmp_path / "project" / "other.json"
     unrelated.write_text("unrelated", encoding="utf-8")
@@ -352,8 +352,8 @@ def test_memory_archive_changes_one_file_and_excludes_recall_but_keeps_inspectio
     assert len(list(tmp_path.rglob(f"{CANONICAL_ID}.json"))) == 1
     assert list(path.parent.glob(".*.tmp")) == []
     assert unrelated.read_text(encoding="utf-8") == "unrelated"
-    from mymcp.mcp.tools.memory_recall import handle as recall
-    from mymcp.mcp.tools.memory_inspect import handle as inspect
+    from mymcp.plugins.mnemosyne.mcp.tools.memory_recall import handle as recall
+    from mymcp.plugins.mnemosyne.mcp.tools.memory_inspect import handle as inspect
     read_service = MemoryService(FilesystemMemoryStore(tmp_path))
     assert _payload(
         recall(

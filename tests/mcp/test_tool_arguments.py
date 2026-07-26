@@ -4,10 +4,10 @@ import pytest
 
 from mymcp.mcp import tool_arguments
 from mymcp.mcp.tool_arguments import normalize_tool_arguments
-from mymcp.mcp.tools.memory_list import TOOL as MEMORY_LIST_TOOL
-from mymcp.mcp.tools.memory_list import handle as handle_memory_list
-from mymcp.mcp.tools.memory_remember import TOOL as REMEMBER_TOOL
-from mymcp.memory.listing import MemoryListPage, MemoryListResult
+from mymcp.plugins.mnemosyne.mcp.tools.memory_list import TOOL as MEMORY_LIST_TOOL
+from mymcp.plugins.mnemosyne.mcp.tools.memory_list import handle as handle_memory_list
+from mymcp.plugins.mnemosyne.mcp.tools.memory_remember import TOOL as REMEMBER_TOOL
+from mymcp.plugins.mnemosyne.memory.listing import MemoryListPage, MemoryListResult
 
 
 def _remember_arguments() -> dict[str, object]:

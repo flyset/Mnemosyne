@@ -5,16 +5,16 @@ from typing import Any
 
 import pytest
 
-from mymcp.mcp.tools._memory_lifecycle import parse_lifecycle_request
-from mymcp.mcp.tools.memory_restore import TOOL, handle as public_handle
-from mymcp.mcp.tools.memory_restore import handler as handler_module
-from mymcp.mcp.tools.memory_restore.definition import TOOL as DEFINED_TOOL
-from mymcp.memory.errors import ReplacementOutcomeUncertain
-from mymcp.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
-from mymcp.memory.scopes import MemoryScope
-from mymcp.memory.service import MemoryResult, MemoryService
-from mymcp.memory.store import FilesystemMemoryStore
-from mymcp.mnemosyne.configuration import get_memory_root
+from mymcp.plugins.mnemosyne.mcp.tools._memory_lifecycle import parse_lifecycle_request
+from mymcp.plugins.mnemosyne.mcp.tools.memory_restore import TOOL, handle as public_handle
+from mymcp.plugins.mnemosyne.mcp.tools.memory_restore import handler as handler_module
+from mymcp.plugins.mnemosyne.mcp.tools.memory_restore.definition import TOOL as DEFINED_TOOL
+from mymcp.plugins.mnemosyne.memory.errors import ReplacementOutcomeUncertain
+from mymcp.plugins.mnemosyne.memory.records import MemoryReference, parse_memory_record, serialize_memory_record
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
+from mymcp.plugins.mnemosyne.memory.service import MemoryResult, MemoryService
+from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
+from mymcp.plugins.mnemosyne.configuration import get_memory_root
 
 
 CANONICAL_ID = "mem_fedcba9876543210fedcba9876543210"
@@ -197,8 +197,8 @@ def test_memory_restore_returns_archived_memory_to_recall_and_inspection(
     result = handle(_arguments(), mutations_enabled=True)
 
     assert _payload(result)["status"] == "restored"
-    from mymcp.mcp.tools.memory_recall import handle as recall
-    from mymcp.mcp.tools.memory_inspect import handle as inspect
+    from mymcp.plugins.mnemosyne.mcp.tools.memory_recall import handle as recall
+    from mymcp.plugins.mnemosyne.mcp.tools.memory_inspect import handle as inspect
     read_service = MemoryService(FilesystemMemoryStore(tmp_path))
     recalled = _payload(
         recall(

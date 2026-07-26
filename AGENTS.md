@@ -17,9 +17,12 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 ## Current Scope
 
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam and
-the first Phase 2 declaration/parity boundary. `mymcp/plugins/mnemosyne/`
-contains only an inert packaged declaration; Mnemosyne has not been extracted
-into a plugin. Keep changes minimal and protocol-aware.
+a delivered Phase 2 bundled Mnemosyne extraction. The canonical Mnemosyne
+adapter, configuration, memory domain, and MCP Tool adapters live under
+`mymcp/plugins/mnemosyne/`; bootstrap, runtime, bindings, argument normalization,
+and host `list_tools` remain host-owned. Mnemosyne remains the public `0.1.4`
+server until the separate mandatory `0.2.0` MyMCP public-host cutover. Keep
+changes minimal and protocol-aware.
 
 ## Project Memory
 

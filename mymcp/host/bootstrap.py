@@ -3,7 +3,7 @@ from importlib.resources import files
 from typing import Any
 
 from mymcp.host.runtime import GenerationFactory, HostRuntime, build_host_runtime
-from mymcp.mcp.integrations.mnemosyne import (
+from mymcp.plugins.mnemosyne.plugin import (
     mnemosyne_contribution,
     mnemosyne_plugin_definition,
 )

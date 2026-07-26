@@ -2,15 +2,15 @@ from copy import deepcopy
 
 import pytest
 
-from mymcp.memory.errors import (
+from mymcp.plugins.mnemosyne.memory.errors import (
     ContentRefusalReason,
     DisallowedMemoryContent,
 )
-from mymcp.memory.policy import (
+from mymcp.plugins.mnemosyne.memory.policy import (
     validate_remember_content,
     validate_revision_content,
 )
-from mymcp.memory.records import MemoryDraft, MemoryRevision
+from mymcp.plugins.mnemosyne.memory.records import MemoryDraft, MemoryRevision
 
 
 def _arguments() -> dict[str, object]:
@@ -130,7 +130,7 @@ BENIGN_DOTTED_TEXT = [
     "1.25.0",
     "2026.07.23",
     "1.0.0-rc.1",
-    "mymcp.memory.policy",
+    "mymcp.plugins.mnemosyne.memory.policy",
     "api.example.com",
 ]
 

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from mymcp.memory.errors import MemoryValidationError
-from mymcp.memory.records import (
+from mymcp.plugins.mnemosyne.memory.errors import MemoryValidationError
+from mymcp.plugins.mnemosyne.memory.records import (
     ALLOWED_KINDS,
     KIND_DEFINITIONS,
     KindDefinition,
@@ -25,7 +25,7 @@ from mymcp.memory.records import (
     parse_memory_record,
     serialize_memory_record,
 )
-from mymcp.memory.scopes import MemoryScope
+from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
 
 
 V2_PAYLOAD = {

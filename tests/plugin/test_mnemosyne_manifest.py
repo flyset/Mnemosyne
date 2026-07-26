@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from mymcp.mcp.integrations import mnemosyne
+from mymcp.plugins.mnemosyne import plugin as mnemosyne
 from mymcp.plugin.contracts import (
     CapabilityKind,
     CapabilityLocalId,
@@ -27,6 +27,29 @@ from mymcp.plugin.manifest import parse_manifest_bytes
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MNEMOSYNE_PACKAGE = PROJECT_ROOT / "mymcp" / "plugins" / "mnemosyne"
+REQUIRED_CANONICAL_SOURCE_FILES = {
+    "__init__.py",
+    "manifest.json",
+    "plugin.py",
+    "configuration.py",
+    "memory/__init__.py",
+    "memory/errors.py",
+    "memory/listing.py",
+    "memory/normalization.py",
+    "memory/paths.py",
+    "memory/policy.py",
+    "memory/records.py",
+    "memory/retrieval.py",
+    "memory/scopes.py",
+    "memory/service.py",
+    "memory/store.py",
+    "mcp/__init__.py",
+    "mcp/tools/__init__.py",
+    "mcp/tools/_memory_content_refusal.py",
+    "mcp/tools/_memory_forget.py",
+    "mcp/tools/_memory_lifecycle.py",
+    "mcp/tools/_memory_revise.py",
+}
 EXPECTED_CAPABILITIES = (
     "memory_recall",
     "memory_list",
@@ -36,6 +59,11 @@ EXPECTED_CAPABILITIES = (
     "memory_remember",
     "memory_revise",
     "memory_forget",
+)
+REQUIRED_CANONICAL_SOURCE_FILES.update(
+    f"mcp/tools/{name}/{part}.py"
+    for name in EXPECTED_CAPABILITIES
+    for part in ("__init__", "definition", "handler")
 )
 READ_ONLY_CAPABILITIES = {
     "memory_recall",
@@ -59,20 +87,13 @@ def test_mnemosyne_manifest_is_one_fixed_parseable_package_resource() -> None:
 
     assert resource.is_file()
     assert parse_manifest_bytes(resource.read_bytes())
-    assert sorted(
-        path.name for path in MNEMOSYNE_PACKAGE.iterdir() if path.name != "__pycache__"
-    ) == [
-        "__init__.py",
-        "manifest.json",
-    ]
-    assert sorted(
-        path.name
-        for path in MNEMOSYNE_PACKAGE.parent.iterdir()
-        if path.name != "__pycache__"
-    ) == [
-        "__init__.py",
-        "mnemosyne",
-    ]
+    source_files = {
+        path.relative_to(MNEMOSYNE_PACKAGE).as_posix()
+        for path in MNEMOSYNE_PACKAGE.rglob("*")
+        if path.is_file() and (path.suffix == ".py" or path.name == "manifest.json")
+    }
+    assert REQUIRED_CANONICAL_SOURCE_FILES <= source_files
+    assert sum(path.name == "manifest.json" for path in MNEMOSYNE_PACKAGE.rglob("*")) == 1
 
 
 def test_mnemosyne_manifest_matches_the_trusted_adapter_definition() -> None:

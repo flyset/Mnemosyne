@@ -672,7 +672,7 @@ def test_manifest_module_performs_no_discovery_or_io() -> None:
                 "mymcp.plugins",
                 "mymcp.host",
                 "mymcp.mnemosyne",
-                "mymcp.memory",
+                "mymcp.plugins.mnemosyne.memory",
                 "mymcp.mcp",
                 "mymcp.routes",
                 "fastapi",

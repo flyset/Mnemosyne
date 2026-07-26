@@ -7,14 +7,14 @@ import pytest
 
 from mymcp.host import bootstrap
 from mymcp.host.bootstrap import build_production_runtime
-from mymcp.mcp.integrations import mnemosyne
-from mymcp.mcp.integrations.mnemosyne import (
+from mymcp.plugins.mnemosyne import plugin as mnemosyne
+from mymcp.plugins.mnemosyne.plugin import (
     build_mnemosyne_contribution,
     build_mnemosyne_registrations,
     mnemosyne_contribution,
 )
 from mymcp.mcp.tool_registry import ToolRegistration
-from mymcp.mcp.tools import (
+from mymcp.plugins.mnemosyne.mcp.tools import (
     memory_archive,
     memory_forget,
     memory_inspect,
@@ -24,16 +24,14 @@ from mymcp.mcp.tools import (
     memory_revise,
     memory_restore,
 )
-from mymcp.memory.errors import MemorySourceUnavailable
-from mymcp.mnemosyne.configuration import MemoryToolSettings
+from mymcp.plugins.mnemosyne.memory.errors import MemorySourceUnavailable
+from mymcp.plugins.mnemosyne.configuration import MemoryToolSettings
 from mymcp.plugin.composition import PluginContribution
 from mymcp.plugin.contracts import PluginId, PluginVersion
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-INTEGRATION_MODULE = (
-    PROJECT_ROOT / "mymcp" / "mcp" / "integrations" / "mnemosyne.py"
-)
+INTEGRATION_MODULE = PROJECT_ROOT / "mymcp" / "plugins" / "mnemosyne" / "plugin.py"
 BOOTSTRAP_MODULE = PROJECT_ROOT / "mymcp" / "host" / "bootstrap.py"
 OLD_REGISTRY_MODULE = PROJECT_ROOT / "mymcp" / "mcp" / "tools" / "registry.py"
 DEFAULT_TOOL_NAMES = [
@@ -119,7 +117,7 @@ def test_trusted_adapter_resolves_settings_once(
 def test_bootstrap_is_the_explicit_production_composition_root() -> None:
     bootstrap_imports = _imports(BOOTSTRAP_MODULE)
 
-    assert "mymcp.mcp.integrations.mnemosyne" in bootstrap_imports
+    assert "mymcp.plugins.mnemosyne.plugin" in bootstrap_imports
     assert "mymcp.mcp.composition" not in bootstrap_imports
 
 
@@ -188,11 +186,11 @@ def test_integration_owns_memory_configuration_while_bootstrap_owns_neither() ->
     integration_imports = _imports(INTEGRATION_MODULE)
     bootstrap_imports = _imports(BOOTSTRAP_MODULE)
 
-    assert "mymcp.mcp.tools" in integration_imports
-    assert "mymcp.mnemosyne.configuration" in integration_imports
+    assert "mymcp.plugins.mnemosyne.mcp.tools" in integration_imports
+    assert "mymcp.plugins.mnemosyne.configuration" in integration_imports
     assert all(
         not imported.startswith(
-            ("mymcp.memory", "mymcp.mnemosyne")
+            ("mymcp.plugins.mnemosyne.memory", "mymcp.mnemosyne")
         )
         for imported in bootstrap_imports
     )

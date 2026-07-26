@@ -455,7 +455,7 @@ def test_definition_module_imports_no_concrete_plugin_runtime_or_domain() -> Non
                 "mymcp.plugins",
                 "mymcp.host",
                 "mymcp.mnemosyne",
-                "mymcp.memory",
+                "mymcp.plugins.mnemosyne.memory",
                 "mymcp.mcp",
                 "mymcp.routes",
                 "fastapi",
