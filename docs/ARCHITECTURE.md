@@ -11,7 +11,10 @@ exact parity validation, and fixed packaged declaration loading before runtime
 generation. TRACK_033's implemented vertical extraction places the canonical
 Mnemosyne adapter, configuration, memory domain, and MCP Tool adapters in its
 bundled plugin. TRACK_034 delivered the MyMCP/`mymcp` `0.2.0` public-host release
-while Mnemosyne retains its memory-domain identity.
+while Mnemosyne retains its memory-domain identity. TRACK_036 advances the
+current host/package marker to `0.2.1` and removes redundant nonblank Tool-schema
+patterns that Ollama's llama.cpp grammar converter cannot compile; server-side
+Mnemosyne validation and all Tool/domain identities remain unchanged.
 
 The central distinction is:
 
@@ -532,10 +535,11 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.2.0` for the public-host release, is kept equal to the package
-version, and is also returned by initialize and `/version`. This marker identifies
-stale processes after public-contract updates; it is not a dynamic Git identifier
-or a replacement for reconnecting Tool discovery.
+is `mymcp 0.2.1` for the current compatibility build and is kept equal to the
+package version. The marker is also returned by initialize and `/version`; the
+public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
+processes after public-contract updates; it is not a dynamic Git identifier or a
+replacement for reconnecting Tool discovery.
 
 The registry also derives an immutable Tool-name-to-input-schema mapping from
 that same startup selection. Known Tool calls pass through the shared

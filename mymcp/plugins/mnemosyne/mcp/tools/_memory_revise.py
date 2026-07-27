@@ -66,7 +66,6 @@ def _nullable_text(
         "description": description,
         "minLength": 1,
         "maxLength": maximum_length,
-        "pattern": "\\S",
     }
 
 
@@ -101,7 +100,6 @@ def revise_input_schema() -> dict[str, object]:
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 4_000,
-                "pattern": "\\S",
             },
             "tags": {
                 "type": "array",
@@ -109,7 +107,6 @@ def revise_input_schema() -> dict[str, object]:
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 50,
-                    "pattern": "\\S",
                 },
                 "minItems": 0,
                 "maxItems": 10,

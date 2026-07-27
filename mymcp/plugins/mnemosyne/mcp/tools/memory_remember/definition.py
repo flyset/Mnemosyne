@@ -78,7 +78,6 @@ def _nullable_text(maximum_length: int) -> dict[str, Any]:
                 "type": "string",
                 "minLength": 1,
                 "maxLength": maximum_length,
-                "pattern": "\\S",
             },
             {"type": "null"},
         ]
@@ -186,7 +185,6 @@ def _properties(
             "type": "string",
             "minLength": 1,
             "maxLength": 4_000,
-            "pattern": "\\S",
         },
         "tags": {
             "type": "array",
@@ -194,7 +192,6 @@ def _properties(
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 50,
-                "pattern": "\\S",
             },
             "minItems": 0,
             "maxItems": 10,

@@ -26,5 +26,5 @@ def test_server_and_package_versions_identify_the_compatibility_build() -> None:
         (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
 
-    assert SERVER_VERSION == "0.2.0"
+    assert SERVER_VERSION == "0.2.1"
     assert project["version"] == SERVER_VERSION

@@ -17,8 +17,9 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 ## Current Scope
 
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam, a
-delivered Phase 2 bundled Mnemosyne extraction, and the released MyMCP/`mymcp`
-`0.2.0` public host. The canonical Mnemosyne adapter, configuration,
+delivered Phase 2 bundled Mnemosyne extraction, the released MyMCP/`mymcp`
+`0.2.0` public host, and the current `0.2.1` Ollama schema-compatibility build.
+The canonical Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
 remain host-owned. Repository migration, operational reconnect/approval checks,

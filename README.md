@@ -1,9 +1,10 @@
 # MyMCP
 
 MyMCP is the repository and Python host package for an experimental local MCP
-server. Released `0.2.0` identifies the host, application, package,
-and official tracked client as MyMCP/`mymcp`. It hosts Mnemosyne, the
-user-governed AI memory domain, through a bundled plugin.
+server. Released `0.2.0` established the host, application, package, and official
+tracked client as MyMCP/`mymcp`; the current source is the `0.2.1` compatibility
+build. It hosts Mnemosyne, the user-governed AI memory domain, through a bundled
+plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
 that composes narrowly scoped integrations behind one machine-local endpoint.
@@ -33,6 +34,14 @@ constructs a runtime. `create_production_app()` is the local convenience factory
 and supported Uvicorn factory target. Ordinary imports are side-effect free; no
 global app, startup/methods modules, static `ToolIntegration`, or dynamic
 discovery are used.
+
+The `0.2.1` compatibility build removes redundant nonblank regular-expression
+constraints from `memory_recall`, `memory_remember`, and `memory_revise` Tool
+schemas because Ollama's llama.cpp grammar converter rejects the `\s`/`\S`
+constructs even when fully anchored. Existing server validation still accepts
+multi-word and multiline values containing non-whitespace and rejects
+whitespace-only values. Tool names, fields, bounds, results, mutation gates,
+consent, and storage behavior are unchanged.
 
 TRACK_034 delivered the MyMCP `0.2.0` public-host cutover: server/application
 identity, package metadata, the canonical repository, and the tracked OpenCode
@@ -465,7 +474,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mymcp 0.2.0.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.2.1.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory

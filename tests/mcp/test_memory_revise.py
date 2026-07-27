@@ -152,7 +152,6 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
             "type": "string",
             "minLength": 1,
             "maxLength": 50,
-            "pattern": "\\S",
         },
         "minItems": 0,
         "maxItems": 10,
@@ -166,7 +165,6 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
         ),
         "minLength": 1,
         "maxLength": 100,
-        "pattern": "\\S",
     }
     assert schema["properties"]["collection_label"] == {
         "type": ["string", "null"],
@@ -177,7 +175,6 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
         ),
         "minLength": 1,
         "maxLength": 100,
-        "pattern": "\\S",
     }
     assert schema["properties"]["title"] == {
         "type": ["string", "null"],
@@ -186,7 +183,6 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
         ),
         "minLength": 1,
         "maxLength": 200,
-        "pattern": "\\S",
     }
 
 

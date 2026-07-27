@@ -1,9 +1,11 @@
 # Route Scope Rules
 
-- This is the MyMCP host's HTTP transport layer for the released runtime-bound
-  MyMCP/`mymcp` `0.2.0` host and its compatible bundled Mnemosyne plugin surface.
-  Extraction, repository migration, operational verification, and release
-  publication are complete; external activation remains deferred.
+- This is the MyMCP host's HTTP transport layer for the runtime-bound
+  MyMCP/`mymcp` `0.2.1` compatibility build and its compatible bundled Mnemosyne
+  plugin surface. The public-host cutover was released as `0.2.0`; its
+  extraction, repository migration, operational verification, and release
+  publication are complete. The `0.2.1` release is not published; external
+  activation remains deferred.
 - Own HTTP paths, request and response transport, and lightweight operational endpoints here.
 - Keep routes thin: delegate MCP parsing, dispatch, and tool execution to `mymcp/mcp/`.
 - Bind routers to an explicitly supplied dispatcher; routes must not bootstrap or

@@ -80,7 +80,6 @@ def test_memory_recall_exposes_the_selected_tool_definition() -> None:
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 50,
-                        "pattern": "\\S",
                     },
                     "minItems": 1,
                     "maxItems": 10,

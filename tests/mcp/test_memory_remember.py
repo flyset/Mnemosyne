@@ -213,7 +213,6 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 100,
-                        "pattern": "\\S",
                     },
                     {"type": "null"},
                 ]
@@ -240,7 +239,6 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
         "type": "string",
         "minLength": 1,
         "maxLength": 4000,
-        "pattern": "\\S",
     }
     assert project["tags"]["minItems"] == 0
     assert project["tags"]["maxItems"] == 10

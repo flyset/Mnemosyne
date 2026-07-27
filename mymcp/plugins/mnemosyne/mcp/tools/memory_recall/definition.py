@@ -46,7 +46,6 @@ TOOL = {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 50,
-                    "pattern": "\\S",
                 },
                 "minItems": 1,
                 "maxItems": 10,

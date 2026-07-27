@@ -13,7 +13,7 @@ from mymcp.plugins.mnemosyne.plugin import (
     build_mnemosyne_registrations,
     mnemosyne_contribution,
 )
-from mymcp.mcp.tool_registry import ToolRegistration
+from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
 from mymcp.plugins.mnemosyne.mcp.tools import (
     memory_archive,
     memory_forget,
@@ -24,7 +24,11 @@ from mymcp.plugins.mnemosyne.mcp.tools import (
     memory_revise,
     memory_restore,
 )
-from mymcp.plugins.mnemosyne.memory.errors import MemorySourceUnavailable
+from mymcp.plugins.mnemosyne.memory.errors import (
+    MemorySourceUnavailable,
+    MemoryValidationError,
+)
+from mymcp.plugins.mnemosyne.memory.records import MemoryDraft
 from mymcp.plugins.mnemosyne.configuration import MemoryToolSettings
 from mymcp.plugin.composition import PluginContribution
 from mymcp.plugin.contracts import PluginId, PluginVersion
@@ -61,6 +65,26 @@ def _imports(path: Path) -> set[str]:
     return imports
 
 
+def _schema_patterns(value: object) -> list[str]:
+    if isinstance(value, dict):
+        patterns = [
+            pattern
+            for key, pattern in value.items()
+            if key == "pattern" and isinstance(pattern, str)
+        ]
+        for key, nested in value.items():
+            if key != "pattern":
+                patterns.extend(_schema_patterns(nested))
+        return patterns
+    if isinstance(value, list):
+        return [
+            pattern
+            for nested in value
+            for pattern in _schema_patterns(nested)
+        ]
+    return []
+
+
 def _runtime_for_settings(
     settings: MemoryToolSettings,
     monkeypatch: pytest.MonkeyPatch,
@@ -78,6 +102,55 @@ def test_mnemosyne_integration_contributes_ordered_registrations_without_list_to
     assert [item.tool["name"] for item in registrations] == (
         DEFAULT_INTEGRATION_TOOL_NAMES
     )
+
+
+def test_every_advertised_mnemosyne_schema_pattern_is_ollama_compatible() -> None:
+    registry = ToolRegistry(
+        build_mnemosyne_registrations(
+            memory_remember_enabled=True,
+            memory_archive_restore_enabled=True,
+            memory_forget_enabled=True,
+            memory_revise_enabled=True,
+        )
+    )
+
+    incompatible = [
+        (tool["name"], pattern)
+        for tool in registry.tools
+        for pattern in _schema_patterns(tool["inputSchema"])
+        if (
+            not (pattern.startswith("^") and pattern.endswith("$"))
+            or "\\s" in pattern
+            or "\\S" in pattern
+        )
+    ]
+
+    assert incompatible == []
+
+
+def test_server_nonblank_validation_preserves_multiline_text() -> None:
+    arguments = {
+        "scope": "project",
+        "namespace": {
+            "kind": "project",
+            "id": "mymcp",
+            "label": "Project Alpha",
+        },
+        "collection": None,
+        "kind": "decision",
+        "language": "en",
+        "title": "Compatibility decision",
+        "content": "First line\nSecond line",
+        "tags": ["multi word"],
+        "origin": "explicit_user_statement",
+    }
+
+    draft = MemoryDraft.from_dict(arguments)
+
+    assert draft.content == "First line\nSecond line"
+    with pytest.raises(MemoryValidationError) as caught:
+        MemoryDraft.from_dict({**arguments, "content": " \n\t"})
+    assert caught.value.field == "content"
 
 
 def test_trusted_adapter_wraps_ordered_registrations_without_list_tools() -> None:
@@ -173,7 +246,7 @@ def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mymcp 0.2.0. Available tools: "
+                    "Server: mymcp 0.2.1. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect, "
                     "memory_remember, memory_revise"
                 ),

@@ -8,13 +8,13 @@ from mymcp.settings import APP_TITLE, PROTOCOL_VERSION, SERVER_NAME, SERVER_VERS
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_public_host_and_package_identify_mymcp_0_2_0() -> None:
+def test_public_host_and_package_identify_mymcp_0_2_1() -> None:
     project = tomllib.loads(
         (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
 
     assert SERVER_NAME == "mymcp"
-    assert SERVER_VERSION == "0.2.0"
+    assert SERVER_VERSION == "0.2.1"
     assert APP_TITLE == "MyMCP"
     assert PROTOCOL_VERSION == "2024-11-05"
     assert project["name"] == "mymcp"
