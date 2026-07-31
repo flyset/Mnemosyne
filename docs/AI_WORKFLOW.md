@@ -13,6 +13,14 @@
 - Read `docs/ARCHITECTURE.md` before changing package boundaries, routes, MCP dispatch, or tool registration.
 - Preserve the local-first, single-user, least-privilege model unless the change explicitly revises it.
 - Keep MCP tools small, explicit, and independently testable; never introduce general shell execution or unrestricted filesystem access.
+- Before implementing a public MCP contract change, record an explicit impact
+  decision against the identity/version model in `docs/PLUGIN_ARCHITECTURE.md`.
+  Cover every relevant distribution, endpoint marker, MCP protocol, host-plugin
+  API, manifest schema, worker protocol, plugin, capability-contract,
+  configuration, plugin-data, runtime-generation, and record-schema dimension,
+  including an approved reason for each relevant layer left unchanged. Keep the
+  decision in the Track Decision log and pass the applicable automated
+  definition/version guard.
 
 ## Verification and Documentation
 

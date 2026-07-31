@@ -52,8 +52,10 @@ must exactly match the adapter definition and selected contribution before a
 generation is constructed. `create_app(runtime)` and runtime-bound MCP dispatch
 keep ordinary imports side-effect free; `create_production_app` is the supported
 local Uvicorn factory target. The production surface contains the trusted
-Mnemosyne 0.1.0 adapter over canonical registrations from the extracted bundled
-plugin.
+Mnemosyne `0.2.0` adapter over canonical registrations from the extracted bundled
+plugin. Its per-capability contract declarations identify `memory_recall` as
+`1.1.0` and the other seven capabilities as `1.0.0`; MyMCP's host/package marker
+remains `0.2.1`.
 
 The released public-host cutover includes repository and operational
 verification. Inert native installation, isolated activation, lifecycle

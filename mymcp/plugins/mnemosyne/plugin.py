@@ -56,8 +56,7 @@ from mymcp.plugin.definition import (
 
 
 _PLUGIN_ID = PluginId("mnemosyne")
-_PLUGIN_VERSION = PluginVersion("0.1.0")
-_CAPABILITY_VERSION = CapabilityContractVersion("1.0.0")
+_PLUGIN_VERSION = PluginVersion("0.2.0")
 _READ_ONLY_EFFECTS = ToolEffects(True, False, True, False)
 _MUTATING_EFFECTS = ToolEffects(False, False, True, False)
 _DESTRUCTIVE_EFFECTS = ToolEffects(False, True, True, False)
@@ -65,36 +64,58 @@ _DESTRUCTIVE_EFFECTS = ToolEffects(False, True, True, False)
 
 def _capability(
     local_id: str,
+    version: str,
     effects: ToolEffects,
     consent: ConsentRequirement,
 ) -> CapabilityDeclaration:
     return CapabilityDeclaration(
         kind=CapabilityKind.TOOL,
         local_id=CapabilityLocalId(local_id),
-        version=_CAPABILITY_VERSION,
+        version=CapabilityContractVersion(version),
         effects=effects,
         consent=consent,
     )
 
 
 _CAPABILITY_DECLARATIONS = (
-    _capability("memory_recall", _READ_ONLY_EFFECTS, ConsentRequirement.NONE),
-    _capability("memory_list", _READ_ONLY_EFFECTS, ConsentRequirement.NONE),
-    _capability("memory_inspect", _READ_ONLY_EFFECTS, ConsentRequirement.NONE),
     _capability(
-        "memory_archive", _MUTATING_EFFECTS, ConsentRequirement.PER_CALL
+        "memory_recall", "1.1.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
-        "memory_restore", _MUTATING_EFFECTS, ConsentRequirement.PER_CALL
+        "memory_list", "1.0.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
-        "memory_remember", _MUTATING_EFFECTS, ConsentRequirement.PER_CALL
+        "memory_inspect", "1.0.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
-        "memory_revise", _DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL
+        "memory_archive",
+        "1.0.0",
+        _MUTATING_EFFECTS,
+        ConsentRequirement.PER_CALL,
     ),
     _capability(
-        "memory_forget", _DESTRUCTIVE_EFFECTS, ConsentRequirement.PER_CALL
+        "memory_restore",
+        "1.0.0",
+        _MUTATING_EFFECTS,
+        ConsentRequirement.PER_CALL,
+    ),
+    _capability(
+        "memory_remember",
+        "1.0.0",
+        _MUTATING_EFFECTS,
+        ConsentRequirement.PER_CALL,
+    ),
+    _capability(
+        "memory_revise",
+        "1.0.0",
+        _DESTRUCTIVE_EFFECTS,
+        ConsentRequirement.PER_CALL,
+    ),
+    _capability(
+        "memory_forget",
+        "1.0.0",
+        _DESTRUCTIVE_EFFECTS,
+        ConsentRequirement.PER_CALL,
     ),
 )
 

@@ -60,8 +60,10 @@ The approved target is defined in
   Mnemosyne's plugin,
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
-Current production uses the explicit trusted Mnemosyne 0.1.0 bundled-plugin
-adapter over canonical registrations. Bootstrap reads only the fixed
+Current production uses the explicit trusted Mnemosyne `0.2.0` bundled-plugin
+adapter over canonical registrations. `memory_recall` declares capability
+contract `1.1.0`; the other seven `memory_*` capabilities declare `1.0.0`.
+MyMCP's host/package/server marker remains `0.2.1`. Bootstrap reads only the fixed
 `mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
 bytes, and validates exact manifest/adapter/selected-contribution parity before
 generation construction. This fixed validation is neither dynamic discovery nor
@@ -228,12 +230,22 @@ Owns the trusted in-process Mnemosyne integration: memory Tool imports, one
 immutable startup resolution of Mnemosyne-owned mutation settings, fixed public
 ordering, independent mutation-gate selection, definition/handler binding, and
 memory service/store composition. Its zero-argument production entrypoint
-contributes a trusted Mnemosyne 0.1.0 `PluginContribution` over canonical
+contributes a trusted Mnemosyne `0.2.0` `PluginContribution` over canonical
 registrations; it does not contribute `list_tools`, public bindings, or the final
 `HostRuntime`. One ordered declaration table also derives its immutable complete
-`PluginDefinition`: all eight possible memory Tools remain declared while startup
-gates select the runtime subset. A lower-level helper accepts explicit gate
-booleans for deterministic focused tests.
+`PluginDefinition`: every capability row declares its own contract version, all
+eight possible memory Tools remain declared, and startup gates select the runtime
+subset. A lower-level helper accepts explicit gate booleans for deterministic
+focused tests.
+
+Focused tests own a version-keyed canonical-JSON digest ledger for declared Tool
+definitions. Each entry couples a capability identity and declared version to a
+SHA-256 digest and readable top-level properties/required-field fingerprints;
+historical entries, including `memory_recall` `1.0.0`, remain reviewable beside
+the current `1.1.0` contract. This guard detects declared-definition drift, not
+handler result/error semantics or every compatibility consequence. Behavioral
+tests and the required version-impact review remain the authority for deciding
+whether a version changes.
 
 The integration lazily resolves the configured root and constructs a fresh
 `FilesystemMemoryStore` and `MemoryService` for each validated operation call.

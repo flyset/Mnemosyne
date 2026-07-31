@@ -19,7 +19,9 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam, a
 delivered Phase 2 bundled Mnemosyne extraction, the released MyMCP/`mymcp`
 `0.2.0` public host, and the current `0.2.1` Ollama schema-compatibility build.
-The canonical Mnemosyne adapter, configuration,
+The bundled Mnemosyne plugin is `0.2.0`; memory_recall is capability contract
+`1.1.0`, while its other seven capabilities remain `1.0.0`. The canonical
+Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
 remain host-owned. Repository migration, operational reconnect/approval checks,
@@ -62,6 +64,9 @@ minimal and protocol-aware.
 - Read `docs/AI_WORKFLOW.md` before planning any state-changing action.
 - Inspect `README.md`, `VISION.md`, `docs/ARCHITECTURE.md`, and the affected package files.
 - For terminology or public-contract work, read `docs/GLOSSARY.md` first.
+- Before implementing any public MCP contract change, record the complete
+  version-impact decision required by `docs/AI_WORKFLOW.md` and
+  `.backlog/README.md`.
 - For backlog work, follow `.backlog/README.md`; implementation requires an ACTIVE Track and its implementation gates.
 - Preserve local-first and single-user assumptions unless explicitly changed.
 - Implementation follows TDD by default: write a failing focused test, make it pass with the smallest implementation, then refactor and validate.

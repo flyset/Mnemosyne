@@ -4,6 +4,11 @@
   and `mcp/tools/`. Across the MyMCP/`mymcp` `0.2.0` host cutover, permanently
   preserve Mnemosyne plugin identity and public Tool, configuration, storage,
   record, logging, and consent compatibility.
+- The current plugin version is `0.2.0`. Every `memory_*` capability has one
+  explicit capability-contract version in the canonical declaration table;
+  never stamp all Tools from one shared value. A public Tool-definition change
+  requires a complete version-impact decision and a new versioned entry in the
+  test-owned capability contract ledger. Preserve historical ledger entries.
 - `plugin.py` may depend only on generic plugin/MCP contracts and this plugin.
   It supplies the definition and gate-selected contribution; it must not build a
   host runtime, bind public names, or contribute `list_tools`.

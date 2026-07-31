@@ -289,11 +289,12 @@ Several identities must remain separate:
 | Manifest schema | MyMCP | Strict integer shape; unsupported versions fail closed | `1` |
 | External worker protocol | MyMCP | Separately negotiated host/worker execution protocol; host API compatibility does not imply worker compatibility | bounded v1 protocol |
 | Plugin identity | Plugin author, admitted by MyMCP | Stable machine identity excluding version | `mnemosyne` |
-| Plugin version | Plugin author | Semantic implementation release agreeing across wheel, manifest, definition, and receipt | `1.0.0` |
+| Plugin version | Plugin author | Semantic implementation release agreeing across wheel, manifest, definition, and receipt | Mnemosyne `0.2.0` |
 | Capability kind and local ID | Plugin author, validated by MyMCP | Stable identity excluding version; host API v1 admits only `tool` | `tool`, `memory_recall` |
-| Capability contract version | Plugin author | Semantic compatibility of one capability schema/result contract | `1.0.0` |
+| Capability contract version | Plugin author | Semantic compatibility of one capability schema/result contract | Mnemosyne `memory_recall` `1.1.0` |
 | Configuration schema | Plugin author | Explicit version validated before activation | `1` |
 | Plugin-data schema | Plugin author | Monotonic durable-data version requiring supervised migration rules | `1` |
+| Memory record schema | Mnemosyne plugin author | Persisted record compatibility; legacy sources remain readable without invented migration | `1`, `2` |
 | Artifact identity | MyMCP installer | Exact digest of the plugin and complete dependency closure; versions never substitute for it | digest-bound receipt |
 | Policy revision | MyMCP gateway | Immutable authorization snapshot; affected sessions and approvals become stale under defined policy changes | opaque revision |
 | Runtime generation | MyMCP runtime | Opaque unique publication identity, never reused or interpreted as semantic compatibility | opaque generation ID |
@@ -304,6 +305,16 @@ Identity excludes version. The MCP protocol, host API, manifest, worker
 protocol, plugin, capability, configuration, plugin-data, policy, artifact, and
 runtime-generation dimensions solve different problems and are validated
 independently. Existing Mnemosyne record schema versions remain plugin-owned.
+
+Current bundled Mnemosyne declares its plugin version as `0.2.0` and each
+capability version explicitly: `memory_recall` is `1.1.0`; the other seven
+`memory_*` capabilities remain `1.0.0`. MyMCP's host/package/endpoint marker is
+independently `0.2.1`. A test-owned, version-keyed canonical-JSON Tool-definition
+digest ledger couples each declared capability version to a SHA-256 digest and
+readable properties/required-field fingerprints, preserving historical entries
+for review. It guards declared Tool definitions only. It cannot determine changes
+to handler result/error behavior or infer a missed increment, so behavioral tests
+and the required explicit version-impact review remain necessary.
 
 The host-controlled product, endpoint, FastAPI application, distribution
 metadata, and tracked official client identity are MyMCP in released `0.2.0`.
@@ -913,6 +924,11 @@ managed environments, validated ordinary configuration and secret references,
 persisted bindings and desired installation/enablement state. Installation alone
 grants no execution authority and does not alter the active runtime.
 
+Receipts consume author-declared plugin and capability versions as compatibility
+inputs. They cannot infer that an author failed to increment a version; explicit
+per-capability declarations, the definition-ledger guard, and version-impact
+review are therefore prerequisites for reliable Phase 3A receipts.
+
 ### Phase 3B — Isolated external activation
 
 Implement the documented local unknown-code threat model, versioned worker
@@ -927,6 +943,10 @@ required/optional failures, disablement, health/quarantine, update/rollback and
 data-migration rules, remove/preserve, and separately approved purge. Candidate
 failure leaves the active generation unchanged, and in-flight calls remain
 pinned to their selected execution and policy context.
+
+Compatibility checks for update and rollback likewise consume author-declared
+plugin and capability versions. They cannot recover a missed increment, so the
+same governance prerequisite applies before Phase 3C can rely on those versions.
 
 ### Phase 4 — Client-neutral governance gateway
 

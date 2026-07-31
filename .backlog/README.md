@@ -57,6 +57,9 @@ Milestones
 Risks / decisions
 - Risk: ...
 - Decision: ...
+- Version impact: For a public MCP contract change, record the decision for every
+  relevant dimension in the canonical identity/version model and the approved
+  reason each unchanged layer remains unchanged.
 
 Open questions
 - [ ] Q1) ...
@@ -87,7 +90,9 @@ Completion notes
 2. When a Track is roadmap-derived, inspect the current living roadmap during
    planning and cite the roadmap and applicable phase in the Track's Artifacts.
 3. Planning is allowed while DRAFT; implementation is not.
-4. Before implementation, move the Track to `ACTIVE` and check its explicit Move-to-ACTIVE plan step.
+4. Before implementation, resolve every required public-contract version-impact
+   decision, then move the Track to `ACTIVE` and check its explicit Move-to-ACTIVE
+   plan step.
 5. Execute only the next stated unchecked plan step or coherent TDD chunk unless the user explicitly requests batching.
 6. For each implementation chunk: write a focused failing test, implement the smallest passing change, refactor, run validations, then update the Track immediately.
 7. Update the Track's plan, inventory, and validation evidence after each meaningful chunk.
@@ -103,6 +108,10 @@ Completion notes
 ## Implementation Gates (non-negotiable)
 
 - No implementation—including tests intended to drive a code change—begins until the Track is ACTIVE and its Move-to-ACTIVE plan step is checked.
+- A Track that changes a public MCP contract records its complete version-impact
+  decision in the Decision log before implementation. Every automated
+  definition/version guard applicable to the changed capability must pass before
+  completion.
 - Begin every implementation session by reading the Track and stating the next unchecked step(s).
 - TDD is mandatory for implementation. Direct protocol checks supplement automated tests; they never substitute for them.
 - Done means both validations have run and the Track has been updated.

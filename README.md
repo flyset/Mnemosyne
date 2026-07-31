@@ -27,13 +27,18 @@ configuration, memory domain, and `memory_*` MCP adapters under
 duplicate-key, and 64 KiB bound), and bootstrap validates exact
 manifest/definition/contribution parity before generation construction.
 
-The plugin's trusted in-process Mnemosyne 0.1.0 adapter supplies canonical
-registrations. Host bootstrap reads only the fixed packaged resource, validates
-it against the plugin definition and selected gate-controlled contribution, then
-constructs a runtime. `create_production_app()` is the local convenience factory
-and supported Uvicorn factory target. Ordinary imports are side-effect free; no
-global app, startup/methods modules, static `ToolIntegration`, or dynamic
-discovery are used.
+The plugin's trusted in-process Mnemosyne `0.2.0` adapter supplies canonical
+registrations. Every capability declares its own contract version: `memory_recall`
+is `1.1.0`; the other seven `memory_*` capabilities remain `1.0.0`. A test-owned,
+version-keyed canonical Tool-definition digest ledger retains readable
+properties/required-field fingerprints and historical entries, so definition
+drift cannot silently reuse a capability version. The ledger covers declared Tool
+definitions only; behavioral/version impact remains review-gated. Host bootstrap
+reads only the fixed packaged resource, validates it against the plugin definition
+and selected gate-controlled contribution, then constructs a runtime.
+`create_production_app()` is the local convenience factory and supported Uvicorn
+factory target. Ordinary imports are side-effect free; no global app,
+startup/methods modules, static `ToolIntegration`, or dynamic discovery are used.
 
 The `0.2.1` compatibility build removes redundant nonblank regular-expression
 constraints from `memory_recall`, `memory_remember`, and `memory_revise` Tool
@@ -310,7 +315,7 @@ fail composition rather than overwriting a registration.
 
 The explicit production bootstrap reads the fixed packaged inert Mnemosyne
 manifest, validates exact definition and selected-contribution parity before
-generation construction, then composes the trusted Mnemosyne 0.1.0 adapter over
+generation construction, then composes the trusted Mnemosyne `0.2.0` adapter over
 canonical registrations. The plugin resolves immutable mutation settings once,
 selects and orders memory Tools, and lazily resolves the configured root for each
 validated operation. Runtime-bound MCP dispatch, `tools/list`, and `list_tools`

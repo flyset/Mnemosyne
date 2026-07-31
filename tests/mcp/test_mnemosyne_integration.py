@@ -158,7 +158,7 @@ def test_trusted_adapter_wraps_ordered_registrations_without_list_tools() -> Non
 
     assert isinstance(contribution, PluginContribution)
     assert contribution.plugin_id == PluginId("mnemosyne")
-    assert contribution.version == PluginVersion("0.1.0")
+    assert contribution.version == PluginVersion("0.2.0")
     assert [tool.tool["name"] for tool in contribution.tools] == (
         DEFAULT_INTEGRATION_TOOL_NAMES
     )

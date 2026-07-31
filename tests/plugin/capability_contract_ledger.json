@@ -1,0 +1,144 @@
+{
+  "memory_recall": {
+    "1.0.0": {
+      "digest": "4534ad171c0c6f2f8c58df5208cb9b0f3912e32ab2c74a0e7c81299e0e598280",
+      "properties": [
+        "query",
+        "scope",
+        "tags"
+      ],
+      "required": [
+        "query",
+        "scope"
+      ]
+    },
+    "1.1.0": {
+      "digest": "44190fbc0d496abe24102c2ad5173161e36af5ad650809af6f2ed937ac3da4f2",
+      "properties": [
+        "query",
+        "scope",
+        "namespace_id",
+        "tags"
+      ],
+      "required": [
+        "query",
+        "scope"
+      ]
+    }
+  },
+  "memory_list": {
+    "1.0.0": {
+      "digest": "a015b94a18df55979f4787f969ee113ea50698dd8dc357479ce7c369b4113d31",
+      "properties": [
+        "scope",
+        "namespace_id",
+        "collection_id",
+        "page_size",
+        "cursor"
+      ],
+      "required": [
+        "scope"
+      ]
+    }
+  },
+  "memory_inspect": {
+    "1.0.0": {
+      "digest": "db46b51b7ca4527cf7829aced863ed583df6a4273a9b2c56eed8dc1e6a62b8fe",
+      "properties": [
+        "reference"
+      ],
+      "required": [
+        "reference"
+      ]
+    }
+  },
+  "memory_archive": {
+    "1.0.0": {
+      "digest": "2a6f52f819146b1c28fe807eac1880c671299e4386cba93ee0ccaedf44ce9bf9",
+      "properties": [
+        "reference",
+        "expected_revision"
+      ],
+      "required": [
+        "reference",
+        "expected_revision"
+      ]
+    }
+  },
+  "memory_restore": {
+    "1.0.0": {
+      "digest": "0773ac52a05835afb83e7339e0a2c0a64b234dc9c6b1794fc1702aa1b8555835",
+      "properties": [
+        "reference",
+        "expected_revision"
+      ],
+      "required": [
+        "reference",
+        "expected_revision"
+      ]
+    }
+  },
+  "memory_remember": {
+    "1.0.0": {
+      "digest": "3a2f7aec41be3376cac7a363495a517e82aff3e9640f32a123b4452d32809900",
+      "properties": [
+        "scope",
+        "namespace",
+        "collection",
+        "kind",
+        "language",
+        "title",
+        "content",
+        "tags",
+        "origin",
+        "occurred_at"
+      ],
+      "required": [
+        "scope",
+        "namespace",
+        "collection",
+        "kind",
+        "language",
+        "title",
+        "content",
+        "tags",
+        "origin"
+      ]
+    }
+  },
+  "memory_revise": {
+    "1.0.0": {
+      "digest": "7e3b37ac99f80057a7bd5e2f238a451ba8d94f86f0130636b4d48a9565b555b9",
+      "properties": [
+        "reference",
+        "expected_revision",
+        "namespace_label",
+        "collection_label",
+        "title",
+        "content",
+        "tags"
+      ],
+      "required": [
+        "reference",
+        "expected_revision",
+        "namespace_label",
+        "title",
+        "content",
+        "tags"
+      ]
+    }
+  },
+  "memory_forget": {
+    "1.0.0": {
+      "digest": "9754bd4527e377bdbc7f2ce9d52ad5028ff73590ff42731070dc71e99c8b3431",
+      "properties": [
+        "reference",
+        "expected_revision"
+      ],
+      "required": [
+        "reference",
+        "expected_revision"
+      ]
+    }
+  }
+}

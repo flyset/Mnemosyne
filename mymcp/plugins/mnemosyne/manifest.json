@@ -4,7 +4,7 @@
   "id": "mnemosyne",
   "title": "Mnemosyne",
   "description": "User-governed local memory for MyMCP.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "requires": {
     "host_api": {
       "min": 1,
@@ -15,7 +15,7 @@
     {
       "kind": "tool",
       "id": "memory_recall",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": true,
       "destructive": false,
       "idempotent": true,

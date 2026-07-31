@@ -100,7 +100,7 @@ def test_bootstrap_resolves_settings_once_and_preserves_every_gate_combination(
     assert settings_calls == 1
     assert runtime.generation.value == "test-generation"
     assert runtime.plugin_inventory == (
-        (PluginId("mnemosyne"), PluginVersion("0.1.0")),
+        (PluginId("mnemosyne"), PluginVersion("0.2.0")),
     )
     assert [tool["name"] for tool in runtime.registry.tools] == [
         "list_tools",
@@ -120,7 +120,7 @@ def test_trusted_adapter_assigns_exact_effect_and_consent_metadata() -> None:
     by_name = {tool.capability.local_id.value: tool for tool in contribution.tools}
 
     assert contribution.plugin_id == PluginId("mnemosyne")
-    assert contribution.version == PluginVersion("0.1.0")
+    assert contribution.version == PluginVersion("0.2.0")
     assert list(by_name) == [*DEFAULT_NAMES, *MUTATION_NAMES]
     for name in DEFAULT_NAMES:
         assert by_name[name].effects == ToolEffects(True, False, True, False)
