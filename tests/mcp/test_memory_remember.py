@@ -49,6 +49,7 @@ EXPECTED_KIND_ENUMS = {
         "summary",
     ],
     "knowledge": ["reference", "summary"],
+    "agent": ["persona", "policy", "checklist", "failure_mode"],
 }
 EXPECTED_FLAT_KIND_ENUM = [
     "attribute",
@@ -62,6 +63,10 @@ EXPECTED_FLAT_KIND_ENUM = [
     "event",
     "question",
     "reference",
+    "persona",
+    "policy",
+    "checklist",
+    "failure_mode",
 ]
 
 

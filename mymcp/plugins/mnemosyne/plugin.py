@@ -56,7 +56,7 @@ from mymcp.plugin.definition import (
 
 
 _PLUGIN_ID = PluginId("mnemosyne")
-_PLUGIN_VERSION = PluginVersion("0.2.0")
+_PLUGIN_VERSION = PluginVersion("0.3.0")
 _READ_ONLY_EFFECTS = ToolEffects(True, False, True, False)
 _MUTATING_EFFECTS = ToolEffects(False, False, True, False)
 _DESTRUCTIVE_EFFECTS = ToolEffects(False, True, True, False)
@@ -79,41 +79,41 @@ def _capability(
 
 _CAPABILITY_DECLARATIONS = (
     _capability(
-        "memory_recall", "1.1.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
+        "memory_recall", "1.2.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
-        "memory_list", "1.0.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
+        "memory_list", "1.1.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
-        "memory_inspect", "1.0.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
+        "memory_inspect", "1.1.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
         "memory_archive",
-        "1.0.0",
+        "1.1.0",
         _MUTATING_EFFECTS,
         ConsentRequirement.PER_CALL,
     ),
     _capability(
         "memory_restore",
-        "1.0.0",
+        "1.1.0",
         _MUTATING_EFFECTS,
         ConsentRequirement.PER_CALL,
     ),
     _capability(
         "memory_remember",
-        "1.0.0",
+        "1.1.0",
         _MUTATING_EFFECTS,
         ConsentRequirement.PER_CALL,
     ),
     _capability(
         "memory_revise",
-        "1.0.0",
+        "1.1.0",
         _DESTRUCTIVE_EFFECTS,
         ConsentRequirement.PER_CALL,
     ),
     _capability(
         "memory_forget",
-        "1.0.0",
+        "1.1.0",
         _DESTRUCTIVE_EFFECTS,
         ConsentRequirement.PER_CALL,
     ),

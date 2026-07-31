@@ -3,7 +3,7 @@
 - This is the MyMCP host's MCP layer, dispatching the runtime-bound
   MyMCP/`mymcp` `0.2.1` compatibility-build endpoint surface through the
   extracted trusted bundled
-  Mnemosyne 0.2.0 adapter. Static bootstrap validates its packaged inert
+  Mnemosyne 0.3.0 adapter. Static bootstrap validates its packaged inert
   declaration before generation. Mnemosyne Tool and domain compatibility remain
   preserved; external activation does not exist.
 - Own MCP message normalization, JSON-RPC response helpers, method dispatch,

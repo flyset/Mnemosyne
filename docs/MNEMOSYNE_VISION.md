@@ -49,9 +49,17 @@ and help agents reuse existing structure. It must stop short of silently
 classifying, moving, or rewriting records based on its own interpretation. The
 system may help with the interpretive act, but the user must decide it.
 
+The seven canonical scopes are `self`, `relationship`, `preference`, `practice`,
+`project`, `knowledge`, and `agent`. The `agent` scope is user-approved
+operational configuration for one named AI agent, not user-profile memory.
+Structural and boot configuration remains in the agent boot file. Approved
+session-managed refinements may be records; there is no automatic synchronization
+between those records and the boot file, and agent records grant no cross-agent
+authority, routing, or isolation.
+
 ## Initial Scope
 
-Version 0 is personal-only:
+Version 0 is single-user and local-first:
 
 - single user
 - local machine
@@ -93,7 +101,7 @@ Mnemosyne should prefer:
 - explicit schemas and predictable errors
 - least-privilege access
 - user-approved durable records
-- clear separation between personal facts and project facts
+- clear separation among personal facts, project context, and agent-operation records
 - small, explainable record changes
 - local storage by default
 

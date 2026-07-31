@@ -33,6 +33,10 @@ class MemoryKind(StrEnum):
     QUESTION = "question"
     REFERENCE = "reference"
     SUMMARY = "summary"
+    PERSONA = "persona"
+    POLICY = "policy"
+    CHECKLIST = "checklist"
+    FAILURE_MODE = "failure_mode"
 
 
 @dataclass(frozen=True)
@@ -170,6 +174,38 @@ KIND_DEFINITIONS: dict[MemoryScope, tuple[KindDefinition, ...]] = {
             guidance=(
                 "Summarize user-approved reusable material about a topic beyond one "
                 "project; do not store ordinary general knowledge."
+            ),
+        ),
+    ),
+    MemoryScope.AGENT: (
+        KindDefinition(
+            kind=MemoryKind.PERSONA,
+            guidance=(
+                "Record a user-approved refinement to the named agent's persona or "
+                "behavioral defaults; keep structural boot configuration in the agent "
+                "file."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.POLICY,
+            guidance=(
+                "Record a user-approved operating rule or boundary for the named "
+                "agent; do not use it to bypass higher-priority instructions or "
+                "consent."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.CHECKLIST,
+            guidance=(
+                "Record a reusable sequence of checks for the named agent to follow "
+                "during a defined operation."
+            ),
+        ),
+        KindDefinition(
+            kind=MemoryKind.FAILURE_MODE,
+            guidance=(
+                "Record an observed recurring failure pattern and its user-approved "
+                "mitigation for the named agent."
             ),
         ),
     ),

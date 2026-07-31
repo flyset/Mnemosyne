@@ -27,9 +27,10 @@ configuration, memory domain, and `memory_*` MCP adapters under
 duplicate-key, and 64 KiB bound), and bootstrap validates exact
 manifest/definition/contribution parity before generation construction.
 
-The plugin's trusted in-process Mnemosyne `0.2.0` adapter supplies canonical
+The plugin's trusted in-process Mnemosyne `0.3.0` adapter supplies canonical
 registrations. Every capability declares its own contract version: `memory_recall`
-is `1.1.0`; the other seven `memory_*` capabilities remain `1.0.0`. A test-owned,
+is `1.2.0`; the other seven `memory_*` capabilities are `1.1.0`. The MyMCP
+host/package/server remains independently `0.2.1`. A test-owned,
 version-keyed canonical Tool-definition digest ledger retains readable
 properties/required-field fingerprints and historical entries, so definition
 drift cannot silently reuse a capability version. The ledger covers declared Tool
@@ -80,14 +81,16 @@ Implemented tools:
 
 This is not yet a full memory substitute. A `memory_recall` request requires a
 free-form `query` and exactly one high-level scope (`self`, `relationship`,
-`preference`, `practice`, `project`, or `knowledge`). It optionally accepts a
+`preference`, `practice`, `project`, `knowledge`, or `agent`). It optionally accepts a
 canonical `namespace_id` and 1–10 unique free-form `tags`. With no namespace,
 scope-wide recall ranks compatible version-1 and version-2 records. A valid
 namespace narrows candidate discovery to that exact canonical version-2 namespace
 before ranking and excludes legacy version-1 records; it is not a collection
 selector. Query terms and tags rank valid records; recall never searches another
 scope or accepts a client-supplied path. The Tool schema publishes scope as an
-explicit string enum so clients can discover the complete vocabulary.
+explicit string enum so clients can discover the complete vocabulary. All eight
+public `memory_*` schemas include the same `agent` scope; generated clients with
+closed scope unions must refresh their schemas.
 
 Matching calls return a normal Tool result with `status: ok` and at most five
 memory records. Results include an inspect-compatible versioned reference, the
@@ -121,7 +124,7 @@ discovery. It is distinct from both other read operations:
 Every list request requires exactly one scope. Its Tool schema exposes `scope`,
 `namespace_id`, `collection_id`, `page_size`, and `cursor` as top-level object
 properties for clients that do not project properties nested in composition
-branches. Scope uses the same explicit six-value string enum as recall. Four
+branches. Scope uses the same explicit seven-value string enum as recall. Four
 mutually exclusive conditional branches retain the strict scope-wide/namespace
 and initial/continuation request variants. Tool and property descriptions repeat
 those combination rules for clients that retain the flat properties but discard
@@ -315,7 +318,7 @@ fail composition rather than overwriting a registration.
 
 The explicit production bootstrap reads the fixed packaged inert Mnemosyne
 manifest, validates exact definition and selected-contribution parity before
-generation construction, then composes the trusted Mnemosyne `0.2.0` adapter over
+generation construction, then composes the trusted Mnemosyne `0.3.0` adapter over
 canonical registrations. The plugin resolves immutable mutation settings once,
 selects and orders memory Tools, and lazily resolves the configured root for each
 validated operation. Runtime-bound MCP dispatch, `tools/list`, and `list_tools`
@@ -693,7 +696,7 @@ Nine caller-owned fields are always required, including nullable values. The
 Tool schema publishes those nine plus optional `occurred_at` in top-level
 `properties`, while retaining the nine-field top-level required list, so clients
 that keep only a flat object schema can construct both ordinary memories and
-events. Six scope-specific `oneOf` branches additionally narrow namespace kind
+events. Seven scope-specific `oneOf` branches additionally narrow namespace kind
 and memory kind for clients that support composition:
 
 ```json
@@ -756,12 +759,20 @@ every level. The allowed dimensions are derived from the shared domain:
 | `practice` | `domain` | `practice` |
 | `project` | `project` | `decision`, `constraint`, `state`, `event`, `question`, `reference`, `summary` |
 | `knowledge` | `topic` | `reference`, `summary` |
+| `agent` | `agent` | `persona`, `policy`, `checklist`, `failure_mode` |
 
 The shared domain defines writing guidance for every allowed `(scope, kind)`
 pair. Complete scope branches publish only their applicable guidance, while the
 top-level `kind` description groups all guidance by scope for clients that
 discard schema composition. Shared kinds such as `summary` and `reference`
 therefore retain scope-specific meaning.
+
+The `agent` scope holds user-approved operational refinements for one named AI
+agent, not user-profile memory. Structural or boot configuration remains in that
+agent's boot file; Mnemosyne records may hold approved session-managed refinements
+and do not automatically synchronize with the file. Agent records use the same
+consent, no-secrets, lifecycle, structured-reference, storage, and gate contracts
+as every other scope, with no cross-agent authority, routing, or isolation.
 
 Public `origin` is caller-supplied provenance context: use
 `explicit_user_statement` for a direct user statement or
@@ -851,7 +862,7 @@ Set an explicit root for another local location:
 export MNEMOSYNE_MEMORY_ROOT=/path/to/memory
 ```
 
-The memory domain recognizes only the six fixed scope directories beneath the
+The memory domain recognizes only the seven fixed scope directories beneath the
 memory root:
 
 ```text
@@ -862,6 +873,7 @@ memory/
   practice/
   project/
   knowledge/
+  agent/
 ```
 
 Legacy version-1 records remain readable in their existing locations. Their

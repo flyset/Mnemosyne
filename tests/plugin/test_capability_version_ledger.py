@@ -127,6 +127,14 @@ def test_memory_recall_ledger_preserves_the_pre_namespace_contract() -> None:
     }
 
 
+def test_ledger_preserves_every_pre_agent_scope_contract() -> None:
+    ledger = _load_ledger()
+
+    assert {"1.0.0", "1.1.0"} <= set(ledger["memory_recall"])
+    for name in set(TOOLS) - {"memory_recall"}:
+        assert "1.0.0" in ledger[name]
+
+
 def test_digest_is_independent_of_tool_mapping_key_order() -> None:
     reordered = dict(reversed(list(memory_recall.TOOL.items())))
 
@@ -170,11 +178,11 @@ def test_guard_rejects_definition_drift_under_the_declared_version() -> None:
 
 def test_guard_rejects_a_declared_version_without_a_ledger_entry() -> None:
     versions = _declared_versions()
-    versions["memory_recall"] = "1.2.0"
+    versions["memory_recall"] = "1.3.0"
 
     with pytest.raises(
         AssertionError,
-        match="missing memory_recall@1.2.0 ledger entry",
+        match="missing memory_recall@1.3.0 ledger entry",
     ):
         _assert_current_contracts(
             _current_ledger(),

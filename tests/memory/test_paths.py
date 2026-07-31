@@ -53,6 +53,19 @@ def test_scope_directory_uses_the_canonical_fixed_mapping(tmp_path: Path) -> Non
     )
 
 
+def test_agent_reference_path_uses_the_canonical_scope_directory() -> None:
+    reference = MemoryReference(
+        scope=MemoryScope.AGENT,
+        namespace_id="neuromancer",
+        collection_id="policies",
+        id="mem_0123456789abcdef0123456789abcdef",
+    )
+
+    assert relative_path_for_reference(reference) == Path(
+        "agent/neuromancer/policies/mem_0123456789abcdef0123456789abcdef.json"
+    )
+
+
 def test_version_two_reference_and_record_paths_are_deterministic() -> None:
     record = _record()
     reference = MemoryReference(

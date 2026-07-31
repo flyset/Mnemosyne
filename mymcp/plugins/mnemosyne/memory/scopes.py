@@ -11,6 +11,7 @@ class MemoryScope(StrEnum):
     PRACTICE = "practice"
     PROJECT = "project"
     KNOWLEDGE = "knowledge"
+    AGENT = "agent"
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,12 @@ SCOPE_DEFINITIONS = (
         ),
         directory="knowledge",
         namespace_kinds=("topic",),
+    ),
+    ScopeDefinition(
+        scope=MemoryScope.AGENT,
+        description="User-approved operational configuration for a named AI agent.",
+        directory="agent",
+        namespace_kinds=("agent",),
     ),
 )
 

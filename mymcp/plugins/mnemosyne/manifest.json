@@ -4,7 +4,7 @@
   "id": "mnemosyne",
   "title": "Mnemosyne",
   "description": "User-governed local memory for MyMCP.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "requires": {
     "host_api": {
       "min": 1,
@@ -15,7 +15,7 @@
     {
       "kind": "tool",
       "id": "memory_recall",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "read_only": true,
       "destructive": false,
       "idempotent": true,
@@ -25,7 +25,7 @@
     {
       "kind": "tool",
       "id": "memory_list",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": true,
       "destructive": false,
       "idempotent": true,
@@ -35,7 +35,7 @@
     {
       "kind": "tool",
       "id": "memory_inspect",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": true,
       "destructive": false,
       "idempotent": true,
@@ -45,7 +45,7 @@
     {
       "kind": "tool",
       "id": "memory_archive",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": false,
       "destructive": false,
       "idempotent": true,
@@ -55,7 +55,7 @@
     {
       "kind": "tool",
       "id": "memory_restore",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": false,
       "destructive": false,
       "idempotent": true,
@@ -65,7 +65,7 @@
     {
       "kind": "tool",
       "id": "memory_remember",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": false,
       "destructive": false,
       "idempotent": true,
@@ -75,7 +75,7 @@
     {
       "kind": "tool",
       "id": "memory_revise",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": false,
       "destructive": true,
       "idempotent": true,
@@ -85,7 +85,7 @@
     {
       "kind": "tool",
       "id": "memory_forget",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "read_only": false,
       "destructive": true,
       "idempotent": true,

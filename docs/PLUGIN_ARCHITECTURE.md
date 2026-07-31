@@ -289,9 +289,9 @@ Several identities must remain separate:
 | Manifest schema | MyMCP | Strict integer shape; unsupported versions fail closed | `1` |
 | External worker protocol | MyMCP | Separately negotiated host/worker execution protocol; host API compatibility does not imply worker compatibility | bounded v1 protocol |
 | Plugin identity | Plugin author, admitted by MyMCP | Stable machine identity excluding version | `mnemosyne` |
-| Plugin version | Plugin author | Semantic implementation release agreeing across wheel, manifest, definition, and receipt | Mnemosyne `0.2.0` |
+| Plugin version | Plugin author | Semantic implementation release agreeing across wheel, manifest, definition, and receipt | Mnemosyne `0.3.0` |
 | Capability kind and local ID | Plugin author, validated by MyMCP | Stable identity excluding version; host API v1 admits only `tool` | `tool`, `memory_recall` |
-| Capability contract version | Plugin author | Semantic compatibility of one capability schema/result contract | Mnemosyne `memory_recall` `1.1.0` |
+| Capability contract version | Plugin author | Semantic compatibility of one capability schema/result contract | Mnemosyne `memory_recall` `1.2.0` |
 | Configuration schema | Plugin author | Explicit version validated before activation | `1` |
 | Plugin-data schema | Plugin author | Monotonic durable-data version requiring supervised migration rules | `1` |
 | Memory record schema | Mnemosyne plugin author | Persisted record compatibility; legacy sources remain readable without invented migration | `1`, `2` |
@@ -306,10 +306,11 @@ protocol, plugin, capability, configuration, plugin-data, policy, artifact, and
 runtime-generation dimensions solve different problems and are validated
 independently. Existing Mnemosyne record schema versions remain plugin-owned.
 
-Current bundled Mnemosyne declares its plugin version as `0.2.0` and each
-capability version explicitly: `memory_recall` is `1.1.0`; the other seven
-`memory_*` capabilities remain `1.0.0`. MyMCP's host/package/endpoint marker is
-independently `0.2.1`. A test-owned, version-keyed canonical-JSON Tool-definition
+Current bundled Mnemosyne declares its plugin version as `0.3.0` and each
+capability version explicitly: `memory_recall` is `1.2.0`; the other seven
+`memory_*` capabilities are `1.1.0`. MyMCP's host/package/endpoint marker remains
+independently `0.2.1`. Bundling does not merge host, plugin, or capability version
+ownership. A test-owned, version-keyed canonical-JSON Tool-definition
 digest ledger couples each declared capability version to a SHA-256 digest and
 readable properties/required-field fingerprints, preserving historical entries
 for review. It guards declared Tool definitions only. It cannot determine changes

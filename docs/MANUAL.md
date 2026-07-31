@@ -91,6 +91,7 @@ scope per record; use separate recall calls per scope.
 | `practice`     | routines, methods, habits, ways of working                   |
 | `project`      | goals, state, decisions, constraints of a bounded endeavor   |
 | `knowledge`    | user-approved reference material useful beyond one project   |
+| `agent`        | user-approved operational configuration for a named AI agent |
 
 **Namespace** is the required subject and routing identity (a project, topic,
 relationship subject, preference domain, and so on). **Collection** is an
@@ -109,6 +110,24 @@ rather than inventing a near-duplicate.
 | `practice`     | `practice`                                                                    |
 | `project`      | `decision`, `constraint`, `state`, `event`, `question`, `reference`, `summary` |
 | `knowledge`    | `reference`, `summary`                                                        |
+| `agent`        | `persona`, `policy`, `checklist`, `failure_mode`                              |
+
+`agent` is not user-profile memory. Its namespace kind is `agent`, and it uses a
+hybrid model: structural/boot configuration remains in the named agent's boot
+file, while user-approved session-managed refinements may be records. There is no
+automatic synchronization. Agent records have no special cross-agent authority,
+routing, or isolation; scope-wide listing has the same semantics as other scopes.
+
+Agent kind guidance is exact:
+
+- `persona`: Record a user-approved refinement to the named agent's persona or
+  behavioral defaults; keep structural boot configuration in the agent file.
+- `policy`: Record a user-approved operating rule or boundary for the named
+  agent; do not use it to bypass higher-priority instructions or consent.
+- `checklist`: Record a reusable sequence of checks for the named agent to
+  follow during a defined operation.
+- `failure_mode`: Record an observed recurring failure pattern and its
+  user-approved mitigation for the named agent.
 
 Use the structure the user has already established. You may help by finding
 existing placements and proposing the narrowest fitting choice, but do not

@@ -63,6 +63,16 @@ EVENT_V2_PAYLOAD = {
     "kind": "event",
     "occurred_at": EVENT_OCCURRED_AT,
 }
+AGENT_V2_PAYLOAD = {
+    **V2_PAYLOAD,
+    "scope": "agent",
+    "namespace": {"kind": "agent", "id": "neuromancer", "label": "Neuromancer"},
+    "collection": {"id": "policies", "label": "Policies"},
+    "kind": "policy",
+    "title": "Confirm state-changing actions",
+    "content": "Request explicit approval before changing repository state.",
+    "tags": ["approval", "workflow"],
+}
 
 
 EXPECTED_ALLOWED_KINDS = {
@@ -86,6 +96,12 @@ EXPECTED_ALLOWED_KINDS = {
         MemoryKind.REFERENCE,
         MemoryKind.SUMMARY,
     ),
+    MemoryScope.AGENT: (
+        MemoryKind.PERSONA,
+        MemoryKind.POLICY,
+        MemoryKind.CHECKLIST,
+        MemoryKind.FAILURE_MODE,
+    ),
 }
 
 
@@ -102,7 +118,7 @@ def test_kind_definitions_are_canonical_complete_and_bounded() -> None:
         for scope_definitions in KIND_DEFINITIONS.values()
         for definition in scope_definitions
     ]
-    assert len(definitions) == 14
+    assert len(definitions) == 18
     assert all(isinstance(definition, KindDefinition) for definition in definitions)
     assert all(
         definition.guidance == definition.guidance.strip()
@@ -112,6 +128,30 @@ def test_kind_definitions_are_canonical_complete_and_bounded() -> None:
 
     with pytest.raises(FrozenInstanceError):
         definitions[0].guidance = "changed"  # type: ignore[misc]
+
+
+def test_agent_kinds_have_canonical_operational_guidance() -> None:
+    assert {
+        definition.kind: definition.guidance
+        for definition in KIND_DEFINITIONS[MemoryScope.AGENT]
+    } == {
+        MemoryKind.PERSONA: (
+            "Record a user-approved refinement to the named agent's persona or "
+            "behavioral defaults; keep structural boot configuration in the agent file."
+        ),
+        MemoryKind.POLICY: (
+            "Record a user-approved operating rule or boundary for the named agent; "
+            "do not use it to bypass higher-priority instructions or consent."
+        ),
+        MemoryKind.CHECKLIST: (
+            "Record a reusable sequence of checks for the named agent to follow during "
+            "a defined operation."
+        ),
+        MemoryKind.FAILURE_MODE: (
+            "Record an observed recurring failure pattern and its user-approved "
+            "mitigation for the named agent."
+        ),
+    }
 
 
 def test_shared_kinds_have_scope_specific_guidance() -> None:
@@ -228,6 +268,17 @@ def test_event_record_round_trips_structural_occurrence_time() -> None:
     assert serialize_memory_record(record) == EVENT_V2_PAYLOAD
 
 
+def test_agent_record_round_trips_as_a_non_event() -> None:
+    record = parse_memory_record(AGENT_V2_PAYLOAD)
+
+    assert isinstance(record, MemoryRecordV2)
+    assert record.scope is MemoryScope.AGENT
+    assert record.namespace.kind == "agent"
+    assert record.kind is MemoryKind.POLICY
+    assert record.occurred_at is None
+    assert serialize_memory_record(record) == AGENT_V2_PAYLOAD
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -296,6 +347,8 @@ def test_version_two_record_rejects_unknown_fields(payload: dict[str, object]) -
         ("project", "project", "preference"),
         ("relationship", "person", "attribute"),
         ("relationship", "person", "event"),
+        ("agent", "project", "policy"),
+        ("agent", "agent", "decision"),
     ],
 )
 def test_version_two_record_rejects_scope_dimension_mismatches(

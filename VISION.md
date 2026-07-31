@@ -52,10 +52,10 @@ must exactly match the adapter definition and selected contribution before a
 generation is constructed. `create_app(runtime)` and runtime-bound MCP dispatch
 keep ordinary imports side-effect free; `create_production_app` is the supported
 local Uvicorn factory target. The production surface contains the trusted
-Mnemosyne `0.2.0` adapter over canonical registrations from the extracted bundled
+Mnemosyne `0.3.0` adapter over canonical registrations from the extracted bundled
 plugin. Its per-capability contract declarations identify `memory_recall` as
-`1.1.0` and the other seven capabilities as `1.0.0`; MyMCP's host/package marker
-remains `0.2.1`.
+`1.2.0` and the other seven capabilities as `1.1.0`; MyMCP's host/package/server
+marker remains independently `0.2.1`.
 
 The released public-host cutover includes repository and operational
 verification. Inert native installation, isolated activation, lifecycle
@@ -141,3 +141,9 @@ Mnemosyne remains the built-in user-governed memory domain. MyMCP/`mymcp`
 Tool, configuration, storage, record, logging, consent, safety, and
 domain-specific identity remain intact. Its direction is preserved in
 [the Mnemosyne vision](docs/MNEMOSYNE_VISION.md).
+
+Its seven canonical scopes are `self`, `relationship`, `preference`, `practice`,
+`project`, `knowledge`, and `agent`. `agent` holds user-approved operational
+configuration refinements for a named AI agent; it is not user-profile memory.
+Structural boot configuration stays in the agent file, while approved
+session-managed refinements may be Mnemosyne records without automatic sync.

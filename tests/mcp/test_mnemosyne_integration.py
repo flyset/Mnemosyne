@@ -158,13 +158,26 @@ def test_trusted_adapter_wraps_ordered_registrations_without_list_tools() -> Non
 
     assert isinstance(contribution, PluginContribution)
     assert contribution.plugin_id == PluginId("mnemosyne")
-    assert contribution.version == PluginVersion("0.2.0")
+    assert contribution.version == PluginVersion("0.3.0")
     assert [tool.tool["name"] for tool in contribution.tools] == (
         DEFAULT_INTEGRATION_TOOL_NAMES
     )
     assert [tool.capability.local_id.value for tool in contribution.tools] == (
         DEFAULT_INTEGRATION_TOOL_NAMES
     )
+    assert {
+        capability.local_id.value: capability.version.value
+        for capability in mnemosyne.mnemosyne_plugin_definition().capabilities
+    } == {
+        "memory_recall": "1.2.0",
+        "memory_list": "1.1.0",
+        "memory_inspect": "1.1.0",
+        "memory_archive": "1.1.0",
+        "memory_restore": "1.1.0",
+        "memory_remember": "1.1.0",
+        "memory_revise": "1.1.0",
+        "memory_forget": "1.1.0",
+    }
 
 
 def test_trusted_adapter_resolves_settings_once(

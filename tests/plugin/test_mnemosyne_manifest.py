@@ -104,7 +104,7 @@ def test_mnemosyne_manifest_matches_the_trusted_adapter_definition() -> None:
     assert manifest_definition.manifest_version == ManifestVersion(1)
     assert manifest_definition.plugin_id == PluginId("mnemosyne")
     assert manifest_definition.title.value == "Mnemosyne"
-    assert manifest_definition.version == PluginVersion("0.2.0")
+    assert manifest_definition.version == PluginVersion("0.3.0")
     assert manifest_definition.requires.minimum.value == 1
     assert manifest_definition.requires.maximum.value == 1
 
@@ -119,14 +119,14 @@ def test_mnemosyne_manifest_declares_all_capabilities_in_canonical_order() -> No
         capability.local_id.value: capability.version
         for capability in definition.capabilities
     } == {
-        "memory_recall": CapabilityContractVersion("1.1.0"),
-        "memory_list": CapabilityContractVersion("1.0.0"),
-        "memory_inspect": CapabilityContractVersion("1.0.0"),
-        "memory_archive": CapabilityContractVersion("1.0.0"),
-        "memory_restore": CapabilityContractVersion("1.0.0"),
-        "memory_remember": CapabilityContractVersion("1.0.0"),
-        "memory_revise": CapabilityContractVersion("1.0.0"),
-        "memory_forget": CapabilityContractVersion("1.0.0"),
+        "memory_recall": CapabilityContractVersion("1.2.0"),
+        "memory_list": CapabilityContractVersion("1.1.0"),
+        "memory_inspect": CapabilityContractVersion("1.1.0"),
+        "memory_archive": CapabilityContractVersion("1.1.0"),
+        "memory_restore": CapabilityContractVersion("1.1.0"),
+        "memory_remember": CapabilityContractVersion("1.1.0"),
+        "memory_revise": CapabilityContractVersion("1.1.0"),
+        "memory_forget": CapabilityContractVersion("1.1.0"),
     }
     assert all(
         capability.kind is CapabilityKind.TOOL

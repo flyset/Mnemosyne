@@ -60,10 +60,10 @@ The approved target is defined in
   Mnemosyne's plugin,
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
-Current production uses the explicit trusted Mnemosyne `0.2.0` bundled-plugin
+Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
 adapter over canonical registrations. `memory_recall` declares capability
-contract `1.1.0`; the other seven `memory_*` capabilities declare `1.0.0`.
-MyMCP's host/package/server marker remains `0.2.1`. Bootstrap reads only the fixed
+contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
+MyMCP's host/package/server marker remains independently `0.2.1`. Bootstrap reads only the fixed
 `mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
 bytes, and validates exact manifest/adapter/selected-contribution parity before
 generation construction. This fixed validation is neither dynamic discovery nor
@@ -230,7 +230,7 @@ Owns the trusted in-process Mnemosyne integration: memory Tool imports, one
 immutable startup resolution of Mnemosyne-owned mutation settings, fixed public
 ordering, independent mutation-gate selection, definition/handler binding, and
 memory service/store composition. Its zero-argument production entrypoint
-contributes a trusted Mnemosyne `0.2.0` `PluginContribution` over canonical
+contributes a trusted Mnemosyne `0.3.0` `PluginContribution` over canonical
 registrations; it does not contribute `list_tools`, public bindings, or the final
 `HostRuntime`. One ordered declaration table also derives its immutable complete
 `PluginDefinition`: every capability row declares its own contract version, all
@@ -241,8 +241,9 @@ focused tests.
 Focused tests own a version-keyed canonical-JSON digest ledger for declared Tool
 definitions. Each entry couples a capability identity and declared version to a
 SHA-256 digest and readable top-level properties/required-field fingerprints;
-historical entries, including `memory_recall` `1.0.0`, remain reviewable beside
-the current `1.1.0` contract. This guard detects declared-definition drift, not
+historical entries, including `memory_recall` `1.0.0` and `1.1.0`, remain
+reviewable beside the current `1.2.0` contract. This guard detects
+declared-definition drift, not
 handler result/error semantics or every compatibility consequence. Behavioral
 tests and the required version-impact review remain the authority for deciding
 whether a version changes.
@@ -304,9 +305,9 @@ Import-boundary tests enforce this dependency direction.
 
 `memory_recall` validates a narrow query, exactly one required high-level memory
 scope, an optional canonical namespace ID, and optional bounded free-form tags.
-The six scopes are `self`, `relationship`, `preference`, `practice`, `project`,
-and `knowledge`; each has an individual model-facing description and is exposed
-through one explicit string enum in the Tool schema for broad client
+The seven scopes are `self`, `relationship`, `preference`, `practice`, `project`,
+`knowledge`, and `agent`; each has an individual model-facing description and is
+exposed through one explicit string enum in the Tool schema for broad client
 compatibility. The namespace selector accepts no collection selector.
 
 The handler validates the request and adapts it to its supplied typed recall
@@ -333,7 +334,7 @@ not live under the Tool package.
 `memory_list` is a separate read-only Tool with the same three-file package
 shape. Its schema publishes scope, namespace, collection, page-size, and cursor
 fields in top-level object properties so limited clients do not project an empty
-argument object. Scope uses the same explicit six-value string enum as recall.
+argument object. Scope uses the same explicit seven-value string enum as recall.
 Four mutually exclusive presence/exclusion branches retain strict scope-wide and
 canonical namespace selection for initial and continuation requests. Collection
 selection is omission-sensitive: absent means every collection state, null means
@@ -394,7 +395,7 @@ strict structural `occurred_at`. Inspection remains exact and does not add a
 chronological selector or ordering mode.
 
 `memory_remember` is also limited to `__init__.py`, `definition.py`, and
-`handler.py`. Its schema derives six scope branches, namespace kinds, memory
+`handler.py`. Its schema derives seven scope branches, namespace kinds, memory
 kinds, and per-(scope, kind) writing guidance from the shared domain. It accepts
 the nine unconditional scope, namespace, optional collection, kind, language,
 title, content, tags, and public-origin fields, plus structural `occurred_at`
@@ -404,7 +405,7 @@ provenance mechanism, persistence timestamp, or lifecycle field.
 The schema publishes ten caller-visible top-level properties—nine unconditionally
 required fields plus optional `occurred_at`—and rejects additional properties.
 This preserves a complete flat field bag for clients that discard composition.
-The six full `oneOf` branches retain strict scope-specific namespace-kind and
+The seven full `oneOf` branches retain strict scope-specific namespace-kind and
 memory-kind constraints; only the project branch admits occurrence time and its
 condition requires it for event while rejecting it for every project non-event.
 Each complete branch renders its ordered canonical kind guidance, and the flat
@@ -412,6 +413,15 @@ top-level kind description groups all guidance by scope. Public origin is
 caller-supplied provenance context, not consent; the MCP client supplies the
 separate enforceable per-call approval boundary and the server assigns
 `recorded_via`.
+
+All eight public `memory_*` schemas include `agent`; generated clients that model
+scope as a closed union must refresh their schemas. The agent branch has namespace
+kind `agent` and kinds `persona`, `policy`, `checklist`, and `failure_mode`; it is
+non-event and therefore never accepts `occurred_at`. Agent records are ordinary
+scope records under the existing consent, no-secrets, recall, list, inspect,
+revise, archive, restore, forget, storage, structured-reference, and gate
+contracts. They grant no special cross-agent authority, routing, or isolation,
+and scope-wide listing retains its ordinary semantics.
 
 The remember handler validates a `MemoryDraft`, enforces its Tool-level mutation
 gate, and then invokes its supplied typed remember operation. The
@@ -431,7 +441,7 @@ fields to bounded top-level caller-visible names and returns that field, one
 broad reason, and stable safe-retry guidance. It does not add refusal field or
 reason to the minimized log event.
 
-Event is a kind under `project`, not a seventh scope or a separate temporal
+Event is a kind under `project`, not a separate scope or a separate temporal
 resource family. There is no timeline/membership model, chronological query,
 causal inference, automatic state supersession, or append-only-event guarantee.
 The larger many-to-many temporal model remains deferred until demonstrated by a

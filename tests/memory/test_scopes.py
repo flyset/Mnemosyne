@@ -57,6 +57,12 @@ def test_scope_registry_is_the_canonical_ordered_contract() -> None:
             "knowledge",
             ("topic",),
         ),
+        (
+            MemoryScope.AGENT,
+            "User-approved operational configuration for a named AI agent.",
+            "agent",
+            ("agent",),
+        ),
     ]
     assert SCOPE_VALUES == (
         "self",
@@ -65,6 +71,7 @@ def test_scope_registry_is_the_canonical_ordered_contract() -> None:
         "practice",
         "project",
         "knowledge",
+        "agent",
     )
 
 
