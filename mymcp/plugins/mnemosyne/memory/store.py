@@ -311,20 +311,51 @@ class FilesystemMemoryStore:
             fingerprint=hashlib.sha256(raw_record).hexdigest(),
         )
 
-    def discover(self, scope: MemoryScope) -> list[StoredMemory]:
-        scope_path = scope_directory(self.memory_root, scope)
-        if not scope_path.exists():
-            return []
-        if scope_path.is_symlink():
+    def _validate_discovery_root(
+        self,
+        directory: Path,
+        scope: MemoryScope,
+    ) -> bool:
+        if not directory.exists():
+            return False
+        if directory.is_symlink():
             _log_skipped(scope, "symlink")
-            return []
-        if not scope_path.is_dir():
+            return False
+        if not directory.is_dir():
             raise MemorySourceUnavailable
+        return True
 
+    def discover(
+        self,
+        scope: MemoryScope,
+        namespace_id: str | None = None,
+    ) -> list[StoredMemory]:
+        scope_path = scope_directory(self.memory_root, scope)
+        discovery_path = (
+            scope_path
+            if namespace_id is None
+            else namespace_directory(self.memory_root, scope, namespace_id)
+        )
+        if not self._validate_discovery_root(scope_path, scope):
+            return []
+        if discovery_path != scope_path and not self._validate_discovery_root(
+            discovery_path,
+            scope,
+        ):
+            return []
+
+        discovered = [
+            stored
+            for path in self._discover_candidates(discovery_path, scope)
+            if (stored := self._load(path, scope, scope_path)) is not None
+        ]
+        if namespace_id is None:
+            return discovered
         return [
             stored
-            for path in self._discover_candidates(scope_path, scope)
-            if (stored := self._load(path, scope, scope_path)) is not None
+            for stored in discovered
+            if isinstance(stored.record, MemoryRecordV2)
+            and stored.record.namespace.id == namespace_id
         ]
 
     def _list_discovery_root(

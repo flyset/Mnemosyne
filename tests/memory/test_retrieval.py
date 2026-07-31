@@ -5,6 +5,7 @@ from mymcp.plugins.mnemosyne.memory.records import (
     LegacyMemoryRecordV1,
     MemoryRecordV2,
     parse_memory_record,
+    serialize_memory_record,
 )
 from mymcp.plugins.mnemosyne.memory.retrieval import MemoryMatch, rank_memories
 from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope
@@ -33,15 +34,20 @@ def _legacy(
     )
 
 
-def _v2(*, state: str = "active") -> StoredMemory:
+def _v2(
+    *,
+    state: str = "active",
+    namespace_id: str = "leisure",
+    record_id: str = "mem_0123456789abcdef0123456789abcdef",
+) -> StoredMemory:
     record = parse_memory_record(
         {
             "schema_version": 2,
-            "id": "mem_0123456789abcdef0123456789abcdef",
+            "id": record_id,
             "scope": "preference",
             "namespace": {
                 "kind": "domain",
-                "id": "leisure",
+                "id": namespace_id,
                 "label": "Leisure",
             },
             "collection": None,
@@ -64,8 +70,7 @@ def _v2(*, state: str = "active") -> StoredMemory:
         record=record,
         scope=MemoryScope.PREFERENCE,
         relative_path=(
-            "preference/leisure/"
-            "mem_0123456789abcdef0123456789abcdef.json"
+            f"preference/{namespace_id}/{record_id}.json"
         ),
         fingerprint="test",
     )
@@ -235,3 +240,54 @@ def test_memory_service_recall_is_scope_isolated_and_read_only(tmp_path: Path) -
 
     assert [match.memory.record.id for match in matches] == ["rainy"]
     assert len(list(tmp_path.rglob("*.json"))) == 2
+
+
+def test_memory_service_recall_optionally_narrows_to_one_canonical_namespace(
+    tmp_path: Path,
+) -> None:
+    leisure = _v2()
+    work = _v2(
+        namespace_id="work",
+        record_id="mem_abcdef0123456789abcdef0123456789",
+    )
+    for stored in (leisure, work):
+        path = tmp_path / stored.relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(serialize_memory_record(stored.record)),
+            encoding="utf-8",
+        )
+    legacy = tmp_path / "preference" / "leisure" / "legacy.json"
+    legacy.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "id": "legacy-rainy",
+                "content": "Rainy legacy memory",
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = MemoryService(FilesystemMemoryStore(tmp_path))
+
+    selected = service.recall(
+        MemoryScope.PREFERENCE,
+        "rainy",
+        [],
+        namespace_id="leisure",
+    )
+    unknown = service.recall(
+        MemoryScope.PREFERENCE,
+        "rainy",
+        [],
+        namespace_id="unknown",
+    )
+    scope_wide = service.recall(MemoryScope.PREFERENCE, "rainy", [])
+
+    assert [match.memory.record.id for match in selected] == [leisure.record.id]
+    assert unknown == []
+    assert {match.memory.record.id for match in scope_wide} == {
+        leisure.record.id,
+        work.record.id,
+        "legacy-rainy",
+    }

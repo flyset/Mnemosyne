@@ -291,21 +291,27 @@ adapt domain inputs/results; they do not own record, storage, or retrieval truth
 Import-boundary tests enforce this dependency direction.
 
 `memory_recall` validates a narrow query, exactly one required high-level memory
-scope, and optional bounded free-form tags. The six scopes are `self`,
-`relationship`, `preference`, `practice`, `project`, and `knowledge`; each has an
-individual model-facing description and is exposed through one explicit string
-enum in the Tool schema for broad client compatibility.
+scope, an optional canonical namespace ID, and optional bounded free-form tags.
+The six scopes are `self`, `relationship`, `preference`, `practice`, `project`,
+and `knowledge`; each has an individual model-facing description and is exposed
+through one explicit string enum in the Tool schema for broad client
+compatibility. The namespace selector accepts no collection selector.
 
 The handler validates the request and adapts it to its supplied typed recall
-operation. The integration-backed operation uses the shared service to discover
-compatible version-1 and canonical version-2 records and rank them using
-deterministic query/path/title/content terms and exact tag overlap. It returns no
+operation. With no namespace selector, the integration-backed operation discovers
+compatible version-1 and canonical version-2 records scope-wide. With a valid
+namespace selector, the store narrows candidate discovery to that exact canonical
+version-2 namespace before applying the unchanged deterministic query/path/title/
+content ranking and exact tag overlap; legacy records are excluded. A valid
+unknown or missing selected namespace returns `no_matches`; an invalid selector
+returns `invalid_request` / `invalid_namespace`. A selected symlink root is
+skipped safely, while a selected non-directory is unavailable. Recall returns no
 more than five records with match evidence and an inspect-compatible versioned
 reference. Legacy references contain scope and ID; canonical references also
 contain namespace ID and nullable collection ID. Recall never returns paths,
 internal scores, provenance, or lifecycle metadata. Archived version-2 records
-are excluded. Missing directories and no positive match return `no_matches`;
-source and candidate-limit failures return stable Tool errors.
+are excluded. Source and candidate-limit failures return stable Tool errors. Its
+request log records selector presence but never its value.
 
 The recall package is deliberately limited to `__init__.py`, `definition.py`,
 and `handler.py`. Its definition derives the scope enum from the shared registry;
@@ -568,20 +574,22 @@ remember/revise calls, and content-policy refusal do not create the root or its
 parents.
 
 Discovery rejects symlinks, limits nesting to four directories, limits files to
-64 KiB, and fails rather than returning a partial result when a scope exceeds
-1,000 candidate JSON files. Invalid individual records are skipped with warnings
-limited to scope and a bounded reason; candidate paths are not logged. Files
-remain the source of truth and are directly inspectable and deletable by the
-user.
+64 KiB, and fails rather than returning a partial result when the selected
+discovery root exceeds 1,000 candidate JSON files. Invalid individual records
+are skipped with warnings limited to scope and a bounded reason; candidate paths
+are not logged. Files remain the source of truth and are directly inspectable and
+deletable by the user.
 
-Complete listing adds a stricter selected-root contract without changing recall
-discovery: a selected root symlink is unsafe, a non-directory is unavailable,
-and a genuinely missing container is a successful empty inventory. Scope-wide
-listing retains the full-scope bound. Namespace-wide listing counts only that
-namespace; collectionless and exact-collection selectors scan only direct JSON
-files at their canonical level. Candidate counting occurs before record parsing,
-and canonical selectors exclude legacy records after bounded discovery as
-defense in depth.
+Selected-root contracts differ by read operation. For recall, a selected canonical
+namespace narrows discovery before ranking: a missing or symlinked selected root
+yields no matches, while a selected non-directory is unavailable. For listing, a
+selected root symlink is unsafe, a non-directory is unavailable, and a genuinely
+missing container is a successful empty inventory. Scope-wide listing retains the
+full-scope bound. Namespace-wide listing counts only that namespace;
+collectionless and exact-collection selectors scan only direct JSON files at
+their canonical level. Candidate counting occurs before record parsing, and
+canonical selectors exclude legacy records after bounded discovery as defense in
+depth.
 
 Version-2 metadata must agree with its path. JSON files are the only durable
 memory source of truth; there is no required manifest, alias database, persistent

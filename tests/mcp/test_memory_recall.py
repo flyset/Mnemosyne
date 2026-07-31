@@ -17,12 +17,16 @@ from mymcp.plugins.mnemosyne.memory.store import FilesystemMemoryStore
 from mymcp.plugins.mnemosyne.configuration import get_memory_root
 
 
-def _recall_operation(scope: MemoryScope, query: str, tags: list[str]):
-    return MemoryService(FilesystemMemoryStore(get_memory_root())).recall(
-        scope,
-        query,
-        tags,
-    )
+def _recall_operation(
+    scope: MemoryScope,
+    query: str,
+    tags: list[str],
+    namespace_id: str | None = None,
+):
+    service = MemoryService(FilesystemMemoryStore(get_memory_root()))
+    if namespace_id is None:
+        return service.recall(scope, query, tags)
+    return service.recall(scope, query, tags, namespace_id=namespace_id)
 
 
 def handle(arguments, *, recall_operation=_recall_operation):
@@ -70,6 +74,14 @@ def test_memory_recall_exposes_the_selected_tool_definition() -> None:
                     "enum": [
                         definition.scope.value for definition in SCOPE_DEFINITIONS
                     ],
+                },
+                "namespace_id": {
+                    "type": "string",
+                    "description": (
+                        "Optional canonical namespace selector. Omit for scope-wide "
+                        "recall."
+                    ),
+                    "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$",
                 },
                 "tags": {
                     "type": "array",
@@ -119,6 +131,33 @@ def test_memory_recall_adapts_valid_arguments_to_the_supplied_operation() -> Non
     assert json.loads(result["content"][0]["text"])["status"] == "no_matches"
 
 
+def test_memory_recall_forwards_a_present_namespace_as_a_fourth_argument() -> None:
+    observed = []
+
+    def recall_operation(
+        scope: MemoryScope,
+        query: str,
+        tags: list[str],
+        namespace_id: str,
+    ):
+        observed.append((scope, query, tags, namespace_id))
+        return []
+
+    result = handle(
+        {
+            "query": "current project constraints",
+            "scope": "project",
+            "namespace_id": "mymcp",
+        },
+        recall_operation=recall_operation,
+    )
+
+    assert observed == [
+        (MemoryScope.PROJECT, "current project constraints", [], "mymcp")
+    ]
+    assert json.loads(result["content"][0]["text"])["status"] == "no_matches"
+
+
 @pytest.mark.parametrize(
     "arguments",
     [
@@ -127,6 +166,11 @@ def test_memory_recall_adapts_valid_arguments_to_the_supplied_operation() -> Non
             "query": "current project constraints",
             "scope": "project",
             "tags": ["storage", "constraints"],
+        },
+        {
+            "query": "current project constraints",
+            "scope": "project",
+            "namespace_id": "unknown-project",
         },
     ],
 )
@@ -363,7 +407,7 @@ def test_memory_recall_returns_stable_retrieval_errors(
     assert json.loads(result["content"][0]["text"]) == expected
 
 
-def test_memory_recall_logs_message_scope_and_tags(
+def test_memory_recall_logs_namespace_presence_but_not_its_value(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -375,14 +419,16 @@ def test_memory_recall_logs_message_scope_and_tags(
         {
             "query": "rainy weekend activities",
             "scope": "preference",
+            "namespace_id": "private-leisure",
             "tags": ["leisure", "weekend"],
         }
     )
 
     assert (
         "request message='rainy weekend activities' scope='preference' "
-        "tags=['leisure', 'weekend']"
+        "namespace_selector_present=True tags=['leisure', 'weekend']"
     ) in caplog.messages
+    assert all("private-leisure" not in message for message in caplog.messages)
 
 
 def test_memory_root_uses_operator_override(
@@ -446,6 +492,40 @@ def test_memory_recall_rejects_missing_or_unknown_scopes(scope: object) -> None:
             "knowledge"
         ),
     }
+
+
+@pytest.mark.parametrize(
+    "namespace_id",
+    [None, 42, "", "../private", "Invalid", "x" * 65],
+)
+def test_memory_recall_rejects_invalid_namespaces(namespace_id: object) -> None:
+    result = handle(
+        {
+            "query": "relevant memory",
+            "scope": "knowledge",
+            "namespace_id": namespace_id,
+        }
+    )
+
+    assert result["isError"] is True
+    assert json.loads(result["content"][0]["text"]) == {
+        "status": "invalid_request",
+        "code": "invalid_namespace",
+        "message": "namespace_id must be a valid canonical identifier",
+    }
+
+
+def test_memory_recall_validates_namespace_before_tags() -> None:
+    result = handle(
+        {
+            "query": "relevant memory",
+            "scope": "knowledge",
+            "namespace_id": "Invalid",
+            "tags": [],
+        }
+    )
+
+    assert json.loads(result["content"][0]["text"])["code"] == "invalid_namespace"
 
 
 @pytest.mark.parametrize(

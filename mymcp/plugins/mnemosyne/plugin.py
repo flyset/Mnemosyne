@@ -140,8 +140,12 @@ def _recall(
     scope: MemoryScope,
     query: str,
     tags: list[str],
+    namespace_id: str | None = None,
 ) -> list[MemoryMatch]:
-    return _memory_service(mutations_enabled=False).recall(scope, query, tags)
+    service = _memory_service(mutations_enabled=False)
+    if namespace_id is None:
+        return service.recall(scope, query, tags)
+    return service.recall(scope, query, tags, namespace_id=namespace_id)
 
 
 def _list_memories(

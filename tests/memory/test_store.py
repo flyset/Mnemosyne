@@ -102,6 +102,69 @@ def test_store_returns_empty_for_a_missing_scope_directory(tmp_path: Path) -> No
     assert FilesystemMemoryStore(tmp_path).discover(MemoryScope.KNOWLEDGE) == []
 
 
+def test_store_namespace_discovery_narrows_before_loading_and_excludes_legacy(
+    tmp_path: Path,
+) -> None:
+    selected_id = "mem_0123456789abcdef0123456789abcdef"
+    other_id = "mem_abcdef0123456789abcdef0123456789"
+    _write(
+        tmp_path / "project" / "mnemosyne" / f"{selected_id}.json",
+        _v2(selected_id, namespace_id="mnemosyne", collection_id=None),
+    )
+    _write(
+        tmp_path / "project" / "another-project" / f"{other_id}.json",
+        _v2(other_id, namespace_id="another-project", collection_id=None),
+    )
+    _write(tmp_path / "project" / "mnemosyne" / "legacy.json", _v1("legacy"))
+
+    stored = FilesystemMemoryStore(tmp_path).discover(
+        MemoryScope.PROJECT,
+        namespace_id="mnemosyne",
+    )
+
+    assert [memory.record.id for memory in stored] == [selected_id]
+
+
+def test_store_namespace_discovery_missing_container_is_empty_without_initialization(
+    tmp_path: Path,
+) -> None:
+    memory_root = tmp_path / "missing-memory"
+
+    assert FilesystemMemoryStore(memory_root).discover(
+        MemoryScope.PROJECT,
+        namespace_id="mnemosyne",
+    ) == []
+    assert not memory_root.exists()
+
+
+def test_store_namespace_discovery_skips_symlink_and_rejects_non_directory(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    outside = tmp_path / "outside"
+    _write(
+        outside / "mem_0123456789abcdef0123456789abcdef.json",
+        _v2(collection_id=None),
+    )
+    scope = tmp_path / "project"
+    scope.mkdir()
+    linked = scope / "linked"
+    try:
+        linked.symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks are unavailable on this platform")
+    caplog.set_level(logging.WARNING, logger="mymcp.memory.store")
+    store = FilesystemMemoryStore(tmp_path)
+
+    assert store.discover(MemoryScope.PROJECT, namespace_id="linked") == []
+    assert caplog.messages == ["skipped scope='project' reason='symlink'"]
+
+    regular_file = scope / "regular"
+    regular_file.write_text("not a directory", encoding="utf-8")
+    with pytest.raises(MemorySourceUnavailable):
+        store.discover(MemoryScope.PROJECT, namespace_id="regular")
+
+
 def test_store_keeps_archived_records_available_for_exact_inspection(
     tmp_path: Path,
 ) -> None:

@@ -1,19 +1,38 @@
 import json
 import logging
-from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol, overload
 
 from mymcp.plugins.mnemosyne.memory.errors import (
     CandidateLimitExceeded,
     MemorySourceUnavailable,
+    MemoryValidationError,
 )
+from mymcp.plugins.mnemosyne.memory.normalization import normalize_identifier
 from mymcp.plugins.mnemosyne.memory.records import MemoryRecordV2
 from mymcp.plugins.mnemosyne.memory.retrieval import MemoryMatch
 from mymcp.plugins.mnemosyne.memory.scopes import MemoryScope, SCOPE_VALUES, parse_scope
 
 
 logger = logging.getLogger("mcp.memory_recall")
-RecallOperation = Callable[[MemoryScope, str, list[str]], list[MemoryMatch]]
+
+
+class RecallOperation(Protocol):
+    @overload
+    def __call__(
+        self,
+        scope: MemoryScope,
+        query: str,
+        tags: list[str],
+    ) -> list[MemoryMatch]: ...
+
+    @overload
+    def __call__(
+        self,
+        scope: MemoryScope,
+        query: str,
+        tags: list[str],
+        namespace_id: str,
+    ) -> list[MemoryMatch]: ...
 
 INVALID_QUERY_MESSAGE = (
     "query must be a non-empty string of at most 1000 characters"
@@ -22,6 +41,7 @@ INVALID_SCOPE_MESSAGE = (
     "scope must be one of: self, relationship, preference, practice, project, "
     "knowledge"
 )
+INVALID_NAMESPACE_MESSAGE = "namespace_id must be a valid canonical identifier"
 INVALID_TAGS_MESSAGE = (
     "tags must be an array of 1 to 10 unique non-empty strings of at most 50 "
     "characters"
@@ -93,11 +113,13 @@ def handle(
     recall_operation: RecallOperation,
 ) -> dict[str, Any]:
     query = arguments.get("query")
+    namespace_present = "namespace_id" in arguments
 
     logger.info(
-        "request message=%r scope=%r tags=%r",
+        "request message=%r scope=%r namespace_selector_present=%r tags=%r",
         query,
         arguments.get("scope"),
+        namespace_present,
         arguments.get("tags", []),
     )
 
@@ -115,6 +137,20 @@ def handle(
             INVALID_SCOPE_MESSAGE,
             status="invalid_request",
         )
+
+    namespace_id: str | None = None
+    if namespace_present:
+        try:
+            namespace_id = normalize_identifier(
+                arguments["namespace_id"],
+                field="namespace.id",
+            )
+        except MemoryValidationError:
+            return _error(
+                "invalid_namespace",
+                INVALID_NAMESPACE_MESSAGE,
+                status="invalid_request",
+            )
 
     request_tags: list[str] = []
     if "tags" in arguments:
@@ -138,10 +174,11 @@ def handle(
         request_tags = tags
 
     try:
-        matches = recall_operation(
-            parse_scope(scope),
-            query,
-            request_tags,
+        parsed_scope = parse_scope(scope)
+        matches = (
+            recall_operation(parsed_scope, query, request_tags, namespace_id)
+            if namespace_present
+            else recall_operation(parsed_scope, query, request_tags)
         )
     except CandidateLimitExceeded:
         return _error(

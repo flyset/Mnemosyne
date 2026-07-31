@@ -57,8 +57,11 @@ least privilege: retrieve only context relevant to the current task.
 - **`memory_recall`** — *"I need user-specific records to answer this well."*
   Ranked and tag-driven. Best when you can name the content words. It is **not
   exhaustive** and can miss records. An empty recall may justify a more precise
-  request or bounded listing, but it can also mean no matching record exists. Do
-  not use recall for ordinary general-knowledge questions.
+  request or bounded listing, but it can also mean no matching record exists. By
+  default it searches the selected scope; when you already know the canonical
+  namespace, provide `namespace_id` to narrow ranking to that namespace. It does
+  not select a collection. Do not use recall for ordinary general-knowledge
+  questions.
 - **`memory_list`** — *"What exists here?"* Complete, bounded enumeration over a
   scope (optionally a namespace or collection), with counts and truncation
   signals. Use it for discovery ("what are my projects?") and **before writing**,

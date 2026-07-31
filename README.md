@@ -64,7 +64,7 @@ remain deferred. See
 Implemented tools:
 
 - `list_tools` — reports the server version and lists the exposed tools
-- `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope directory
+- `memory_recall` — retrieves bounded, relevant, user-approved JSON memory records from one allowlisted local scope or canonical namespace
 - `memory_list` — completely and deterministically inventories valid memories in one bounded scope or canonical container without returning record content
 - `memory_inspect` — returns one exact canonical or legacy memory selected by a versioned structured reference
 - `memory_remember` — when explicitly enabled, validates and atomically persists one approved canonical version-2 memory
@@ -73,24 +73,27 @@ Implemented tools:
 - `memory_restore` — when explicitly enabled, revision-checks and restores one exact archived canonical version-2 memory
 - `memory_forget` — when independently enabled, permanently deletes one exact archived canonical version-2 memory at its expected revision
 
-This is not yet a full memory substitute. A
-`memory_recall` request contains a free-form `query`, exactly one high-level
-scope (`self`, `relationship`, `preference`, `practice`, `project`, or
-`knowledge`), and
-optionally 1–10 unique free-form `tags`. Scope selects one fixed local directory.
-Query terms and tags rank valid records from that directory; recall never searches
-another scope or accepts a client-supplied path. The Tool schema publishes scope
-as an explicit string enum so clients can discover the complete vocabulary.
+This is not yet a full memory substitute. A `memory_recall` request requires a
+free-form `query` and exactly one high-level scope (`self`, `relationship`,
+`preference`, `practice`, `project`, or `knowledge`). It optionally accepts a
+canonical `namespace_id` and 1–10 unique free-form `tags`. With no namespace,
+scope-wide recall ranks compatible version-1 and version-2 records. A valid
+namespace narrows candidate discovery to that exact canonical version-2 namespace
+before ranking and excludes legacy version-1 records; it is not a collection
+selector. Query terms and tags rank valid records; recall never searches another
+scope or accepts a client-supplied path. The Tool schema publishes scope as an
+explicit string enum so clients can discover the complete vocabulary.
 
 Matching calls return a normal Tool result with `status: ok` and at most five
 memory records. Results include an inspect-compatible versioned reference, the
 record ID, scope, title, content, tags, and matched terms/tags, but never include
 filesystem paths or internal scores. A legacy reference contains schema version,
 scope, and ID. A canonical reference additionally contains namespace ID and the
-nullable collection ID. An absent scope directory or no relevant record returns
+nullable collection ID. An absent scope or selected namespace directory, or no
+relevant record, returns
 `{"status":"no_matches","memories":[]}`. Invalid arguments retain stable Tool
-errors with code `invalid_query`, `invalid_scope`, or `invalid_tags`; unreadable
-or excessive sources return `memory_source_unavailable` or
+errors with code `invalid_query`, `invalid_scope`, `invalid_namespace`, or
+`invalid_tags`; unreadable or excessive sources return `memory_source_unavailable` or
 `candidate_limit_exceeded` Tool errors.
 
 Recall remains read-only. It does not create, update, delete, or automatically
@@ -945,9 +948,13 @@ and logged without their content.
 Recall retrieval case-folds and tokenizes the query, relative path, title, content, and
 record tags. Exact request-tag overlap has the strongest weight, followed by
 title, path/record-tag, and content matches. Ties are resolved deterministically.
-Symlinks are rejected, no more than 1,000 candidate files are accepted in one
-scope, and no more than five records are returned. Files remain the source of
-truth: inspect them directly and delete a record by deleting its file.
+When `namespace_id` is present, discovery first narrows to that canonical
+namespace; a selected symlink is skipped safely, while a selected non-directory
+is unavailable. Symlinks are otherwise rejected, no more than 1,000 candidate
+files are accepted in the selected discovery root, and no more than five records
+are returned.
+Files remain the source of truth: inspect them directly and delete a record by
+deleting its file.
 
 There is no required manifest or persistent content-bearing index. Exact
 inspection and complete listing use structured selectors and never accept a

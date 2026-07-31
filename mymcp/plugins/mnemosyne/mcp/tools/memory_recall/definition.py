@@ -1,3 +1,4 @@
+from mymcp.plugins.mnemosyne.memory.normalization import IDENTIFIER_PATTERN
 from mymcp.plugins.mnemosyne.memory.scopes import SCOPE_DEFINITIONS
 
 
@@ -36,6 +37,14 @@ TOOL = {
                 "enum": [
                     definition.scope.value for definition in SCOPE_DEFINITIONS
                 ],
+            },
+            "namespace_id": {
+                "type": "string",
+                "description": (
+                    "Optional canonical namespace selector. Omit for scope-wide "
+                    "recall."
+                ),
+                "pattern": f"^{IDENTIFIER_PATTERN.pattern}$",
             },
             "tags": {
                 "type": "array",

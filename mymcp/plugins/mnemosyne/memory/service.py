@@ -123,8 +123,14 @@ class MemoryService:
         scope: MemoryScope,
         query: str,
         tags: Sequence[str],
+        namespace_id: str | None = None,
     ) -> list[MemoryMatch]:
-        return rank_memories(self.store.discover(scope), query, tags)
+        stored_memories = (
+            self.store.discover(scope)
+            if namespace_id is None
+            else self.store.discover(scope, namespace_id=namespace_id)
+        )
+        return rank_memories(stored_memories, query, tags)
 
     def list_memories(
         self,

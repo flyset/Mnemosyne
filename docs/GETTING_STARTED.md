@@ -108,7 +108,9 @@ becoming either an unused archive or a transcript dump.
 The normal read pattern is:
 
 1. Use `memory_recall` when relevant user-specific context could materially
-   change the current response.
+   change the current response. It requires a query and scope; when the canonical
+   namespace is already known, optional `namespace_id` narrows ranked recall to
+   that namespace. It does not select a collection.
 2. Use `memory_list` when complete, bounded discovery is needed, such as finding
    established namespace or collection IDs before a write.
 3. Use `memory_inspect` on an exact reference returned by recall or listing.
