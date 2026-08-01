@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import errno
 import ipaddress
+import logging
 import os
 import stat
 import tomllib
@@ -21,6 +22,7 @@ CONFIGURATION_FILE_NAME = "config.toml"
 CONFIGURATION_MAX_BYTES = 64 * 1024
 
 _OPEN_SUPPORTS_DIR_FD = os.open in os.supports_dir_fd
+_LOGGER = logging.getLogger("mymcp.host.configuration")
 
 _ERROR_MESSAGES = {
     "invalid_location": "MyMCP configuration location is unavailable",
@@ -253,16 +255,36 @@ def _read_configuration_source(
         _close_descriptor(directory_descriptor)
 
 
-def load_host_configuration() -> HostConfiguration:
+def _log_configuration_loaded(
+    outcome: str,
+    configuration: HostConfiguration,
+) -> None:
+    _LOGGER.info(
+        "host_configuration outcome=%s schema_version=%s address=%s port=%s "
+        "declarations=%s enabled=%s",
+        outcome,
+        configuration.schema_version.value,
+        configuration.server.address,
+        configuration.server.port,
+        len(configuration.plugins),
+        sum(declaration.enabled for declaration in configuration.plugins),
+    )
+
+
+def _load_host_configuration() -> HostConfiguration:
     configuration_path = resolve_host_configuration_path()
     application_directory = configuration_path.parent
     application_metadata = _validate_application_directory(application_directory)
     if application_metadata is None:
-        return HostConfiguration.default()
+        configuration = HostConfiguration.default()
+        _log_configuration_loaded("absent_defaults", configuration)
+        return configuration
 
     configuration_metadata = _validate_configuration_path(configuration_path)
     if configuration_metadata is None:
-        return HostConfiguration.default()
+        configuration = HostConfiguration.default()
+        _log_configuration_loaded("absent_defaults", configuration)
+        return configuration
 
     source = _read_configuration_source(
         application_directory,
@@ -274,7 +296,20 @@ def load_host_configuration() -> HostConfiguration:
         decoded = source.decode("utf-8")
     except UnicodeDecodeError:
         raise HostConfigurationError("invalid_utf8") from None
-    return parse_host_configuration_toml(decoded)
+    configuration = parse_host_configuration_toml(decoded)
+    _log_configuration_loaded("loaded", configuration)
+    return configuration
+
+
+def load_host_configuration() -> HostConfiguration:
+    try:
+        return _load_host_configuration()
+    except HostConfigurationError as error:
+        _LOGGER.error(
+            "host_configuration outcome=error code=%s",
+            error.code,
+        )
+        raise
 
 
 @dataclass(frozen=True, slots=True)

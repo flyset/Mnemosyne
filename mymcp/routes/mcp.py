@@ -8,7 +8,6 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from mymcp.mcp.dispatcher import MCPDispatcher
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("mcp")
 
 

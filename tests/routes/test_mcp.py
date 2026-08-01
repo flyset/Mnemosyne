@@ -1,6 +1,8 @@
 import json
 import logging
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -21,6 +23,34 @@ client = TestClient(
         )
     )
 )
+
+
+def test_importing_route_does_not_configure_global_logging() -> None:
+    probe = """
+import logging
+
+calls = 0
+
+def counted_basic_config(*args, **kwargs):
+    global calls
+    calls += 1
+
+logging.basicConfig = counted_basic_config
+import mymcp.routes.mcp
+print(calls)
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=Path(__file__).parents[2],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    assert completed.stdout.strip() == "0"
+    assert completed.stderr == ""
 
 
 def test_mcp_logs_compact_success_events(caplog) -> None:

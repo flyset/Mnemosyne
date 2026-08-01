@@ -223,6 +223,20 @@ routes, MCP dispatch, nor concrete plugins. The snapshot expresses process and
 future composition desired state; it is not Mnemosyne configuration, consent,
 trust proof, or external-plugin safety control.
 
+It also owns the `mymcp.host.configuration` startup terminal event: one `INFO`
+event per successful consuming process with `outcome` (`loaded` or
+`absent_defaults`), schema version, validated loopback address/port, declaration
+count, and enabled count; or one `ERROR` event with only `outcome=error` and a
+stable configuration code before the unchanged `HostConfigurationError`
+propagates. It logs no path, environment value, source content, plugin ID,
+unapproved value, exception detail, or traceback. The normal launcher consumes
+configuration once; each distinct development supervisor or reload-worker
+process emits one event when it consumes configuration; direct Uvicorn factory
+startup consumes it once per process when no snapshot is injected. This is not a worker-lifecycle claim and
+does not add runtime rereads, watching, or hot reload. See
+[Configuration startup logging](CONFIGURATION.md#startup-logging) for the exact
+event format and operator behavior.
+
 `build_production_runtime()` is the explicit production composition root. It
 first validates the supplied snapshot against bundled identities, then reads
 exactly the source-controlled packaged Mnemosyne `manifest.json`, parses
@@ -236,7 +250,10 @@ snapshot or loads once when none is supplied. Ordinary imports do not load
 configuration, build a runtime, or create a global application. `mymcp` loads
 once and supplies the validated address/port to Uvicorn; `mymcp-dev` loads once
 in its supervisor for validation/binding and each reload worker loads once. No
-process watches configuration.
+process watches configuration. The `mymcp` and `mymcp-dev` launchers configure
+standard Python logging at `INFO` before loading; route imports do not configure
+logging. Direct Uvicorn factory invocation retains Uvicorn logging ownership,
+while programmatic users configure standard Python logging themselves.
 
 ### `mymcp/plugins/mnemosyne/plugin.py`
 

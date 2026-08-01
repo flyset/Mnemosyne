@@ -1,9 +1,12 @@
+import logging
 import subprocess
 import sys
 from importlib.util import find_spec
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO)
+
     from mymcp.app import create_production_app
     from mymcp.host.configuration import load_host_configuration
 
@@ -20,6 +23,8 @@ def main() -> None:
 
 
 def dev() -> None:
+    logging.basicConfig(level=logging.INFO)
+
     from mymcp.host.bootstrap import validate_production_configuration
     from mymcp.host.configuration import load_host_configuration
 

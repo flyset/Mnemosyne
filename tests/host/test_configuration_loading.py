@@ -1,3 +1,4 @@
+import logging
 import os
 from types import SimpleNamespace
 from pathlib import Path
@@ -15,6 +16,7 @@ from mymcp.host.configuration import (
 
 
 VALID_SOURCE = b"schema_version = 1\n"
+CONFIGURATION_LOGGER = "mymcp.host.configuration"
 
 
 def _write_configuration(base: Path, source: bytes = VALID_SOURCE) -> Path:
@@ -25,6 +27,58 @@ def _write_configuration(base: Path, source: bytes = VALID_SOURCE) -> Path:
     configuration_path.write_bytes(source)
     configuration_path.chmod(0o600)
     return configuration_path
+
+
+def test_present_source_emits_one_bounded_loaded_event(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    selected = tmp_path / "selected"
+    _write_configuration(
+        selected,
+        b"""
+schema_version = 1
+[server]
+address = "::1"
+port = 9000
+[[plugins]]
+id = "alpha"
+enabled = false
+[[plugins]]
+id = "beta"
+enabled = true
+""",
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
+
+    with caplog.at_level(logging.INFO, logger=CONFIGURATION_LOGGER):
+        snapshot = load_host_configuration()
+
+    assert snapshot.server.address == "::1"
+    assert caplog.messages == [
+        "host_configuration outcome=loaded schema_version=1 address=::1 "
+        "port=9000 declarations=2 enabled=1"
+    ]
+
+
+def test_absent_source_emits_one_bounded_defaults_event_without_creation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    selected = tmp_path / "selected"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
+
+    with caplog.at_level(logging.INFO, logger=CONFIGURATION_LOGGER):
+        snapshot = load_host_configuration()
+
+    assert snapshot == HostConfiguration.default()
+    assert caplog.messages == [
+        "host_configuration outcome=absent_defaults schema_version=1 "
+        "address=127.0.0.1 port=8000 declarations=0 enabled=0"
+    ]
+    assert not selected.exists()
 
 
 @pytest.mark.parametrize("value", [None, "", "relative/path"])
@@ -559,3 +613,70 @@ def test_source_errors_have_fixed_bounded_messages(code: str, message: str) -> N
 
     assert error.code == code
     assert str(error) == message
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "invalid_location",
+        "unsafe_path",
+        "not_regular",
+        "unsafe_permissions",
+        "unreadable",
+        "too_large",
+        "source_changed",
+        "invalid_utf8",
+        "invalid_toml",
+        "unsupported_schema_version",
+        "invalid_schema",
+        "duplicate_plugin",
+    ],
+)
+def test_each_load_failure_emits_one_bounded_error_and_reraises_same_exception(
+    code: str,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    expected = HostConfigurationError(code)
+
+    def fail_resolution() -> Path:
+        raise expected
+
+    monkeypatch.setattr(
+        configuration_module,
+        "resolve_host_configuration_path",
+        fail_resolution,
+    )
+
+    with caplog.at_level(logging.ERROR, logger=CONFIGURATION_LOGGER):
+        with pytest.raises(HostConfigurationError) as captured:
+            load_host_configuration()
+
+    assert captured.value is expected
+    assert caplog.messages == [f"host_configuration outcome=error code={code}"]
+
+
+def test_failure_log_omits_path_environment_source_and_exception_details(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    selected = tmp_path / "private-location-marker"
+    _write_configuration(
+        selected,
+        b'private_source_marker = "private_plugin_marker"\n',
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
+
+    with caplog.at_level(logging.ERROR, logger=CONFIGURATION_LOGGER):
+        with pytest.raises(HostConfigurationError) as captured:
+            load_host_configuration()
+
+    assert captured.value.code == "invalid_schema"
+    assert caplog.messages == [
+        "host_configuration outcome=error code=invalid_schema"
+    ]
+    rendered = " ".join(caplog.messages)
+    assert "private-location-marker" not in rendered
+    assert "private_source_marker" not in rendered
+    assert "private_plugin_marker" not in rendered

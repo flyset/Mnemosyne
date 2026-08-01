@@ -1124,6 +1124,13 @@ The supported direct ASGI target is the application factory
 `mymcp.app:create_production_app` with Uvicorn factory mode. The former internal
 module-level target `mymcp.app:app` no longer exists.
 
+At startup, host-configuration loading is reported through the
+`mymcp.host.configuration` logger. The `mymcp` and `mymcp-dev` launchers configure
+standard Python logging at `INFO`; direct Uvicorn factory use retains Uvicorn's
+logging ownership, and programmatic callers configure Python logging themselves.
+See [Configuration](docs/CONFIGURATION.md#startup-logging) for the bounded event
+format, restart behavior, and troubleshooting guidance.
+
 Run the test suite after installing the `test` extra:
 
 ```bash

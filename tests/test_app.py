@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 import subprocess
 import sys
@@ -14,6 +15,9 @@ from mymcp.host import bootstrap
 from mymcp.host.configuration import HostConfiguration
 from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
 from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
+
+
+CONFIGURATION_LOGGER = "mymcp.host.configuration"
 
 
 @dataclass(frozen=True)
@@ -170,6 +174,31 @@ def test_runtime_requests_never_reload_host_configuration(
     assert client.get("/health").status_code == 200
     assert client.post("/mcp", json={"id": 1, "method": "tools/list"}).status_code == 200
     assert loader_calls == 1
+
+
+def test_direct_and_reload_worker_factory_emits_one_event_and_requests_emit_none(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    runtime = _runtime("production", [])
+    selected = tmp_path / "xdg"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
+    monkeypatch.setattr(
+        bootstrap,
+        "build_production_runtime",
+        lambda _configuration: runtime,
+    )
+
+    with caplog.at_level(logging.INFO, logger=CONFIGURATION_LOGGER):
+        client = TestClient(app_module.create_production_app())
+        client.get("/health")
+        client.post("/mcp", json={"id": 1, "method": "tools/list"})
+
+    assert caplog.messages == [
+        "host_configuration outcome=absent_defaults schema_version=1 "
+        "address=127.0.0.1 port=8000 declarations=0 enabled=0"
+    ]
 
 
 def test_existing_application_is_stable_after_configuration_file_changes(

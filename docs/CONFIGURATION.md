@@ -78,6 +78,53 @@ snapshot is injected. Ordinary imports and runtime requests do not read or watch
 the file. Change configuration by restarting the relevant server process; there
 is no hot reload, activation, runtime switching, or partial publication.
 
+## Startup logging
+
+`mymcp.host.configuration` owns one terminal event for each public
+`load_host_configuration()` attempt. A successful present source emits one
+`INFO` event with this exact field vocabulary and order:
+
+```text
+host_configuration outcome=loaded schema_version=1 address=<loopback> port=<port> declarations=<count> enabled=<count>
+```
+
+An absent selected application directory or configuration file emits one `INFO`
+event with the identical fields and `outcome=absent_defaults`. `address` and
+`port` are the validated packaged-launcher binding values; `declarations` and
+`enabled` are counts. No other success/default fields are emitted.
+
+On a `HostConfigurationError`, the loader emits exactly one `ERROR` event before
+propagating the same bounded exception unchanged:
+
+```text
+host_configuration outcome=error code=<stable_code>
+```
+
+`<stable_code>` is one of the applicable location, source, decoding, TOML, schema,
+or duplicate-declaration codes in [Bounded failures](#bounded-failures).
+`bundled_plugin_conflict` and `enabled_plugin_unsupported` arise during later
+semantic validation and are not loader events. The error event contains no
+message or other metadata. Neither success/default
+nor error events include a path, environment value, source content, plugin ID,
+unapproved value, exception detail, or traceback. Semantic validation and later
+runtime-composition failures remain outside this loader event.
+
+The normal launcher produces one event because it consumes configuration once.
+Development mode produces one supervisor event and one event for each replacement
+worker: each is a separate process that consumes configuration once. Direct
+Uvicorn factory mode produces one event per process when the factory loads its
+own snapshot. These events do not imply worker lifecycle ownership, file watching,
+runtime rereads, or hot configuration reload; apply a configuration change by
+restarting the applicable server process.
+
+The `mymcp` and `mymcp-dev` launchers call `logging.basicConfig(level=logging.INFO)`
+before loading configuration. Routes do not configure logging at import time.
+Direct Uvicorn factory invocation retains Uvicorn logging ownership; programmatic
+factory users configure standard Python logging as appropriate for their process.
+Use the event to distinguish an accepted present source (`loaded`) from absent
+defaults (`absent_defaults`), or use the stable error code to consult the table
+below. It does not expose configuration values for diagnosis.
+
 ## Source safety
 
 MyMCP reads at most 64 KiB, requires UTF-8 and strict TOML, and rejects unsafe
