@@ -59,18 +59,23 @@ Before performing the first Mnemosyne operation in each session:
 - **Scope:** `project`
 - **Namespace:** `mymcp`
 - **Collection:** `roadmaps`
-- **Holds:** user-approved, long-range MyMCP roadmaps, including major phases,
-  sequencing, dependencies, and intended outcomes; roadmaps guide direction but
-  do not replace detailed Backlog Tracks.
+- **Holds:** user-approved, long-range MyMCP roadmap sets, including one bounded
+  canonical index and bounded section records for major phases, sequencing,
+  dependencies, intended outcomes, delivered baseline, and shared constraints;
+  roadmaps guide direction but do not replace detailed Backlog Tracks.
 - **Read when:** choosing or evaluating the next major project step, planning a
   roadmap-derived Track, determining how a Track fits the longer-term direction,
-  and reconciling the roadmap when that Track completes.
+  and reconciling the roadmap set when that Track completes. List the complete
+  collection and inspect the canonical index plus the affected sections when
+  completeness matters.
 - **Write when:** the user approves a durable roadmap or materially changes one,
   or when a completed Track or approved decision changes the delivered baseline,
   current phase, sequencing, dependencies, intended outcomes, or next major step.
-  Revise the existing living roadmap rather than creating a near-duplicate. Do
-  not revise it for individual TDD chunks or routine DRAFT/ACTIVE transitions;
-  the Backlog Track owns that execution detail.
+  Revise the affected existing section rather than creating a near-duplicate,
+  and revise the canonical index last when ordering, current phase, or the next
+  major step changes. A section is part of the indexed roadmap, not a competing
+  roadmap. Do not revise roadmap records for individual TDD chunks or routine
+  DRAFT/ACTIVE transitions; the Backlog Track owns that execution detail.
 
 #### Decisions
 
