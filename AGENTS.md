@@ -18,13 +18,17 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam, a
 delivered Phase 2 bundled Mnemosyne extraction, the released MyMCP/`mymcp`
-`0.2.0` public host, and the current `0.2.1` Ollama schema-compatibility build.
+`0.2.0` public host, the prior `0.2.1` Ollama schema-compatibility build, and the
+current `0.3.0` host-configuration foundation.
 The bundled Mnemosyne plugin is `0.3.0`; memory_recall is capability contract
 `1.2.0`, while its other seven capabilities are `1.1.0`. The canonical
 Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
-remain host-owned. Repository migration, operational reconnect/approval checks,
+remain host-owned. Schema-v1 XDG host configuration now supplies immutable
+per-process startup intent and loopback packaged-launcher settings; external
+plugin enablement remains unsupported. Repository migration, operational
+reconnect/approval checks,
 annotated tag creation, and release publication are complete. The approved next
 direction is startup composition for operator-installed, operator-trusted
 external plugins: MyMCP validates compatibility and composition, not plugin

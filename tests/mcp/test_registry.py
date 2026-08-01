@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import HostConfiguration
 from mymcp.plugins.mnemosyne import plugin as mnemosyne
 from mymcp.plugins.mnemosyne.configuration import MemoryToolSettings
 from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
@@ -28,6 +29,7 @@ def _registry(
         ),
     )
     return build_production_runtime(
+        HostConfiguration.default(),
         generation_factory=lambda: "test-generation"
     ).registry
 

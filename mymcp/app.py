@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from mymcp.host.configuration import HostConfiguration, load_host_configuration
 from mymcp.mcp.dispatcher import MCPDispatcher, RuntimeLike
 from mymcp.routes.health import router as health_router
 from mymcp.routes.mcp import create_router as create_mcp_router
@@ -15,7 +16,12 @@ def create_app(runtime: RuntimeLike) -> FastAPI:
     return app
 
 
-def create_production_app() -> FastAPI:
+def create_production_app(
+    configuration: HostConfiguration | None = None,
+) -> FastAPI:
     from mymcp.host.bootstrap import build_production_runtime
 
-    return create_app(build_production_runtime())
+    selected_configuration = (
+        load_host_configuration() if configuration is None else configuration
+    )
+    return create_app(build_production_runtime(selected_configuration))

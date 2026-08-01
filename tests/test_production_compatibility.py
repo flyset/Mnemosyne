@@ -22,6 +22,7 @@ def test_default_production_factory_preserves_public_read_only_surface(
     monkeypatch.setenv("MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED", "false")
     monkeypatch.setenv("MNEMOSYNE_MEMORY_REVISE_ENABLED", "false")
     monkeypatch.setenv("MNEMOSYNE_MEMORY_FORGET_ENABLED", "false")
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     client = TestClient(create_production_app())
     expected_tools = [
         list_tools.TOOL,
@@ -72,12 +73,12 @@ def test_default_production_factory_preserves_public_read_only_surface(
     assert initialized.json()["result"] == {
         "protocolVersion": "2024-11-05",
         "capabilities": {"tools": {}},
-        "serverInfo": {"name": "mymcp", "version": "0.2.1"},
+        "serverInfo": {"name": "mymcp", "version": "0.3.0"},
     }
     assert version.status_code == 200
     assert version.json() == {
         "name": "mymcp",
-        "version": "0.2.1",
+        "version": "0.3.0",
         "protocolVersion": "2024-11-05",
     }
     assert discovered.status_code == 200
@@ -87,7 +88,7 @@ def test_default_production_factory_preserves_public_read_only_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mymcp 0.2.1. Available tools: "
+                    "Server: mymcp 0.3.0. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect"
                 ),
             }

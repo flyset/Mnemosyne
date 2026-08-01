@@ -21,10 +21,10 @@ def test_list_tools_formats_the_supplied_tool_names() -> None:
     }
 
 
-def test_server_and_package_versions_identify_the_compatibility_build() -> None:
+def test_server_and_package_versions_identify_the_configuration_build() -> None:
     project = tomllib.loads(
         (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )["project"]
 
-    assert SERVER_VERSION == "0.2.1"
+    assert SERVER_VERSION == "0.3.0"
     assert project["version"] == SERVER_VERSION

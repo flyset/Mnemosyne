@@ -2,6 +2,10 @@ from copy import deepcopy
 from importlib.resources import files
 from typing import Any
 
+from mymcp.host.configuration import (
+    HostConfiguration,
+    validate_host_configuration_semantics,
+)
 from mymcp.host.runtime import GenerationFactory, HostRuntime, build_host_runtime
 from mymcp.plugins.mnemosyne.plugin import (
     mnemosyne_contribution,
@@ -22,6 +26,16 @@ from mymcp.plugin.manifest import parse_manifest_bytes, validate_plugin_contract
 
 
 _MNEMOSYNE_PLUGIN_ID = PluginId("mnemosyne")
+_BUNDLED_PLUGIN_IDS = (_MNEMOSYNE_PLUGIN_ID,)
+
+
+def validate_production_configuration(
+    configuration: HostConfiguration,
+) -> HostConfiguration:
+    return validate_host_configuration_semantics(
+        configuration,
+        bundled_plugin_ids=_BUNDLED_PLUGIN_IDS,
+    )
 
 
 def _mnemosyne_identity(local_id: str) -> QualifiedCapabilityId:
@@ -65,9 +79,11 @@ def _host_list_tools_registration(
 
 
 def build_production_runtime(
+    configuration: HostConfiguration,
     *,
     generation_factory: GenerationFactory | None = None,
 ) -> HostRuntime:
+    validate_production_configuration(configuration)
     manifest_definition = parse_manifest_bytes(
         files("mymcp.plugins.mnemosyne").joinpath("manifest.json").read_bytes()
     )

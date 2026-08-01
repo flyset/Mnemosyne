@@ -11,10 +11,10 @@ exact parity validation, and fixed packaged declaration loading before runtime
 generation. TRACK_033's implemented vertical extraction places the canonical
 Mnemosyne adapter, configuration, memory domain, and MCP Tool adapters in its
 bundled plugin. TRACK_034 delivered the MyMCP/`mymcp` `0.2.0` public-host release
-while Mnemosyne retains its memory-domain identity. TRACK_036 advances the
-current host/package marker to `0.2.1` and removes redundant nonblank Tool-schema
-patterns that Ollama's llama.cpp grammar converter cannot compile; server-side
-Mnemosyne validation and all Tool/domain identities remain unchanged.
+while Mnemosyne retains its memory-domain identity. TRACK_036 delivered the prior
+`0.2.1` Ollama Tool-schema compatibility build; server-side Mnemosyne validation
+and all Tool/domain identities remain unchanged. TRACK_039 delivers MyMCP
+`0.3.0` host configuration schema 1 and startup integration.
 
 The central distinction is:
 
@@ -62,12 +62,14 @@ The approved target is defined in
 Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
 adapter over canonical registrations. `memory_recall` declares capability
 contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
-MyMCP's host/package/server marker remains independently `0.2.1`. Bootstrap reads only the fixed
-`mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
+MyMCP's host/package/server marker is independently `0.3.0`. Host configuration
+is loaded into one immutable startup snapshot before bootstrap. Bootstrap then
+reads only the fixed `mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
 bytes, and validates exact manifest/adapter/selected-contribution parity before
 generation construction. This fixed validation is neither dynamic discovery nor
-authority grant. Startup composition for configured trusted external plugins,
-gateway governance, and public metadata projection remain deferred.
+authority grant. Schema-v1 configuration can declare external desired state, but
+enabled external plugins fail before runtime construction in this build. Startup
+composition, gateway governance, and public metadata projection remain deferred.
 The canonical repository is `https://github.com/flyset/MyMCP`, and the former
 URL redirects there. Local origin/history/tag/placeholder verification is
 complete. The tracked and ignored OpenCode migration uses connection/agent/prefix
@@ -110,6 +112,7 @@ mymcp/
     version.py        # GET /version
 
   host/
+    configuration.py    # XDG source, strict schema-v1 snapshot, semantic checks
     bootstrap.py        # explicit production runtime construction
     runtime.py          # immutable HostRuntime and opaque generation
 
@@ -213,15 +216,27 @@ integration metadata, gate selection, or plugin lifecycle.
 
 ### `mymcp/host/bootstrap.py` and `mymcp/host/runtime.py`
 
+`mymcp/host/configuration.py` exclusively owns XDG path selection, safe bounded
+source reading, strict schema-v1 TOML parsing, immutable host/server/external
+declaration values, and bounded configuration errors. It imports neither FastAPI,
+routes, MCP dispatch, nor concrete plugins. The snapshot expresses process and
+future composition desired state; it is not Mnemosyne configuration, consent,
+trust proof, or external-plugin safety control.
+
 `build_production_runtime()` is the explicit production composition root. It
-reads exactly the source-controlled packaged Mnemosyne `manifest.json`, parses
+first validates the supplied snapshot against bundled identities, then reads
+exactly the source-controlled packaged Mnemosyne `manifest.json`, parses
 it, obtains the trusted adapter definition and gate-selected contribution, and
 validates parity before applying canonical host-owned bindings, binding
 `list_tools`, or constructing an immutable `HostRuntime` generation. Any such
 failure returns no runtime. `create_app(runtime)` and `MCPDispatcher(runtime)`
 use that runtime for discovery and dispatch. `create_production_app()` is the
-local factory used by the supported Uvicorn target; ordinary imports do not build
-a runtime or global application.
+local factory used by the supported Uvicorn target: it accepts an injected
+snapshot or loads once when none is supplied. Ordinary imports do not load
+configuration, build a runtime, or create a global application. `mymcp` loads
+once and supplies the validated address/port to Uvicorn; `mymcp-dev` loads once
+in its supervisor for validation/binding and each reload worker loads once. No
+process watches configuration.
 
 ### `mymcp/plugins/mnemosyne/plugin.py`
 
@@ -562,8 +577,8 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.2.1` for the current compatibility build and is kept equal to the
-package version. The marker is also returned by initialize and `/version`; the
+is `mymcp 0.3.0` and is kept equal to the package version. The marker is also
+returned by initialize and `/version`; the
 public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
 processes after public-contract updates; it is not a dynamic Git identifier or a
 replacement for reconnecting Tool discovery.

@@ -55,10 +55,13 @@ local Uvicorn factory target. The production surface contains the trusted
 Mnemosyne `0.3.0` adapter over canonical registrations from the extracted bundled
 plugin. Its per-capability contract declarations identify `memory_recall` as
 `1.2.0` and the other seven capabilities as `1.1.0`; MyMCP's host/package/server
-marker remains independently `0.2.1`.
+marker is independently `0.3.0`.
 
 The released public-host cutover includes repository and operational
-verification. Startup composition for operator-installed trusted external
+verification. MyMCP 0.3.0 adds the schema-v1 host-configuration foundation:
+one immutable XDG-selected startup snapshot, loopback-only packaged-launcher
+settings, and ordered external-plugin desired state. It does not load external
+implementations. Startup composition for operator-installed trusted external
 plugins, client-neutral gateway policy, public metadata projection, and reusable
 host services follow in that dependency order.
 

@@ -2,9 +2,9 @@
 
 MyMCP is the repository and Python host package for an experimental local MCP
 server. Released `0.2.0` established the host, application, package, and official
-tracked client as MyMCP/`mymcp`; the current source is the `0.2.1` compatibility
-build. It hosts Mnemosyne, the user-governed AI memory domain, through a bundled
-plugin.
+tracked client as MyMCP/`mymcp`; the current MyMCP/package/server version is
+`0.3.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
+bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
 that composes narrowly scoped integrations behind one machine-local endpoint.
@@ -30,13 +30,14 @@ manifest/definition/contribution parity before generation construction.
 The plugin's trusted in-process Mnemosyne `0.3.0` adapter supplies canonical
 registrations. Every capability declares its own contract version: `memory_recall`
 is `1.2.0`; the other seven `memory_*` capabilities are `1.1.0`. The MyMCP
-host/package/server remains independently `0.2.1`. A test-owned,
+host/package/server is independently `0.3.0`. A test-owned,
 version-keyed canonical Tool-definition digest ledger retains readable
 properties/required-field fingerprints and historical entries, so definition
 drift cannot silently reuse a capability version. The ledger covers declared Tool
-definitions only; behavioral/version impact remains review-gated. Host bootstrap
-reads only the fixed packaged resource, validates it against the plugin definition
-and selected gate-controlled contribution, then constructs a runtime.
+definitions only; behavioral/version impact remains review-gated. Host
+configuration supplies one immutable startup snapshot before bootstrap; bootstrap
+validates it before reading the fixed packaged resource, then validates that
+resource against the plugin definition and selected gate-controlled contribution.
 `create_production_app()` is the local convenience factory and supported Uvicorn
 factory target. Ordinary imports are side-effect free; no global app,
 startup/methods modules, static `ToolIntegration`, or dynamic discovery are used.
@@ -63,8 +64,10 @@ non-draft, non-prerelease GitHub release
 is tagged `mymcp-v0.2.0` at `c2852bc` and contains one wheel,
 `mymcp-0.2.0-py3-none-any.whl`, with matching GitHub/local SHA-256
 `531cc9a603d16399b12650fd09d3bc76f43b4d5d1b15fed0377a6197c820e3e7`.
-Startup composition for operator-installed trusted external plugins and gateway
-governance remain deferred. See
+Schema-v1 host configuration now provides XDG-based process settings and ordered
+external-plugin desired state. Enabled external plugins remain unsupported in
+this build; startup composition and gateway governance remain deferred. See
+[host configuration](docs/CONFIGURATION.md) and
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
 Implemented tools:
@@ -316,15 +319,18 @@ surface and retains trusted origins, effect/consent metadata, plugin inventory,
 and an opaque runtime generation. Duplicate plugin, capability, or public names
 fail composition rather than overwriting a registration.
 
-The explicit production bootstrap reads the fixed packaged inert Mnemosyne
-manifest, validates exact definition and selected-contribution parity before
-generation construction, then composes the trusted Mnemosyne `0.3.0` adapter over
+The explicit production bootstrap validates one immutable host-configuration
+snapshot, then reads the fixed packaged inert Mnemosyne manifest, validates exact
+definition and selected-contribution parity before generation construction, and
+composes the trusted Mnemosyne `0.3.0` adapter over
 canonical registrations. The plugin resolves immutable mutation settings once,
 selects and orders memory Tools, and lazily resolves the configured root for each
 validated operation. Runtime-bound MCP dispatch, `tools/list`, and `list_tools`
 all use the same runtime registry. `mymcp/settings.py` retains only host
 server/process identity; plugin-owned `configuration.py` retains the unchanged
-`MNEMOSYNE_*`, `~/.mnemosyne/config.toml`, and memory-root contracts. Handlers
+`MNEMOSYNE_*`, `~/.mnemosyne/config.toml`, and memory-root contracts. Host
+configuration is separately documented in [Configuration](docs/CONFIGURATION.md).
+Handlers
 remain narrow operation adapters. Synthetic multi-contribution tests prove
 ordered aggregation, complete reporting, dispatch, and collision rejection.
 This static bundled-plugin seam preserves Mnemosyne's public server identity,
@@ -485,7 +491,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mymcp 0.2.1.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.3.0.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -1058,6 +1064,29 @@ cd MyMCP
 
 The canonical repository is <https://github.com/flyset/MyMCP>; the former URL
 redirects here.
+
+Optionally create host configuration at
+`$XDG_CONFIG_HOME/mymcp/config.toml`, or `~/.config/mymcp/config.toml` when the
+XDG value is absent, empty, or relative:
+
+```toml
+schema_version = 1
+
+[server]
+address = "127.0.0.1"
+port = 8000
+
+[[plugins]]
+id = "future-plugin"
+enabled = false
+```
+
+The file is optional; its absence preserves bundled-only startup. Only literal
+loopback addresses and ports 1–65535 are supported. A declaration is desired
+state, not installation or trust proof: disabled plugins are not loaded, while
+enabled external plugins fail in this release because loading is deferred. See
+[host configuration](docs/CONFIGURATION.md) for safety rules, errors, restart
+behavior, and the strict schema.
 
 The MCP endpoint is exposed at:
 

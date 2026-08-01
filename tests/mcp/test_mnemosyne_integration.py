@@ -7,6 +7,7 @@ import pytest
 
 from mymcp.host import bootstrap
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import HostConfiguration
 from mymcp.plugins.mnemosyne import plugin as mnemosyne
 from mymcp.plugins.mnemosyne.plugin import (
     build_mnemosyne_contribution,
@@ -90,7 +91,10 @@ def _runtime_for_settings(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(mnemosyne, "get_memory_tool_settings", lambda: settings)
-    return build_production_runtime(generation_factory=lambda: "test-generation")
+    return build_production_runtime(
+        HostConfiguration.default(),
+        generation_factory=lambda: "test-generation",
+    )
 
 
 def test_mnemosyne_integration_contributes_ordered_registrations_without_list_tools(
@@ -259,7 +263,7 @@ def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mymcp 0.2.1. Available tools: "
+                    "Server: mymcp 0.3.0. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect, "
                     "memory_remember, memory_revise"
                 ),

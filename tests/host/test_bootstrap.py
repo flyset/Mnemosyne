@@ -5,6 +5,11 @@ import pytest
 
 from mymcp.host import bootstrap
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import (
+    HostConfiguration,
+    HostConfigurationError,
+    parse_host_configuration_toml,
+)
 from mymcp.plugins.mnemosyne import plugin as mnemosyne
 from mymcp.plugins.mnemosyne.plugin import (
     build_mnemosyne_contribution,
@@ -37,6 +42,7 @@ MUTATION_NAMES = [
     "memory_revise",
     "memory_forget",
 ]
+DEFAULT_CONFIGURATION = HostConfiguration.default()
 
 
 def _identity(name: str) -> QualifiedCapabilityId:
@@ -45,6 +51,24 @@ def _identity(name: str) -> QualifiedCapabilityId:
         CapabilityKind.TOOL,
         CapabilityLocalId(name),
     )
+
+
+def test_bootstrap_rejects_enabled_external_plugin_before_manifest_access(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configuration = parse_host_configuration_toml(
+        'schema_version = 1\n[[plugins]]\nid = "external"\nenabled = true\n'
+    )
+    monkeypatch.setattr(
+        bootstrap,
+        "files",
+        lambda _package: pytest.fail("invalid composition accessed a manifest"),
+    )
+
+    with pytest.raises(HostConfigurationError) as captured:
+        build_production_runtime(configuration)
+
+    assert captured.value.code == "enabled_plugin_unsupported"
 
 
 def _selected_names(settings: MemoryToolSettings) -> list[str]:
@@ -93,6 +117,7 @@ def test_bootstrap_resolves_settings_once_and_preserves_every_gate_combination(
     )
 
     runtime = build_production_runtime(
+        DEFAULT_CONFIGURATION,
         generation_factory=lambda: "test-generation"
     )
     expected = _selected_names(settings)
@@ -145,6 +170,7 @@ def test_bootstrap_preserves_exact_public_definitions_without_policy_projection(
     monkeypatch.setattr(mnemosyne, "get_memory_tool_settings", lambda: settings)
 
     runtime = build_production_runtime(
+        DEFAULT_CONFIGURATION,
         generation_factory=lambda: "test-generation"
     )
     registrations = build_mnemosyne_registrations(
@@ -171,6 +197,7 @@ def test_bootstrap_list_tools_reports_complete_selected_surface(
     )
 
     runtime = build_production_runtime(
+        DEFAULT_CONFIGURATION,
         generation_factory=lambda: "test-generation"
     )
 
@@ -179,7 +206,7 @@ def test_bootstrap_list_tools_reports_complete_selected_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mymcp 0.2.1. Available tools: "
+                    "Server: mymcp 0.3.0. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect, "
                     "memory_remember, memory_revise"
                 ),
@@ -208,6 +235,7 @@ def test_bootstrap_and_invalid_calls_do_not_construct_memory_domain(
     )
 
     runtime = build_production_runtime(
+        DEFAULT_CONFIGURATION,
         generation_factory=lambda: "test-generation"
     )
 
@@ -237,7 +265,10 @@ def test_failed_adapter_composition_does_not_create_generation(
         PluginContractError,
         match="^plugin contribution selects a capability more than once$",
     ) as captured:
-        build_production_runtime(generation_factory=generation_factory)
+        build_production_runtime(
+            DEFAULT_CONFIGURATION,
+            generation_factory=generation_factory,
+        )
 
     assert captured.value.code is PluginContractErrorCode.DUPLICATE_SELECTED_CAPABILITY
     assert generation_called is False
@@ -266,7 +297,10 @@ def test_bootstrap_reads_only_the_fixed_mnemosyne_manifest_resource(
 
     monkeypatch.setattr(bootstrap, "files", fixed_package, raising=False)
 
-    runtime = build_production_runtime(generation_factory=lambda: "fixed-resource")
+    runtime = build_production_runtime(
+        DEFAULT_CONFIGURATION,
+        generation_factory=lambda: "fixed-resource",
+    )
 
     assert calls == [
         ("package", "mymcp.plugins.mnemosyne"),
@@ -300,7 +334,10 @@ def test_bootstrap_validates_exact_contract_before_generation(
         raising=False,
     )
 
-    runtime = build_production_runtime(generation_factory=generation_factory)
+    runtime = build_production_runtime(
+        DEFAULT_CONFIGURATION,
+        generation_factory=generation_factory,
+    )
 
     assert calls == ["validate", "generation"]
     assert runtime.generation.value == "validated-generation"
@@ -333,7 +370,10 @@ def test_manifest_parse_failure_precedes_settings_and_generation(
         PluginContractError,
         match="^plugin manifest resource is not valid JSON$",
     ):
-        build_production_runtime(generation_factory=generation_factory)
+        build_production_runtime(
+            DEFAULT_CONFIGURATION,
+            generation_factory=generation_factory,
+        )
 
     assert generation_called is False
 
@@ -373,7 +413,10 @@ def test_manifest_resource_failure_precedes_settings_and_generation(
     )
 
     with pytest.raises(OSError, match="^manifest unavailable$"):
-        build_production_runtime(generation_factory=generation_factory)
+        build_production_runtime(
+            DEFAULT_CONFIGURATION,
+            generation_factory=generation_factory,
+        )
 
     assert generation_called is False
 
@@ -404,7 +447,10 @@ def test_adapter_definition_failure_precedes_settings_and_generation(
     )
 
     with pytest.raises(RuntimeError, match="^definition failed$"):
-        build_production_runtime(generation_factory=generation_factory)
+        build_production_runtime(
+            DEFAULT_CONFIGURATION,
+            generation_factory=generation_factory,
+        )
 
     assert generation_called is False
 
@@ -436,6 +482,9 @@ def test_parity_failure_prevents_generation_and_partial_runtime(
         PluginContractError,
         match="^plugin definition does not match manifest$",
     ):
-        build_production_runtime(generation_factory=generation_factory)
+        build_production_runtime(
+            DEFAULT_CONFIGURATION,
+            generation_factory=generation_factory,
+        )
 
     assert generation_called is False

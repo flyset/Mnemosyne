@@ -2,12 +2,14 @@ from fastapi.testclient import TestClient
 
 from mymcp.app import create_app
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import HostConfiguration
 from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
 client = TestClient(
     create_app(
         build_production_runtime(
+            HostConfiguration.default(),
             generation_factory=lambda: "operational-test-generation"
         )
     )

@@ -19,11 +19,14 @@ STARTUP_PROBE = """
 import json
 
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import HostConfiguration
 from mymcp.mcp.dispatcher import MCPDispatcher
 
 
 def request(message):
-    return MCPDispatcher(build_production_runtime()).dispatch(message)
+    return MCPDispatcher(
+        build_production_runtime(HostConfiguration.default())
+    ).dispatch(message)
 
 
 tools_list = request({"id": "tools", "method": "tools/list"})
@@ -120,10 +123,13 @@ import json
 from pathlib import Path
 
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import HostConfiguration
 from mymcp.mcp.dispatcher import MCPDispatcher
 
 
-dispatcher = MCPDispatcher(build_production_runtime())
+dispatcher = MCPDispatcher(
+    build_production_runtime(HostConfiguration.default())
+)
 
 
 def tool_names():
@@ -159,10 +165,13 @@ def counted_open(path, *args, **kwargs):
 os.open = counted_open
 
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import HostConfiguration
 from mymcp.mcp.dispatcher import MCPDispatcher
 
 
-dispatcher = MCPDispatcher(build_production_runtime())
+dispatcher = MCPDispatcher(
+    build_production_runtime(HostConfiguration.default())
+)
 first = dispatcher.dispatch({"id": "first", "method": "tools/list"})
 second = dispatcher.dispatch({"id": "second", "method": "tools/list"})
 print(
@@ -272,7 +281,7 @@ def test_file_enabled_startup_exposes_discovery_and_dispatch_without_writes(
         "memory_remember",
     ]
     assert result["list_tools_text"] == (
-        "Server: mymcp 0.2.1. Available tools: "
+        "Server: mymcp 0.3.0. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_remember"
     )
@@ -338,7 +347,7 @@ def test_disabled_startup_omits_remember_and_creates_no_paths(
         "memory_inspect",
     ]
     assert result["list_tools_text"] == (
-        "Server: mymcp 0.2.1. Available tools: "
+        "Server: mymcp 0.3.0. Available tools: "
         "list_tools, memory_recall, memory_list, memory_inspect"
     )
     assert json.loads(result["listing"]["result"]["content"][0]["text"])[
@@ -424,7 +433,7 @@ def test_archive_restore_enablement_exposes_both_discovery_surfaces_and_dispatch
         "memory_restore",
     ]
     assert result["list_tools_text"] == (
-        "Server: mymcp 0.2.1. Available tools: "
+        "Server: mymcp 0.3.0. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_archive, memory_restore"
     )
@@ -486,7 +495,7 @@ def test_revise_enablement_exposes_both_discovery_surfaces_and_dispatch(
         "memory_revise",
     ]
     assert result["list_tools_text"] == (
-        "Server: mymcp 0.2.1. Available tools: "
+        "Server: mymcp 0.3.0. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_revise"
     )
@@ -525,7 +534,7 @@ def test_forget_enablement_exposes_both_discovery_surfaces_and_dispatch(
         "memory_forget",
     ]
     assert result["list_tools_text"] == (
-        "Server: mymcp 0.2.1. Available tools: "
+        "Server: mymcp 0.3.0. Available tools: "
         "list_tools, memory_recall, memory_list, "
         "memory_inspect, memory_forget"
     )

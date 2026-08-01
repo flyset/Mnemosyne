@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 
 from mymcp.host.bootstrap import build_production_runtime
+from mymcp.host.configuration import HostConfiguration
 
 
 def _payload(result: dict[str, Any] | None) -> dict[str, Any]:
@@ -24,6 +25,7 @@ def test_agent_scope_uses_the_complete_existing_memory_lifecycle(
     monkeypatch.setenv("MNEMOSYNE_MEMORY_REVISE_ENABLED", "true")
     monkeypatch.setenv("MNEMOSYNE_MEMORY_FORGET_ENABLED", "true")
     registry = build_production_runtime(
+        HostConfiguration.default(),
         generation_factory=lambda: "agent-lifecycle-test"
     ).registry
 

@@ -1,7 +1,8 @@
 # MyMCP Plugin Architecture
 
 > Status: approved target with the TRACK_031 Phase 1 foundation and implemented
-> Phase 2 declaration/parity and bundled Mnemosyne extraction. This document
+> Phase 2 declaration/parity and bundled Mnemosyne extraction, plus the delivered
+> schema-v1 host-configuration foundation. This document
 > distinguishes the current
 > extracted bundled-plugin boundary from deferred startup composition for trusted
 > external plugins, gateway governance, and public
@@ -44,7 +45,9 @@ The current implementation now provides:
 - a Tool-independent memory domain;
 - immutable definition contracts and strict manifest-v1 parsing; and
 - fixed packaged Mnemosyne manifest/definition/contribution parity before
-  runtime generation.
+  runtime generation; and
+- immutable XDG-selected host configuration, loopback packaged-launcher settings,
+  and ordered external-plugin desired-state declarations.
 
 Released `0.2.0` identifies the host endpoint/application, package,
 and tracked official OpenCode connection/agent as MyMCP/`mymcp`. Its tracked
@@ -105,6 +108,7 @@ mymcp/
     composition.py
 
   host/                           # immutable process assembly
+    configuration.py              # schema-v1 startup intent and source safety
     runtime.py
     bootstrap.py
     gateway.py                   # principals, sessions, policy, approval
@@ -299,8 +303,8 @@ Mnemosyne record schema versions remain plugin-owned.
 
 Current bundled Mnemosyne declares its plugin version as `0.3.0` and each
 capability version explicitly: `memory_recall` is `1.2.0`; the other seven
-`memory_*` capabilities are `1.1.0`. MyMCP's host/package/endpoint marker remains
-independently `0.2.1`. Bundling does not merge host, plugin, or capability version
+`memory_*` capabilities are `1.1.0`. MyMCP's host/package/endpoint marker is
+independently `0.3.0`. Bundling does not merge host, plugin, or capability version
 ownership. A test-owned, version-keyed canonical-JSON Tool-definition
 digest ledger couples each declared capability version to a SHA-256 digest and
 readable properties/required-field fingerprints, preserving historical entries
@@ -677,8 +681,18 @@ not manufacture consent.
 
 ## Configuration and plugin-owned data
 
-Future composition validates the declared ordinary configuration needed to form
-the runtime and preserves host-owned public bindings. The operator remains
+MyMCP 0.3.0 delivers host configuration schema 1: one immutable snapshot from
+the exact XDG-selected source, optional loopback packaged-launcher address/port,
+and ordered `[[plugins]]` declarations with explicit enablement. A declaration
+is desired state, not an implementation locator, binding, plugin configuration,
+installation proof, safety assessment, authority grant, or consent. An absent
+file or disabled declarations retain bundled-only startup; a valid enabled
+declaration currently fails before runtime construction. See
+[Configuration](CONFIGURATION.md) for the complete operator contract.
+
+Phase 3 will replace that bounded unsupported-enabled state with validated
+external loading and must explicitly version any schema-v1 expansion needed for
+metadata/implementation location or public bindings. The operator remains
 responsible for external plugin installation, dependencies, Python environment,
 configuration, updates, rollback, and server process operation. The host does
 not create managed environments, issue installation receipts, provide plugin
@@ -837,7 +851,9 @@ gate is complete before external startup composition or gateway operation.
 
 ### Phase 3 — Startup composition for trusted external plugins
 
-Add configured external plugin inputs to explicit bootstrap. Before loading
+The delivered configuration foundation supplies ordered desired-state inputs but
+does not load external code. Phase 3 will add validated external composition to
+explicit bootstrap. Before loading
 implementation code where possible, validate inert manifest metadata, host-API
 compatibility, and plugin and capability identities/versions. Then load the
 trusted implementation and validate definitions, contributions, and public

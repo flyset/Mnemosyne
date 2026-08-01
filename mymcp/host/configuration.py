@@ -1,0 +1,432 @@
+from __future__ import annotations
+
+import errno
+import ipaddress
+import os
+import stat
+import tomllib
+from collections.abc import Iterable
+from dataclasses import dataclass
+from pathlib import Path
+
+from mymcp.plugin.contracts import PluginId
+
+
+HOST_CONFIGURATION_SCHEMA_VERSION = 1
+DEFAULT_SERVER_ADDRESS = "127.0.0.1"
+DEFAULT_SERVER_PORT = 8000
+XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
+APPLICATION_DIRECTORY_NAME = "mymcp"
+CONFIGURATION_FILE_NAME = "config.toml"
+CONFIGURATION_MAX_BYTES = 64 * 1024
+
+_OPEN_SUPPORTS_DIR_FD = os.open in os.supports_dir_fd
+
+_ERROR_MESSAGES = {
+    "invalid_location": "MyMCP configuration location is unavailable",
+    "unsafe_path": "MyMCP configuration path is unsafe",
+    "not_regular": "MyMCP configuration source is not a regular file",
+    "unsafe_permissions": (
+        "MyMCP configuration source permissions are unsafe"
+    ),
+    "unreadable": "MyMCP configuration source could not be read",
+    "too_large": "MyMCP configuration exceeds 65536 bytes",
+    "source_changed": "MyMCP configuration changed while being read",
+    "invalid_utf8": "MyMCP configuration is not valid UTF-8",
+    "invalid_toml": "MyMCP configuration is not valid TOML",
+    "unsupported_schema_version": (
+        "MyMCP configuration schema version is unsupported"
+    ),
+    "invalid_schema": "MyMCP configuration has an invalid schema",
+    "duplicate_plugin": (
+        "MyMCP configuration contains a duplicate plugin declaration"
+    ),
+    "bundled_plugin_conflict": (
+        "MyMCP configuration conflicts with a bundled plugin identity"
+    ),
+    "enabled_plugin_unsupported": (
+        "MyMCP external plugin enablement is not supported by this build"
+    ),
+}
+
+
+class HostConfigurationError(ValueError):
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(_ERROR_MESSAGES[code])
+
+
+def _is_reparse_point(metadata: os.stat_result) -> bool:
+    file_attributes = getattr(metadata, "st_file_attributes", 0)
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+    return bool(file_attributes & reparse_attribute)
+
+
+def _has_unsafe_posix_permissions(metadata: os.stat_result) -> bool:
+    return os.name == "posix" and bool(stat.S_IMODE(metadata.st_mode) & 0o022)
+
+
+def _is_unrepresentable_location(value: str) -> bool:
+    return "\x00" in value or any(0xD800 <= ord(character) <= 0xDFFF for character in value)
+
+
+def resolve_host_configuration_path() -> Path:
+    try:
+        configured_home = os.getenv(XDG_CONFIG_HOME_ENV)
+    except (OSError, RuntimeError, UnicodeError, ValueError):
+        raise HostConfigurationError("invalid_location") from None
+
+    if configured_home and _is_unrepresentable_location(configured_home):
+        raise HostConfigurationError("invalid_location")
+
+    try:
+        if configured_home and Path(configured_home).is_absolute():
+            base = Path(configured_home)
+        else:
+            base = Path.home() / ".config"
+        if (
+            not base.is_absolute()
+            or _is_unrepresentable_location(os.fspath(base))
+        ):
+            raise ValueError("configuration base is not absolute")
+        return base / APPLICATION_DIRECTORY_NAME / CONFIGURATION_FILE_NAME
+    except (OSError, RuntimeError, UnicodeError, ValueError):
+        raise HostConfigurationError("invalid_location") from None
+
+
+def _raise_bounded_source_error(error: OSError) -> None:
+    if error.errno in {errno.ELOOP, errno.ENOTDIR}:
+        raise HostConfigurationError("unsafe_path") from None
+    if error.errno == errno.EISDIR:
+        raise HostConfigurationError("not_regular") from None
+    raise HostConfigurationError("unreadable") from None
+
+
+def _close_descriptor(descriptor: int | None) -> None:
+    if descriptor is None:
+        return
+    try:
+        os.close(descriptor)
+    except OSError:
+        pass
+
+
+def _same_file(expected: os.stat_result, observed: os.stat_result) -> bool:
+    return expected.st_dev == observed.st_dev and expected.st_ino == observed.st_ino
+
+
+def _same_source_state(expected: os.stat_result, observed: os.stat_result) -> bool:
+    return (
+        _same_file(expected, observed)
+        and expected.st_size == observed.st_size
+        and expected.st_mtime_ns == observed.st_mtime_ns
+        and expected.st_ctime_ns == observed.st_ctime_ns
+    )
+
+
+def _open_flags(*, directory: bool = False) -> int:
+    flags = os.O_RDONLY
+    flags |= getattr(os, "O_CLOEXEC", 0)
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    if directory:
+        flags |= getattr(os, "O_DIRECTORY", 0)
+    return flags
+
+
+def _validate_application_directory(path: Path) -> os.stat_result | None:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        _raise_bounded_source_error(error)
+
+    if (
+        stat.S_ISLNK(metadata.st_mode)
+        or _is_reparse_point(metadata)
+        or not stat.S_ISDIR(metadata.st_mode)
+    ):
+        raise HostConfigurationError("unsafe_path")
+    if _has_unsafe_posix_permissions(metadata):
+        raise HostConfigurationError("unsafe_permissions")
+    return metadata
+
+
+def _validate_configuration_path(path: Path) -> os.stat_result | None:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        _raise_bounded_source_error(error)
+
+    if stat.S_ISLNK(metadata.st_mode) or _is_reparse_point(metadata):
+        raise HostConfigurationError("unsafe_path")
+    if not stat.S_ISREG(metadata.st_mode):
+        raise HostConfigurationError("not_regular")
+    if _has_unsafe_posix_permissions(metadata):
+        raise HostConfigurationError("unsafe_permissions")
+    if metadata.st_size > CONFIGURATION_MAX_BYTES:
+        raise HostConfigurationError("too_large")
+    return metadata
+
+
+def _read_descriptor(descriptor: int, initial: os.stat_result) -> bytes:
+    chunks: list[bytes] = []
+    remaining = CONFIGURATION_MAX_BYTES + 1
+    try:
+        while remaining:
+            chunk = os.read(descriptor, min(8192, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        final = os.fstat(descriptor)
+    except OSError as error:
+        _raise_bounded_source_error(error)
+
+    source = b"".join(chunks)
+    if len(source) > CONFIGURATION_MAX_BYTES:
+        raise HostConfigurationError("too_large")
+    if not _same_source_state(initial, final) or len(source) != final.st_size:
+        raise HostConfigurationError("source_changed")
+    if _has_unsafe_posix_permissions(final):
+        raise HostConfigurationError("unsafe_permissions")
+    return source
+
+
+def _read_configuration_source(
+    application_directory: Path,
+    configuration_path: Path,
+    application_metadata: os.stat_result,
+    configuration_metadata: os.stat_result,
+) -> bytes:
+    directory_descriptor: int | None = None
+    configuration_descriptor: int | None = None
+    try:
+        directory_descriptor = os.open(
+            application_directory,
+            _open_flags(directory=True),
+        )
+        opened_directory = os.fstat(directory_descriptor)
+        if (
+            not stat.S_ISDIR(opened_directory.st_mode)
+            or _is_reparse_point(opened_directory)
+        ):
+            raise HostConfigurationError("unsafe_path")
+        if not _same_file(application_metadata, opened_directory):
+            raise HostConfigurationError("source_changed")
+        if _has_unsafe_posix_permissions(opened_directory):
+            raise HostConfigurationError("unsafe_permissions")
+
+        if _OPEN_SUPPORTS_DIR_FD:
+            configuration_descriptor = os.open(
+                CONFIGURATION_FILE_NAME,
+                _open_flags(),
+                dir_fd=directory_descriptor,
+            )
+        else:
+            configuration_descriptor = os.open(configuration_path, _open_flags())
+        opened_configuration = os.fstat(configuration_descriptor)
+        if (
+            stat.S_ISLNK(opened_configuration.st_mode)
+            or _is_reparse_point(opened_configuration)
+        ):
+            raise HostConfigurationError("unsafe_path")
+        if not stat.S_ISREG(opened_configuration.st_mode):
+            raise HostConfigurationError("not_regular")
+        if not _same_file(configuration_metadata, opened_configuration):
+            raise HostConfigurationError("source_changed")
+        if _has_unsafe_posix_permissions(opened_configuration):
+            raise HostConfigurationError("unsafe_permissions")
+        if opened_configuration.st_size > CONFIGURATION_MAX_BYTES:
+            raise HostConfigurationError("too_large")
+        return _read_descriptor(configuration_descriptor, opened_configuration)
+    except FileNotFoundError:
+        raise HostConfigurationError("source_changed") from None
+    except HostConfigurationError:
+        raise
+    except OSError as error:
+        _raise_bounded_source_error(error)
+    finally:
+        _close_descriptor(configuration_descriptor)
+        _close_descriptor(directory_descriptor)
+
+
+def load_host_configuration() -> HostConfiguration:
+    configuration_path = resolve_host_configuration_path()
+    application_directory = configuration_path.parent
+    application_metadata = _validate_application_directory(application_directory)
+    if application_metadata is None:
+        return HostConfiguration.default()
+
+    configuration_metadata = _validate_configuration_path(configuration_path)
+    if configuration_metadata is None:
+        return HostConfiguration.default()
+
+    source = _read_configuration_source(
+        application_directory,
+        configuration_path,
+        application_metadata,
+        configuration_metadata,
+    )
+    try:
+        decoded = source.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HostConfigurationError("invalid_utf8") from None
+    return parse_host_configuration_toml(decoded)
+
+
+@dataclass(frozen=True, slots=True)
+class HostConfigurationSchemaVersion:
+    value: int
+
+    def __post_init__(self) -> None:
+        if type(self.value) is not int or self.value != HOST_CONFIGURATION_SCHEMA_VERSION:
+            raise ValueError("invalid host configuration schema version")
+
+
+@dataclass(frozen=True, slots=True)
+class HostServerConfiguration:
+    address: str = DEFAULT_SERVER_ADDRESS
+    port: int = DEFAULT_SERVER_PORT
+
+    def __post_init__(self) -> None:
+        try:
+            parsed_address = ipaddress.ip_address(self.address)
+        except (TypeError, ValueError):
+            raise ValueError("invalid host server configuration") from None
+        if (
+            not isinstance(self.address, str)
+            or "%" in self.address
+            or not parsed_address.is_loopback
+            or type(self.port) is not int
+            or not 1 <= self.port <= 65535
+        ):
+            raise ValueError("invalid host server configuration")
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalPluginDeclaration:
+    plugin_id: PluginId
+    enabled: bool
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.plugin_id, PluginId) or type(self.enabled) is not bool:
+            raise ValueError("invalid external plugin declaration")
+
+
+@dataclass(frozen=True, slots=True)
+class HostConfiguration:
+    schema_version: HostConfigurationSchemaVersion
+    server: HostServerConfiguration
+    plugins: tuple[ExternalPluginDeclaration, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.schema_version, HostConfigurationSchemaVersion)
+            or not isinstance(self.server, HostServerConfiguration)
+            or type(self.plugins) is not tuple
+            or any(
+                not isinstance(plugin, ExternalPluginDeclaration)
+                for plugin in self.plugins
+            )
+            or len({plugin.plugin_id for plugin in self.plugins}) != len(self.plugins)
+        ):
+            raise ValueError("invalid host configuration")
+
+    @classmethod
+    def default(cls) -> "HostConfiguration":
+        return cls(
+            schema_version=HostConfigurationSchemaVersion(
+                HOST_CONFIGURATION_SCHEMA_VERSION
+            ),
+            server=HostServerConfiguration(),
+            plugins=(),
+        )
+
+
+def _parse_server(value: object) -> HostServerConfiguration:
+    if not isinstance(value, dict) or not set(value) <= {"address", "port"}:
+        raise HostConfigurationError("invalid_schema")
+    try:
+        return HostServerConfiguration(
+            address=value.get("address", DEFAULT_SERVER_ADDRESS),
+            port=value.get("port", DEFAULT_SERVER_PORT),
+        )
+    except ValueError:
+        raise HostConfigurationError("invalid_schema") from None
+
+
+def _parse_plugins(value: object) -> tuple[ExternalPluginDeclaration, ...]:
+    if not isinstance(value, list):
+        raise HostConfigurationError("invalid_schema")
+
+    declarations: list[ExternalPluginDeclaration] = []
+    identities: set[PluginId] = set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {"id", "enabled"}:
+            raise HostConfigurationError("invalid_schema")
+        try:
+            declaration = ExternalPluginDeclaration(
+                plugin_id=PluginId(item["id"]),
+                enabled=item["enabled"],
+            )
+        except (TypeError, ValueError):
+            raise HostConfigurationError("invalid_schema") from None
+        if declaration.plugin_id in identities:
+            raise HostConfigurationError("duplicate_plugin")
+        identities.add(declaration.plugin_id)
+        declarations.append(declaration)
+    return tuple(declarations)
+
+
+def parse_host_configuration_toml(source: str) -> HostConfiguration:
+    try:
+        document = tomllib.loads(source)
+    except (TypeError, tomllib.TOMLDecodeError):
+        raise HostConfigurationError("invalid_toml") from None
+
+    if not set(document) <= {"schema_version", "server", "plugins"}:
+        raise HostConfigurationError("invalid_schema")
+    if "schema_version" not in document:
+        raise HostConfigurationError("invalid_schema")
+
+    schema_version = document["schema_version"]
+    if type(schema_version) is not int:
+        raise HostConfigurationError("invalid_schema")
+    if schema_version != HOST_CONFIGURATION_SCHEMA_VERSION:
+        raise HostConfigurationError("unsupported_schema_version")
+
+    server = _parse_server(document.get("server", {}))
+    plugins = _parse_plugins(document.get("plugins", []))
+    return HostConfiguration(
+        schema_version=HostConfigurationSchemaVersion(schema_version),
+        server=server,
+        plugins=plugins,
+    )
+
+
+def validate_host_configuration_semantics(
+    configuration: HostConfiguration,
+    *,
+    bundled_plugin_ids: Iterable[PluginId],
+) -> HostConfiguration:
+    bundled_identities = tuple(bundled_plugin_ids)
+    if (
+        not isinstance(configuration, HostConfiguration)
+        or any(
+            not isinstance(plugin_id, PluginId)
+            for plugin_id in bundled_identities
+        )
+    ):
+        raise ValueError("invalid host configuration semantic input")
+
+    configured_identities = {
+        declaration.plugin_id for declaration in configuration.plugins
+    }
+    if configured_identities.intersection(bundled_identities):
+        raise HostConfigurationError("bundled_plugin_conflict")
+    if any(declaration.enabled for declaration in configuration.plugins):
+        raise HostConfigurationError("enabled_plugin_unsupported")
+    return configuration
