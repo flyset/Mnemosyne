@@ -25,8 +25,12 @@ Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
 remain host-owned. Repository migration, operational reconnect/approval checks,
-annotated tag creation, and release publication are complete. Keep changes
-minimal and protocol-aware.
+annotated tag creation, and release publication are complete. The approved next
+direction is startup composition for operator-installed, operator-trusted
+external plugins: MyMCP validates compatibility and composition, not plugin
+safety, and plugin changes require a server restart. Do not add host-managed
+installation, dependency environments, hot activation, plugin isolation, or
+runtime lifecycle management. Keep changes minimal and protocol-aware.
 
 ## Project Memory
 

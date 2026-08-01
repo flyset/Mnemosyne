@@ -22,9 +22,9 @@ and ignored OpenCode migration with Claude exclusion, normal endpoint/client
 reconnect, and isolated approved-once and rejected/no-Tools-call checks are
 complete. The public, non-draft, non-prerelease release
 [`MyMCP 0.2.0: public-host cutover`](https://github.com/flyset/MyMCP/releases/tag/mymcp-v0.2.0)
-is tagged `mymcp-v0.2.0` at `c2852bc`. External installation/activation/isolation,
-lifecycle publication, gateway governance, and public metadata projection remain
-deferred.
+is tagged `mymcp-v0.2.0` at `c2852bc`. Startup composition for
+operator-installed trusted external plugins, gateway governance, and public
+metadata projection remain deferred.
 
 ## Role
 
@@ -34,8 +34,8 @@ MyMCP owns host-level composition and protocol mechanisms:
 - stable Tool registration, identity, discovery, and dispatch;
 - deterministic composition and collision handling;
 - kind-qualified plugin-capability contracts and host-owned public bindings;
-- native artifact, lifecycle, isolation, routing, policy, approval, and audit
-  boundaries as they are introduced; and
+- startup composition, routing, policy, approval, and audit boundaries as they
+  are introduced; and
 - reusable host governance only after multiple integrations prove it generic.
 
 Domain integrations own their application meaning. Mnemosyne therefore retains
@@ -58,26 +58,30 @@ plugin. Its per-capability contract declarations identify `memory_recall` as
 marker remains independently `0.2.1`.
 
 The released public-host cutover includes repository and operational
-verification. Inert native installation, isolated activation, lifecycle
-publication, client-neutral gateway policy, public metadata projection, and
-reusable host services then follow in that dependency order.
+verification. Startup composition for operator-installed trusted external
+plugins, client-neutral gateway policy, public metadata projection, and reusable
+host services follow in that dependency order.
 
 ## Approved Target Architecture
 
 MyMCP is working toward a generic versioned Tools-only plugin contract, an
-immutable generation-ready host runtime, explicit bundled bootstrap, vertically
-owned plugin packages, and a separately isolated native external-plugin
-boundary. The target places concrete bundled implementations under
+immutable host runtime, explicit bundled bootstrap, vertically owned plugin
+packages, and startup composition for operator-installed trusted external
+plugins. The target places concrete bundled implementations under
 `mymcp/plugins/` and all Mnemosyne production implementation and policy under
 `mymcp/plugins/mnemosyne/`.
 
-Bundled and external plugins share logical manifest, definition,
-kind-qualified capability, configuration, activation, and lifecycle semantics.
-They do not share execution trust: source-controlled bundled plugins use reviewed
-in-process adapters, while unknown external code is never imported into the host
-and cannot activate without exact artifact approval, supervision, killability,
-resource bounds, and default-deny filesystem/network enforcement. A manifest is
-inert metadata, not authority, consent proof, or isolation.
+Bundled and configured external plugins share logical manifests, definitions,
+kind-qualified capabilities, configuration declarations, and host-owned public
+bindings. Before loading external implementation code where possible, startup
+validates inert manifest metadata, host-API compatibility, and identities and
+versions. It then loads the trusted implementation and validates its definition,
+contribution, and public bindings before runtime construction. Invalid
+composition fails startup clearly. Configuring an external plugin is the
+operator's decision to trust it to execute; after validation it may run in
+process. MyMCP does not promise sandboxing, isolation, filesystem or network
+restriction, supervision, killability, or resource control for plugins. A
+manifest is inert metadata, not authority, consent proof, or a safety claim.
 
 Released `0.2.0` makes the endpoint/server, FastAPI
 application, package metadata, and tracked official client identify MyMCP. The
@@ -109,8 +113,7 @@ MyMCP should preserve:
 - client-neutral server-enforced boundaries;
 - explicit operator enablement and per-call user consent for mutations;
 - deterministic startup and failure rather than hidden discovery or fallback;
-- separate trust and execution boundaries for reviewed bundled and unknown
-  external code;
+- explicit operator trust for configured external plugin code;
 - compatibility for existing integrations while contracts evolve; and
 - separation between reusable host mechanism and domain-specific policy.
 
@@ -130,9 +133,8 @@ MyMCP should not become:
 - a multi-user or remote-trust platform before its threat model supports one;
 - a client-specific bundle runtime presented as a universal MCP boundary;
 - MCPB presented as the native MyMCP plugin format; or
-- a marketplace, unknown-code loader, or isolation claim before artifact,
-  lifecycle, supervision, authority, and failure contracts are implemented and
-  validated.
+- a marketplace, host-managed plugin installer, update/rollback manager, or
+  plugin sandbox.
 
 ## Built-in Mnemosyne Domain
 

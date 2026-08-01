@@ -63,8 +63,8 @@ non-draft, non-prerelease GitHub release
 is tagged `mymcp-v0.2.0` at `c2852bc` and contains one wheel,
 `mymcp-0.2.0-py3-none-any.whl`, with matching GitHub/local SHA-256
 `531cc9a603d16399b12650fd09d3bc76f43b4d5d1b15fed0377a6197c820e3e7`.
-External installation/activation/isolation, lifecycle, and gateway governance
-remain deferred. See
+Startup composition for operator-installed trusted external plugins and gateway
+governance remain deferred. See
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
 Implemented tools:
@@ -1017,12 +1017,17 @@ gateway. It owns Tool composition, identity, plugin contracts, routing, and
 reusable host mechanisms without absorbing integration-specific domain policy.
 
 Its approved Tools-only target separates one host-owned logical plugin API from
-concrete bundled implementations and isolated external execution adapters. It
+concrete bundled implementations and configured trusted external plugins. It
 retains qualified `(plugin_id, capability_kind, capability_local_id)` origin
 internally and binds that identity to the endpoint's flat MCP Tool name. Host
-bootstrap remains explicit. Native installation, lifecycle generations,
-isolation, authenticated client policy, host-verifiable exact-call approval,
-and bounded security audit remain unimplemented.
+bootstrap remains explicit. A future startup composition step will validate
+external inert metadata before implementation loading where possible, then load
+the trusted implementation and validate complete composition before runtime
+construction. Configured plugins are operator-trusted and may run in process.
+MyMCP will not manage plugin installation, environments, updates, rollback,
+stopping, restarting, isolation, or resource control. Authenticated client
+policy, host-verifiable exact-call approval, and bounded security audit remain
+unimplemented.
 
 Mnemosyne remains the bundled user-governed memory domain. It gives agents
 controlled access to approved durable records and bounded retrieval while
@@ -1039,9 +1044,8 @@ MyMCP and its built-in Mnemosyne domain are not intended to provide:
 - hidden mutation or governance that bypasses visible user consent;
 - a multi-user platform before an explicit threat model supports one;
 - MCPB as the native MyMCP plugin format; or
-- unknown-code loading, lifecycle, marketplace, or isolation claims before
-  artifact, supervision, authority, failure, and approval contracts are
-  implemented and validated.
+- a host-managed plugin installer, lifecycle manager, marketplace, or plugin
+  isolation claim.
 
 ## Running the Server
 
@@ -1198,18 +1202,19 @@ bundled-only callable or deferring identity and security boundaries:
    and tracked-client identity preserve all Mnemosyne plugin/domain identities.
    The public non-draft, non-prerelease release is tagged `mymcp-v0.2.0` at
    `c2852bc`.
-3. Add side-effect-free native wheel inspection, digest-bound receipts,
-   immutable managed environments, bounded configuration/secret references, and
-   persisted bindings without granting execution authority.
-4. Add isolated external activation only after a local unknown-code threat model,
-   supervision, killability, resource bounds, and default-deny
-   filesystem/network enforcement are validated.
-5. Add generation lifecycle, required/optional failures, drain, quarantine,
-   update/rollback and data migration, removal/preservation, and separate purge.
-6. Build authenticated local-client routing, policy-filtered discovery/dispatch,
+3. Add startup composition for operator-installed trusted external plugins.
+   Before implementation loading where possible, validate inert manifests,
+   compatibility, and identities/versions; then load the trusted implementation
+   and validate definitions, contributions, and public bindings before runtime
+   construction. Invalid composition fails startup clearly.
+4. Keep plugin installation, dependencies, environments, configuration, updates,
+   rollback, and process stop/restart operator-managed. Configured plugins may
+   run in process; MyMCP provides no sandbox, isolation, supervision,
+   killability, or resource-control guarantee.
+5. Build authenticated local-client routing, policy-filtered discovery/dispatch,
    single-use exact-call approval, and bounded security audit behind the one
    machine-local endpoint.
-7. Generalize host services only after a second real plugin proves them reusable.
+6. Generalize host services only after a second real plugin proves them reusable.
 
 MCPB may later package MyMCP as one complete server. It is not the native MyMCP
 plugin distribution, manifest, or execution boundary.

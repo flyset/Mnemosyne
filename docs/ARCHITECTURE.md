@@ -33,26 +33,25 @@ The approved target is defined in
 
 - `mymcp/plugin/` owns the generic plugin-author contract;
 - `mymcp/host/` owns immutable runtime assembly, explicit built-in bootstrap,
-  inert external installation, lifecycle publication, worker supervision,
-  gateway authority, and bounded security audit;
+  future startup composition, gateway authority, and bounded security audit;
 - concrete bundled implementations live under `mymcp/plugins/`;
 - all Mnemosyne production implementation and policy live under
   `mymcp/plugins/mnemosyne/`;
-- bundled and external plugins share logical manifest, definition, capability,
-  configuration, activation, and lifecycle semantics while retaining separate
-  trusted in-process and isolated worker execution adapters;
+- bundled and configured external plugins share logical manifest, definition,
+  capability, configuration, and host-owned binding semantics;
 - qualified capability identity includes plugin ID, capability kind, and local
   ID, while the host separately owns the flat endpoint-visible MCP Tool name;
 - host API v1 is Tools-only;
-- a strict inert manifest validates static built-ins and pre-execution external
-  artifacts without granting authority or proving isolation;
-- native external plugins are prebuilt wheels installed into immutable managed
-  environments and are never imported into the host process;
-- unknown external activation requires supervision, killability, resource
-  bounds, and default-deny filesystem/network enforcement;
-- immutable runtime generations, authenticated local client principals,
-  policy-filtered discovery/dispatch, host-verifiable exact-call approval, and
-  bounded security audit are explicit later gates; and
+- a strict inert manifest validates static built-ins and configured external
+  plugin metadata without granting authority or proving isolation;
+- configured external plugins will be validated as inert metadata before loading
+  implementation code where possible, then run as operator-trusted in-process
+  code; MyMCP makes no isolation, restriction, supervision, killability, or
+  resource-control guarantee for them;
+- the current opaque runtime-generation identity remains a per-start identity,
+  while authenticated local client principals, policy-filtered
+  discovery/dispatch, host-verifiable exact-call approval, and bounded security
+  audit are explicit later gates; and
 - released `0.2.0` makes the endpoint,
   application, package metadata, and tracked official client identify MyMCP;
   repository and operational validation are complete; the public, non-draft,
@@ -67,8 +66,8 @@ MyMCP's host/package/server marker remains independently `0.2.1`. Bootstrap read
 `mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
 bytes, and validates exact manifest/adapter/selected-contribution parity before
 generation construction. This fixed validation is neither dynamic discovery nor
-authority grant. External installation/activation/isolation, lifecycle
-publication, gateway governance, and public metadata projection remain deferred.
+authority grant. Startup composition for configured trusted external plugins,
+gateway governance, and public metadata projection remain deferred.
 The canonical repository is `https://github.com/flyset/MyMCP`, and the former
 URL redirects there. Local origin/history/tag/placeholder verification is
 complete. The tracked and ignored OpenCode migration uses connection/agent/prefix
