@@ -14,7 +14,9 @@ bundled plugin. TRACK_034 delivered the MyMCP/`mymcp` `0.2.0` public-host releas
 while Mnemosyne retains its memory-domain identity. TRACK_036 delivered the prior
 `0.2.1` Ollama Tool-schema compatibility build; server-side Mnemosyne validation
 and all Tool/domain identities remain unchanged. TRACK_039 delivers MyMCP
-`0.3.0` host configuration schema 1 and startup integration.
+`0.3.0` host-configuration foundation. TRACK_041 delivers MyMCP `0.4.0`, host
+configuration schema 2, and Phase 3 external startup composition while retaining
+exact schema-1 compatibility.
 
 The central distinction is:
 
@@ -32,8 +34,8 @@ The approved target is defined in
 [`docs/PLUGIN_ARCHITECTURE.md`](PLUGIN_ARCHITECTURE.md). In that target:
 
 - `mymcp/plugin/` owns the generic plugin-author contract;
-- `mymcp/host/` owns immutable runtime assembly, explicit built-in bootstrap,
-  future startup composition, gateway authority, and bounded security audit;
+- `mymcp/host/` owns immutable runtime assembly, explicit bundled and external
+  startup composition, and future gateway authority and bounded security audit;
 - concrete bundled implementations live under `mymcp/plugins/`;
 - all Mnemosyne production implementation and policy live under
   `mymcp/plugins/mnemosyne/`;
@@ -44,8 +46,8 @@ The approved target is defined in
 - host API v1 is Tools-only;
 - a strict inert manifest validates static built-ins and configured external
   plugin metadata without granting authority or proving isolation;
-- configured external plugins will be validated as inert metadata before loading
-  implementation code where possible, then run as operator-trusted in-process
+- enabled schema-2 configured external plugins are validated as inert metadata
+  before any external module import, then run as operator-trusted in-process
   code; MyMCP makes no isolation, restriction, supervision, killability, or
   resource-control guarantee for them;
 - the current opaque runtime-generation identity remains a per-start identity,
@@ -62,14 +64,16 @@ The approved target is defined in
 Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
 adapter over canonical registrations. `memory_recall` declares capability
 contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
-MyMCP's host/package/server marker is independently `0.3.0`. Host configuration
-is loaded into one immutable startup snapshot before bootstrap. Bootstrap then
-reads only the fixed `mymcp.plugins.mnemosyne` `manifest.json`, strictly parses its at-most-64-KiB
-bytes, and validates exact manifest/adapter/selected-contribution parity before
-generation construction. This fixed validation is neither dynamic discovery nor
-authority grant. Schema-v1 configuration can declare external desired state, but
-enabled external plugins fail before runtime construction in this build. Startup
-composition, gateway governance, and public metadata projection remain deferred.
+MyMCP's host/package/server marker is independently `0.4.0`. Host configuration
+is loaded into one immutable startup snapshot before bootstrap. Schema 1 retains
+its exact desired-state behavior and `enabled_plugin_unsupported`; schema 2 has
+explicit locators. Bootstrap preflights every enabled external manifest before
+any external import, then validates the fixed packaged Mnemosyne manifest and
+selected contribution, loads external `mymcp_plugin_v1` adapters in configuration
+order, validates external parity, creates bundled-first deterministic bindings,
+and rejects any collision before constructing one runtime generation. Validation
+is compatibility/composition validation, not an authority grant or safety claim.
+Gateway governance and public metadata projection remain deferred.
 The canonical repository is `https://github.com/flyset/MyMCP`, and the former
 URL redirects there. Local origin/history/tag/placeholder verification is
 complete. The tracked and ignored OpenCode migration uses connection/agent/prefix
@@ -112,7 +116,7 @@ mymcp/
     version.py        # GET /version
 
   host/
-    configuration.py    # XDG source, strict schema-v1 snapshot, semantic checks
+    configuration.py    # XDG source, strict schema-1/schema-2 snapshots, semantic checks
     bootstrap.py        # explicit production runtime construction
     runtime.py          # immutable HostRuntime and opaque generation
 
@@ -217,10 +221,10 @@ integration metadata, gate selection, or plugin lifecycle.
 ### `mymcp/host/bootstrap.py` and `mymcp/host/runtime.py`
 
 `mymcp/host/configuration.py` exclusively owns XDG path selection, safe bounded
-source reading, strict schema-v1 TOML parsing, immutable host/server/external
+source reading, strict schema-1/schema-2 TOML parsing, immutable host/server/external
 declaration values, and bounded configuration errors. It imports neither FastAPI,
 routes, MCP dispatch, nor concrete plugins. The snapshot expresses process and
-future composition desired state; it is not Mnemosyne configuration, consent,
+startup composition desired state; it is not Mnemosyne configuration, consent,
 trust proof, or external-plugin safety control.
 
 It also owns the `mymcp.host.configuration` startup terminal event: one `INFO`
@@ -234,11 +238,12 @@ configuration once; each distinct development supervisor or reload-worker
 process emits one event when it consumes configuration; direct Uvicorn factory
 startup consumes it once per process when no snapshot is injected. This is not a worker-lifecycle claim and
 does not add runtime rereads, watching, or hot reload. See
-[Configuration startup logging](CONFIGURATION.md#startup-logging) for the exact
+[Configuration logging](CONFIGURATION.md#logging) for the exact
 event format and operator behavior.
 
 `build_production_runtime()` is the explicit production composition root. It
-first validates the supplied snapshot against bundled identities, then reads
+first validates the supplied snapshot against bundled identities, preflights all
+enabled external manifests before any external import, then reads
 exactly the source-controlled packaged Mnemosyne `manifest.json`, parses
 it, obtains the trusted adapter definition and gate-selected contribution, and
 validates parity before applying canonical host-owned bindings, binding
@@ -594,7 +599,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.3.0` and is kept equal to the package version. The marker is also
+is `mymcp 0.4.0` and is kept equal to the package version. The marker is also
 returned by initialize and `/version`; the
 public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
 processes after public-contract updates; it is not a dynamic Git identifier or a

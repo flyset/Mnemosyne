@@ -28,6 +28,22 @@ def _configuration(*declarations: tuple[str, bool]):
     )
 
 
+def _schema_v2_configuration(*declarations: tuple[str, bool]):
+    plugin_source = "".join(
+        (
+            "[[plugins]]\n"
+            f'id = "{plugin_id}"\n'
+            f"enabled = {str(enabled).lower()}\n"
+            f'manifest_path = "/opt/{plugin_id}/manifest.json"\n'
+            f'module = "operator_plugins.{plugin_id.replace("-", "_")}"\n'
+        )
+        for plugin_id, enabled in declarations
+    )
+    return parse_host_configuration_toml(
+        f"schema_version = 2\n{plugin_source}"
+    )
+
+
 def test_disabled_external_declarations_are_validated_without_reordering() -> None:
     snapshot = _configuration(("alpha", False), ("beta-plugin", False))
 
@@ -68,6 +84,15 @@ def test_any_enabled_external_plugin_fails_with_one_bounded_unsupported_error(
         plugin_id not in str(captured.value)
         for plugin_id, _enabled in declarations
     )
+
+
+def test_schema_v2_enabled_declarations_pass_semantic_validation() -> None:
+    snapshot = _schema_v2_configuration(("alpha", True), ("beta-plugin", False))
+
+    assert validate_host_configuration_semantics(
+        snapshot,
+        bundled_plugin_ids=BUNDLED_PLUGIN_IDS,
+    ) is snapshot
 
 
 @pytest.mark.parametrize("enabled", [False, True])

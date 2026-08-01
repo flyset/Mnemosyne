@@ -113,6 +113,7 @@ def test_built_wheel_contains_exact_parseable_mnemosyne_manifest(
             if name.startswith(PLUGIN_WHEEL_PREFIX)
         }
         assert package_files == expected_plugin_files
+        assert not any(name.startswith("tests/host/fixtures/") for name in wheel_files)
         assert not any(_is_forbidden_wheel_entry(name) for name in wheel_files)
         packaged_manifest = wheel.read(manifest_path)
 

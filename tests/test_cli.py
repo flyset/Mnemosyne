@@ -17,6 +17,7 @@ from mymcp.host.configuration import (
 
 
 CONFIGURATION_LOGGER = "mymcp.host.configuration"
+BOOTSTRAP_LOGGER = "mymcp.host.bootstrap"
 
 
 def test_main_loads_once_and_starts_the_injected_production_application(
@@ -71,18 +72,24 @@ def test_main_emits_one_configuration_event_before_starting_uvicorn(
     import mymcp.app as app_module
 
     selected = tmp_path / "xdg"
-    application = object()
     runner = Mock()
     monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
-    monkeypatch.setattr(app_module, "create_production_app", lambda _config: application)
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REMEMBER_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REVISE_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_FORGET_ENABLED", "false")
     monkeypatch.setitem(sys.modules, "uvicorn", SimpleNamespace(run=runner))
 
-    with caplog.at_level(logging.INFO, logger=CONFIGURATION_LOGGER):
+    with caplog.at_level(logging.INFO):
         cli.main()
 
-    assert caplog.messages == [
+    assert [record.getMessage() for record in caplog.records if record.name in {
+        CONFIGURATION_LOGGER,
+        BOOTSTRAP_LOGGER,
+    }] == [
         "host_configuration outcome=absent_defaults schema_version=1 "
-        "address=127.0.0.1 port=8000 declarations=0 enabled=0"
+        "address=127.0.0.1 port=8000 declarations=0 enabled=0",
+        "runtime_composition outcome=loaded bundled=1 external=0 capabilities=3",
     ]
     runner.assert_called_once()
 

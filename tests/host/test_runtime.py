@@ -5,6 +5,7 @@ import pytest
 
 from mymcp.host.runtime import (
     HostRuntime,
+    HostRuntimeCompositionError,
     RuntimeGenerationId,
     build_host_runtime,
 )
@@ -167,6 +168,41 @@ def test_generation_factory_runs_after_complete_composition_validation() -> None
         )
 
     assert generation_called is False
+
+
+def test_runtime_wraps_only_composition_failures(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import mymcp.host.runtime as runtime_module
+
+    generation_called = False
+    monkeypatch.setattr(
+        runtime_module,
+        "compose_tool_surface",
+        lambda *_: (_ for _ in ()).throw(ValueError("hidden composition detail")),
+    )
+
+    with pytest.raises(HostRuntimeCompositionError) as captured:
+        build_host_runtime(
+            (_contribution("example", "one"),),
+            (_binding("example", "one"),),
+            _host_registration,
+            generation_factory=lambda: generation_called,
+        )
+
+    assert str(captured.value) == "hidden composition detail"
+    assert captured.value.__cause__ is None
+    assert generation_called is False
+
+
+def test_runtime_leaves_generation_factory_errors_unchanged() -> None:
+    with pytest.raises(RuntimeError, match="^generation failed$"):
+        build_host_runtime(
+            (_contribution("example", "one"),),
+            (_binding("example", "one"),),
+            _host_registration,
+            generation_factory=lambda: (_ for _ in ()).throw(RuntimeError("generation failed")),
+        )
 
 
 def test_generation_factory_runs_after_host_tool_validation() -> None:

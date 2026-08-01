@@ -30,8 +30,10 @@ PLUGIN_CONTRACTS = PROJECT_ROOT / "mymcp" / "plugin" / "contracts.py"
 PLUGIN_COMPOSITION = PROJECT_ROOT / "mymcp" / "plugin" / "composition.py"
 PLUGIN_DEFINITION = PROJECT_ROOT / "mymcp" / "plugin" / "definition.py"
 PLUGIN_MANIFEST = PROJECT_ROOT / "mymcp" / "plugin" / "manifest.py"
+PLUGIN_ADAPTER = PROJECT_ROOT / "mymcp" / "plugin" / "adapter.py"
 HOST_RUNTIME = PROJECT_ROOT / "mymcp" / "host" / "runtime.py"
 HOST_BOOTSTRAP = PROJECT_ROOT / "mymcp" / "host" / "bootstrap.py"
+EXTERNAL_PLUGINS = PROJECT_ROOT / "mymcp" / "host" / "external_plugins.py"
 OBSOLETE_MCP_MODULES = (
     PROJECT_ROOT / "mymcp" / "mcp" / "methods.py",
     PROJECT_ROOT / "mymcp" / "mcp" / "startup.py",
@@ -246,6 +248,7 @@ def test_generic_plugin_contracts_composition_and_runtime_are_domain_neutral() -
         PLUGIN_COMPOSITION,
         PLUGIN_DEFINITION,
         PLUGIN_MANIFEST,
+        PLUGIN_ADAPTER,
         HOST_RUNTIME,
     ):
         assert all(
@@ -257,6 +260,16 @@ def test_generic_plugin_contracts_composition_and_runtime_are_domain_neutral() -
         "mymcp.plugin.composition",
         "mymcp.plugin.contracts",
     } <= _imports(HOST_RUNTIME)
+
+
+def test_plugin_adapter_is_generic_and_loading_free() -> None:
+    imports = _imports(PLUGIN_ADAPTER)
+
+    assert imports == {
+        "dataclasses",
+        "mymcp.plugin.composition",
+        "mymcp.plugin.definition",
+    }
 
 
 def test_host_bootstrap_is_the_only_host_module_importing_mnemosyne_adapter() -> None:
@@ -298,6 +311,53 @@ def test_host_bootstrap_performs_no_dynamic_or_network_discovery() -> None:
     assert "entry_points" not in source
 
 
+def test_external_manifest_preflight_is_generic_and_performs_no_import_or_discovery() -> None:
+    forbidden = (
+        "pkgutil",
+        "socket",
+        "urllib",
+        "http.client",
+        "mymcp.plugins",
+        "mymcp.mcp",
+        "fastapi",
+    )
+
+    assert EXTERNAL_PLUGINS.exists()
+    assert all(
+        not imported.startswith(forbidden) for imported in _imports(EXTERNAL_PLUGINS)
+    )
+    source = EXTERNAL_PLUGINS.read_text(encoding="utf-8")
+    assert source.count("importlib.import_module") == 1
+    assert "entry_points" not in source
+
+
+def test_external_loader_uses_only_the_explicit_import_module_contract() -> None:
+    imports = _imports(EXTERNAL_PLUGINS)
+    source = EXTERNAL_PLUGINS.read_text(encoding="utf-8")
+
+    assert "importlib" in imports
+    assert all(
+        not imported.startswith(
+            ("importlib.metadata", "importlib.util", "pkgutil", "mymcp.plugins", "mymcp.mcp")
+        )
+        for imported in imports
+    )
+    assert source.count("importlib.import_module") == 1
+    assert "entry_points" not in source
+    assert "iter_modules" not in source
+
+
+def test_bootstrap_is_the_only_external_preflight_importer() -> None:
+    target = "mymcp.host.external_plugins"
+    importers = {
+        path.relative_to(PROJECT_ROOT).as_posix()
+        for path in _production_modules()
+        if target in _resolved_imports(path)
+    }
+
+    assert importers == {"mymcp/host/bootstrap.py"}
+
+
 def test_ordinary_imports_do_not_compose_the_production_runtime(
     tmp_path: Path,
 ) -> None:
@@ -319,7 +379,49 @@ def test_ordinary_imports_do_not_compose_the_production_runtime(
             "-c",
             (
                 "import mymcp; import mymcp.app; import mymcp.host; "
-                "import mymcp.mcp.dispatcher; import mymcp.plugin"
+                "import mymcp.mcp.dispatcher; import mymcp.plugin; "
+                "import sys; assert not any(name.startswith('tests.host.fixtures.operator_plugins') "
+                "for name in sys.modules)"
+            ),
+        ],
+        cwd=PROJECT_ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_ordinary_imports_do_not_load_configured_external_fixture(
+    tmp_path: Path,
+) -> None:
+    configuration_directory = tmp_path / "xdg" / "mymcp"
+    configuration_directory.mkdir(mode=0o700, parents=True)
+    configuration_directory.chmod(0o700)
+    configuration = configuration_directory / "config.toml"
+    configuration.write_text(
+        "schema_version = 2\n[[plugins]]\n"
+        'id = "external"\nenabled = true\n'
+        'manifest_path = "/opt/operator/manifest.json"\n'
+        'module = "tests.host.fixtures.operator_plugins.valid"\n',
+        encoding="utf-8",
+    )
+    configuration.chmod(0o600)
+    environment = os.environ | {
+        "XDG_CONFIG_HOME": str(tmp_path / "xdg"),
+        "PYTHONPATH": str(PROJECT_ROOT),
+    }
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import mymcp.app; import mymcp.cli; import sys; "
+                "assert not any(name.startswith('tests.host.fixtures.operator_plugins') "
+                "for name in sys.modules)"
             ),
         ],
         cwd=PROJECT_ROOT,

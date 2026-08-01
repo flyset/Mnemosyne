@@ -2,10 +2,9 @@
 
 > Status: approved target with the TRACK_031 Phase 1 foundation and implemented
 > Phase 2 declaration/parity and bundled Mnemosyne extraction, plus the delivered
-> schema-v1 host-configuration foundation. This document
-> distinguishes the current
-> extracted bundled-plugin boundary from deferred startup composition for trusted
-> external plugins, gateway governance, and public
+> schema-1 host-configuration foundation and delivered Phase 3 external startup
+> composition. This document distinguishes the current extracted bundled-plugin
+> and trusted external startup-composition boundaries from deferred gateway governance and public
 > metadata projection. TRACK_034 delivered the MyMCP/`mymcp` `0.2.0` public-host
 > release. Repository migration and operational checks are complete; the public,
 > non-draft, non-prerelease GitHub release is tagged `mymcp-v0.2.0` at `c2852bc`.
@@ -47,7 +46,9 @@ The current implementation now provides:
 - fixed packaged Mnemosyne manifest/definition/contribution parity before
   runtime generation; and
 - immutable XDG-selected host configuration, loopback packaged-launcher settings,
-  and ordered external-plugin desired-state declarations.
+  and ordered external-plugin declarations; and
+- schema-2 enabled-external manifest preflight, ordered zero-argument
+  `mymcp_plugin_v1` loading, parity validation, and complete runtime composition.
 
 Released `0.2.0` identifies the host endpoint/application, package,
 and tracked official OpenCode connection/agent as MyMCP/`mymcp`. Its tracked
@@ -72,8 +73,9 @@ parity. Generic host MCP retains argument normalization, registry/dispatch, and
 host-owned `list_tools`; explicit host bootstrap retains composition, bindings,
 fixed manifest loading, parity validation, and runtime construction.
 
-The target is a generic host, coherent bundled plugin implementations, and
-startup composition for operator-installed trusted external plugins. Bundled and
+The delivered architecture is a generic host, coherent bundled plugin
+implementations, and startup composition for operator-installed trusted external
+plugins. Bundled and
 configured external plugins share logical manifest, identity, capability,
 configuration, definition/contribution, and host-owned binding semantics.
 Configuring an external plugin is an operator trust decision, not a request for
@@ -108,7 +110,7 @@ mymcp/
     composition.py
 
   host/                           # immutable process assembly
-    configuration.py              # schema-v1 startup intent and source safety
+    configuration.py              # schema-1/schema-2 startup intent and source safety
     runtime.py
     bootstrap.py
     gateway.py                   # principals, sessions, policy, approval
@@ -157,9 +159,9 @@ remain outside the plugin directory.
 External plugin installation, dependency management, Python environments,
 configuration, upgrades, rollback, and process operation are the operator's
 responsibility. MyMCP does not define a native wheel installer or worker format.
-At a future server start, the host will validate configured inert metadata and
-compatibility before loading implementation code where possible. It will then
-load the trusted implementation and validate complete definitions,
+At server start, the host preflights all enabled schema-2 inert metadata and
+compatibility before importing any external implementation. It then imports each
+trusted implementation in configuration order and validates complete definitions,
 contributions, and public bindings before runtime construction. MyMCP does not
 sandbox, supervise, restrict, kill, or resource-control configured plugins.
 
@@ -216,16 +218,16 @@ contains:
 - qualified-to-public Tool bindings; and
 - one host-issued opaque runtime-generation identity.
 
-It contains no Mnemosyne-specific policy or artifact identity. Future external
-startup composition remains deferred. The metadata is retained so later
+It contains no Mnemosyne-specific policy or artifact identity. External startup
+composition is delivered. The metadata is retained so later
 gateway policy can reason about origin and effect without redesigning Tool
 identity or treating a public name as authorization identity.
 
 `mymcp/host/bootstrap.py` is the only generic-host module permitted to import
 concrete bundled plugin adapters. Current bootstrap uses one explicit,
-source-controlled Mnemosyne contribution. Future startup composition will read
-configured external inert metadata and validate it before loading implementation
-code where possible. Bootstrap performs no host-managed installation, network or
+source-controlled Mnemosyne contribution, preflights all enabled schema-2
+external manifests before any import, and then imports validated external
+modules in configuration order. Bootstrap performs no host-managed installation, network or
 marketplace discovery, or runtime activation/switching.
 
 Application assembly constructs the runtime explicitly. Importing an ordinary
@@ -264,11 +266,12 @@ dependencies, Python environment, configuration, updates, rollback, and process
 start/stop/restart procedure. MyMCP does not prescribe a wheel closure, managed
 environment, installer receipt, worker entry point, or isolated-worker format.
 
-The future host composition phase validates inert manifest metadata, host-API
-compatibility, identities and versions, and declared capabilities before loading
-implementation code where possible. It then loads the trusted implementation and
-validates its definition, selected contribution, and public bindings before
-constructing the runtime. Passing those checks establishes only a compatible
+The delivered host composition phase validates every enabled schema-2 inert
+manifest—host-API compatibility, identities and versions, and declared
+capabilities—before any external implementation import. It then loads each
+trusted implementation in configuration order and validates its definition,
+selected contribution, and public bindings before constructing the runtime.
+Passing those checks establishes only a compatible
 composition. It does not establish provenance, safety, authority restriction, or
 a sandbox. The configured plugin may run in the host process with the authority
 available to that process.
@@ -279,11 +282,13 @@ Several identities must remain separate:
 
 | Dimension | Owner | Compatibility and evolution rule | Target example |
 | --- | --- | --- | --- |
-| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.2.0` at public-host cutover |
-| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.2.0` |
+| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.4.0` |
+| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.4.0` |
 | MCP protocol version | MCP specification and endpoint negotiation | Session-negotiated independently of plugin APIs | supported MCP revision |
 | Host plugin API | MyMCP | Integer logical-contract level; incompatible manifest, definition, or composition semantics require a new level | `1` |
 | Manifest schema | MyMCP | Strict integer shape; unsupported versions fail closed | `1` |
+| External plugin-author contract | MyMCP | Versioned external module entrypoint contract, separate from host API and manifest schema | `1` (`mymcp_plugin_v1`) |
+| Host configuration schema | MyMCP | Strict host startup-document shape; schema 1 is retained and schema 2 adds explicit external locators | `1`, `2` |
 | Plugin identity | Plugin author, admitted by MyMCP | Stable machine identity excluding version | `mnemosyne` |
 | Plugin version | Plugin author | Semantic implementation release agreeing across manifest, definition, and contribution | Mnemosyne `0.3.0` |
 | Capability kind and local ID | Plugin author, validated by MyMCP | Stable identity excluding version; host API v1 admits only `tool` | `tool`, `memory_recall` |
@@ -304,7 +309,7 @@ Mnemosyne record schema versions remain plugin-owned.
 Current bundled Mnemosyne declares its plugin version as `0.3.0` and each
 capability version explicitly: `memory_recall` is `1.2.0`; the other seven
 `memory_*` capabilities are `1.1.0`. MyMCP's host/package/endpoint marker is
-independently `0.3.0`. Bundling does not merge host, plugin, or capability version
+independently `0.4.0`. Bundling does not merge host, plugin, or capability version
 ownership. A test-owned, version-keyed canonical-JSON Tool-definition
 digest ledger couples each declared capability version to a SHA-256 digest and
 readable properties/required-field fingerprints, preserving historical entries
@@ -316,7 +321,8 @@ The host-controlled product, endpoint, FastAPI application, distribution
 metadata, and tracked official client identity are MyMCP in released `0.2.0`.
 The existing `0.1.x` line is the prior Mnemosyne-public-host compatibility era.
 Repository migration, operational validation, and release publication are
-complete. External startup composition and gateway operation remain later gates.
+complete. External startup composition is delivered; gateway operation remains a
+later gate.
 
 | Public-host dimension | Prior `0.1.x` era | Released `0.2.0` |
 | --- | --- | --- |
@@ -415,10 +421,10 @@ decision.
 
 ## Manifest schema version 1
 
-Each bundled plugin contains one strict `manifest.json`. A future external
-composition mechanism will require an equivalently strict inert manifest in a
-configured, operator-installed plugin, without prescribing its distribution
-format or host-managed installation location.
+Each bundled plugin contains one strict `manifest.json`. Each enabled schema-2
+configured external plugin supplies an equivalently strict inert manifest at its
+configured absolute path, without a prescribed distribution format or
+host-managed installation location.
 Schema version 1 requires these conceptual fields:
 
 - `manifest_version`;
@@ -531,9 +537,9 @@ of truth.
 
 ## Plugin definition and startup composition
 
-The immutable `PluginDefinition` contracts, strict manifest parser, and static
-parity validation are implemented. Future external composition preserves these
-invariants:
+The immutable `PluginDefinition` contracts, strict manifest parser, and parity
+validation are implemented for bundled and configured external plugins. Startup
+composition preserves these invariants:
 
 - `PluginDefinition` is immutable data that exactly agrees with the selected
   manifest's identity, compatibility, complete capability metadata,
@@ -555,28 +561,28 @@ responsibility.
 
 ## Bootstrap and composition
 
-The first target implementation remains static and in-process for trusted
-source-controlled built-ins:
+Startup composition is explicit and in-process:
 
-1. Host bootstrap imports each bundled adapter explicitly.
-2. It declares their order and compatibility Tool bindings explicitly.
-3. Each adapter produces one immutable definition and selected contribution.
-4. The host strictly parses each fixed packaged manifest (at most 64 KiB).
-5. The host validates plugin identity/version and host API compatibility.
-6. The host validates complete manifest/definition/contribution parity.
-7. The host validates each selected capability and public binding.
-8. Duplicate plugin IDs, qualified capability identities, public names, and
-   claims on host-reserved names fail composition.
-9. Host-owned `list_tools` is bound to the complete selected public surface.
-10. One immutable `HostRuntime` generation is constructed and used until
-    restart.
+1. Bootstrap validates the immutable host snapshot and schema-1 bundled-ID
+   compatibility.
+2. It preflights every enabled schema-2 external manifest in configuration order
+   before any external module import, enforcing source safety, manifest parsing,
+   configured identity, host API, and plugin/capability limits.
+3. It validates the fixed packaged Mnemosyne manifest, definition, and selected
+   contribution.
+4. It imports enabled external modules in configuration order; each zero-argument
+   `mymcp_plugin_v1` entrypoint returns a `PluginAdapter`.
+5. It validates every external manifest/definition/contribution parity contract.
+6. It binds bundled Mnemosyne first, then external capabilities in configuration
+   and capability order using `<plugin-id>__<tool-local-id>` defaults.
+7. Duplicate plugin IDs, qualified capabilities, reserved names, bindings, or
+   public names fail composition; host-owned `list_tools` is bound only to the
+   complete surface.
+8. One immutable `HostRuntime` generation is constructed and used until restart.
 
-Any failure returns no partial runtime. Static bootstrap performs no arbitrary
-import, source-directory, manifest-path, entry-point, or network discovery.
-Future external composition uses operator configuration to locate inert metadata,
-then validates that metadata before implementation loading where possible. It
-does not install software, manage environments, or activate/switch plugins while
-the server is running.
+Any failure returns no partial runtime. Bootstrap performs no host-managed
+installation, dependency/environment management, network or marketplace
+discovery, hot activation, or runtime switching.
 
 Mnemosyne continues to resolve immutable mutation gates once during startup and
 the memory root lazily after Tool-specific validation for each operation.
@@ -589,7 +595,7 @@ the memory root lazily after Tool-specific validation for each operation.
 | `mymcp/mcp/` | standard library, generic runtime contracts | FastAPI in target protocol modules, concrete plugins, Mnemosyne domain/configuration |
 | `mymcp/plugin/` | standard library, generic MCP registration types | concrete plugins, routes, plugin configuration, installation or supervision |
 | `mymcp/host/runtime.py` | generic plugin composition and MCP registry | concrete plugins or domain policy |
-| `mymcp/host/bootstrap.py` | generic runtime, explicit bundled adapters, and future validated configured external inputs | dynamic network/marketplace discovery or runtime composition switching |
+| `mymcp/host/bootstrap.py` | generic runtime, explicit bundled adapters, and validated configured external manifests/adapters | dynamic network/marketplace discovery or runtime composition switching |
 | `mymcp/host/gateway.py` | runtime identity, principals, sessions, policy, approval verification | plugin policy claims as authority, Mnemosyne domain policy |
 | `mymcp/host/audit.py` | bounded host security-event contracts and private persistence | request/result content, plugin-writable records |
 | Mnemosyne `plugin.py` | generic plugin/MCP contracts and its own packages | routes, app assembly, host bootstrap, other plugins |
@@ -598,8 +604,9 @@ the memory root lazily after Tool-specific validation for each operation.
 | Mnemosyne `configuration.py` | standard library | MCP, host settings, routes, FastAPI, other plugins |
 
 Only bootstrap may point from generic host code to a concrete bundled plugin.
-Future configured external code is loaded only after inert compatibility and
-composition validation where possible. Plugins may not import one another. A host
+Configured external code is loaded only after inert compatibility preflight;
+definition/contribution parity and composition validation then complete before a
+runtime is published. Plugins may not import one another. A host
 service may not absorb Mnemosyne taxonomy or policy
 merely because Mnemosyne is the first consumer.
 
@@ -666,7 +673,7 @@ Source control, review, and explicit bootstrap establish bundled trust; a
 manifest does not sandbox filesystem or network access.
 
 For a configured external plugin, the operator independently chooses to trust
-the code. Future startup validation checks compatibility and composition, not
+the code. Delivered startup validation checks compatibility and composition, not
 whether the code is benign. After it passes, the plugin may run in process with
 the authority available to the host process. MyMCP makes no sandbox, isolation,
 filesystem/network restriction, worker supervision, killability, or resource
@@ -681,18 +688,17 @@ not manufacture consent.
 
 ## Configuration and plugin-owned data
 
-MyMCP 0.3.0 delivers host configuration schema 1: one immutable snapshot from
-the exact XDG-selected source, optional loopback packaged-launcher address/port,
-and ordered `[[plugins]]` declarations with explicit enablement. A declaration
-is desired state, not an implementation locator, binding, plugin configuration,
-installation proof, safety assessment, authority grant, or consent. An absent
-file or disabled declarations retain bundled-only startup; a valid enabled
-declaration currently fails before runtime construction. See
-[Configuration](CONFIGURATION.md) for the complete operator contract.
+MyMCP 0.4.0 supports host configuration schemas 1 and 2. Schema 1 remains an
+exact immutable desired-state contract: an enabled declaration fails with
+`enabled_plugin_unsupported`. Schema 2 explicitly adds an absolute manifest
+path and dotted module locator to every declaration, including disabled ones.
+It does not normalize, expand, fall back, or autodiscover locators. Enabled
+schema-2 manifests preflight as a complete ordered set before any import, then
+each zero-argument `mymcp_plugin_v1` entrypoint returns a `PluginAdapter` for
+parity validation and composition. See [Configuration](CONFIGURATION.md) for the
+complete operator contract.
 
-Phase 3 will replace that bounded unsupported-enabled state with validated
-external loading and must explicitly version any schema-v1 expansion needed for
-metadata/implementation location or public bindings. The operator remains
+The operator remains
 responsible for external plugin installation, dependencies, Python environment,
 configuration, updates, rollback, and server process operation. The host does
 not create managed environments, issue installation receipts, provide plugin
@@ -849,16 +855,17 @@ Repository migration and operational reconnect/direct approval checks are
 complete, and the public release is tagged `mymcp-v0.2.0` at `c2852bc`. This
 gate is complete before external startup composition or gateway operation.
 
-### Phase 3 — Startup composition for trusted external plugins
+### Phase 3 — Startup composition for trusted external plugins (delivered by TRACK_041)
 
-The delivered configuration foundation supplies ordered desired-state inputs but
-does not load external code. Phase 3 will add validated external composition to
-explicit bootstrap. Before loading
-implementation code where possible, validate inert manifest metadata, host-API
-compatibility, and plugin and capability identities/versions. Then load the
-trusted implementation and validate definitions, contributions, and public
-binding collisions before runtime construction. Invalid composition fails
-startup clearly with no partial runtime.
+Schema 1 preserves the bounded unsupported-enabled state. Schema 2 provides
+validated external composition in explicit bootstrap: preflight all enabled
+inert manifests before any implementation import; validate host API,
+identities/versions, source safety, and 32-plugin/256-capability limits; then
+load trusted implementations and validate definitions, contributions, and public
+binding collisions before runtime construction. External bindings use
+`<plugin-id>__<tool-local-id>`; bundled plugins precede configuration-order
+externals, which retain capability order. Invalid composition fails startup
+clearly with no partial runtime.
 
 External plugin installation, dependency management, Python environments,
 configuration, updates, rollback, and process stop/restart remain the operator's

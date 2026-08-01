@@ -2,8 +2,9 @@
 
 MyMCP is the repository and Python host package for an experimental local MCP
 server. Released `0.2.0` established the host, application, package, and official
-tracked client as MyMCP/`mymcp`; the current MyMCP/package/server version is
-`0.3.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
+tracked client as MyMCP/`mymcp`; `0.2.1` remains the Ollama schema-compatibility
+build and `0.3.0` the host-configuration foundation. The current
+MyMCP/package/server version is `0.4.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
 bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
@@ -30,7 +31,7 @@ manifest/definition/contribution parity before generation construction.
 The plugin's trusted in-process Mnemosyne `0.3.0` adapter supplies canonical
 registrations. Every capability declares its own contract version: `memory_recall`
 is `1.2.0`; the other seven `memory_*` capabilities are `1.1.0`. The MyMCP
-host/package/server is independently `0.3.0`. A test-owned,
+host/package/server is independently `0.4.0`. A test-owned,
 version-keyed canonical Tool-definition digest ledger retains readable
 properties/required-field fingerprints and historical entries, so definition
 drift cannot silently reuse a capability version. The ledger covers declared Tool
@@ -64,9 +65,10 @@ non-draft, non-prerelease GitHub release
 is tagged `mymcp-v0.2.0` at `c2852bc` and contains one wheel,
 `mymcp-0.2.0-py3-none-any.whl`, with matching GitHub/local SHA-256
 `531cc9a603d16399b12650fd09d3bc76f43b4d5d1b15fed0377a6197c820e3e7`.
-Schema-v1 host configuration now provides XDG-based process settings and ordered
-external-plugin desired state. Enabled external plugins remain unsupported in
-this build; startup composition and gateway governance remain deferred. See
+Host configuration schemas 1 and 2 provide XDG-based process settings and ordered
+external-plugin declarations. Schema 1 remains exact compatibility and rejects
+enabled declarations with `enabled_plugin_unsupported`; schema 2 supports
+validated startup composition. Gateway governance remains deferred. See
 [host configuration](docs/CONFIGURATION.md) and
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
@@ -320,7 +322,8 @@ and an opaque runtime generation. Duplicate plugin, capability, or public names
 fail composition rather than overwriting a registration.
 
 The explicit production bootstrap validates one immutable host-configuration
-snapshot, then reads the fixed packaged inert Mnemosyne manifest, validates exact
+snapshot, preflights every enabled external manifest before any external import,
+then reads the fixed packaged inert Mnemosyne manifest, validates exact
 definition and selected-contribution parity before generation construction, and
 composes the trusted Mnemosyne `0.3.0` adapter over
 canonical registrations. The plugin resolves immutable mutation settings once,
@@ -491,7 +494,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mymcp 0.3.0.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.4.0.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -1022,18 +1025,21 @@ MyMCP is intended to become a local-first MCP host and client-neutral governance
 gateway. It owns Tool composition, identity, plugin contracts, routing, and
 reusable host mechanisms without absorbing integration-specific domain policy.
 
-Its approved Tools-only target separates one host-owned logical plugin API from
-concrete bundled implementations and configured trusted external plugins. It
-retains qualified `(plugin_id, capability_kind, capability_local_id)` origin
-internally and binds that identity to the endpoint's flat MCP Tool name. Host
-bootstrap remains explicit. A future startup composition step will validate
-external inert metadata before implementation loading where possible, then load
-the trusted implementation and validate complete composition before runtime
-construction. Configured plugins are operator-trusted and may run in process.
-MyMCP will not manage plugin installation, environments, updates, rollback,
-stopping, restarting, isolation, or resource control. Authenticated client
-policy, host-verifiable exact-call approval, and bounded security audit remain
-unimplemented.
+Its Tools-only architecture separates one host-owned logical plugin API from
+bundled implementations and configured trusted external plugins. It retains
+qualified `(plugin_id, capability_kind, capability_local_id)` origin internally
+and binds that identity to the endpoint's flat MCP Tool name. Bootstrap first
+preflights all enabled external manifests, then imports zero-argument
+`mymcp_plugin_v1` entrypoints that return `PluginAdapter` values for parity
+validation and complete composition. Bundled Mnemosyne comes first; externals
+follow configuration and capability order, with deterministic
+`<plugin-id>__<tool-local-id>` bindings. A collision fails complete startup.
+External code is operator-installed and operator-trusted in process;
+compatibility validation is not safety validation. MyMCP does not manage
+installation, dependencies/environments, secrets, upgrades/rollback, hot
+activation, lifecycle/workers, isolation/sandboxing, supervision, or resource
+control. Authenticated client policy, host-verifiable exact-call approval, and
+bounded security audit remain unimplemented.
 
 Mnemosyne remains the bundled user-governed memory domain. It gives agents
 controlled access to approved durable records and bounded retrieval while
@@ -1070,21 +1076,25 @@ Optionally create host configuration at
 XDG value is absent, empty, or relative:
 
 ```toml
-schema_version = 1
+schema_version = 2
 
 [server]
 address = "127.0.0.1"
 port = 8000
 
 [[plugins]]
-id = "future-plugin"
-enabled = false
+id = "example-plugin"
+enabled = true
+manifest_path = "/opt/mymcp-plugins/example-plugin/manifest.json"
+module = "example_plugin"
 ```
 
 The file is optional; its absence preserves bundled-only startup. Only literal
-loopback addresses and ports 1–65535 are supported. A declaration is desired
-state, not installation or trust proof: disabled plugins are not loaded, while
-enabled external plugins fail in this release because loading is deferred. See
+loopback addresses and ports 1–65535 are supported. Schema 1 remains supported
+with exactly `id`/`enabled` and preserves `enabled_plugin_unsupported`; schema 2
+requires exact `id`/`enabled`/absolute `manifest_path`/dotted `module` fields.
+Disabled plugins are neither accessed, imported, nor exposed. Enabled schema-2
+plugins are preflighted before imports and are operator-trusted in-process code. See
 [host configuration](docs/CONFIGURATION.md) for safety rules, errors, restart
 behavior, and the strict schema.
 
@@ -1128,7 +1138,7 @@ At startup, host-configuration loading is reported through the
 `mymcp.host.configuration` logger. The `mymcp` and `mymcp-dev` launchers configure
 standard Python logging at `INFO`; direct Uvicorn factory use retains Uvicorn's
 logging ownership, and programmatic callers configure Python logging themselves.
-See [Configuration](docs/CONFIGURATION.md#startup-logging) for the bounded event
+See [Configuration](docs/CONFIGURATION.md#logging) for the bounded event
 format, restart behavior, and troubleshooting guidance.
 
 Run the test suite after installing the `test` extra:

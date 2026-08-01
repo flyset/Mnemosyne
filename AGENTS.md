@@ -19,20 +19,21 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam, a
 delivered Phase 2 bundled Mnemosyne extraction, the released MyMCP/`mymcp`
 `0.2.0` public host, the prior `0.2.1` Ollama schema-compatibility build, and the
-current `0.3.0` host-configuration foundation.
+current `0.4.0` Phase 3 external startup composition.
 The bundled Mnemosyne plugin is `0.3.0`; memory_recall is capability contract
 `1.2.0`, while its other seven capabilities are `1.1.0`. The canonical
 Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
-remain host-owned. Schema-v1 XDG host configuration now supplies immutable
-per-process startup intent and loopback packaged-launcher settings; external
-plugin enablement remains unsupported. Repository migration, operational
+remain host-owned. Host configuration schemas 1 and 2 supply immutable
+per-process startup intent and loopback packaged-launcher settings; schema 1
+retains `enabled_plugin_unsupported`, while schema 2 composes validated external
+plugins at startup. Repository migration, operational
 reconnect/approval checks,
-annotated tag creation, and release publication are complete. The approved next
-direction is startup composition for operator-installed, operator-trusted
-external plugins: MyMCP validates compatibility and composition, not plugin
-safety, and plugin changes require a server restart. Do not add host-managed
+annotated tag creation, and release publication are complete. Startup composition
+for operator-installed, operator-trusted external plugins is delivered: MyMCP
+validates compatibility and composition, not plugin safety, and plugin changes
+require a server restart. Do not add host-managed
 installation, dependency environments, hot activation, plugin isolation, or
 runtime lifecycle management. Keep changes minimal and protocol-aware.
 

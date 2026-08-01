@@ -18,6 +18,7 @@ from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
 
 CONFIGURATION_LOGGER = "mymcp.host.configuration"
+BOOTSTRAP_LOGGER = "mymcp.host.bootstrap"
 
 
 @dataclass(frozen=True)
@@ -181,23 +182,33 @@ def test_direct_and_reload_worker_factory_emits_one_event_and_requests_emit_none
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    runtime = _runtime("production", [])
     selected = tmp_path / "xdg"
     monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
-    monkeypatch.setattr(
-        bootstrap,
-        "build_production_runtime",
-        lambda _configuration: runtime,
-    )
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REMEMBER_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REVISE_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_FORGET_ENABLED", "false")
 
-    with caplog.at_level(logging.INFO, logger=CONFIGURATION_LOGGER):
+    with caplog.at_level(logging.INFO):
         client = TestClient(app_module.create_production_app())
         client.get("/health")
         client.post("/mcp", json={"id": 1, "method": "tools/list"})
+        client.post(
+            "/mcp",
+            json={
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "list_tools", "arguments": {}},
+            },
+        )
 
-    assert caplog.messages == [
+    assert [record.getMessage() for record in caplog.records if record.name in {
+        CONFIGURATION_LOGGER,
+        BOOTSTRAP_LOGGER,
+    }] == [
         "host_configuration outcome=absent_defaults schema_version=1 "
-        "address=127.0.0.1 port=8000 declarations=0 enabled=0"
+        "address=127.0.0.1 port=8000 declarations=0 enabled=0",
+        "runtime_composition outcome=loaded bundled=1 external=0 capabilities=3",
     ]
 
 
@@ -233,6 +244,55 @@ def test_existing_application_is_stable_after_configuration_file_changes(
         "memory_list",
         "memory_inspect",
     ]
+
+
+def test_running_external_application_does_not_reread_changed_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected = tmp_path / "xdg"
+    application_directory = selected / "mymcp"
+    application_directory.mkdir(mode=0o700, parents=True)
+    application_directory.chmod(0o700)
+    manifest = tmp_path / "external-manifest.json"
+    manifest.write_text(
+        """{
+  "manifest_version": 1,
+  "id": "external",
+  "title": "External",
+  "description": "An external plugin.",
+  "version": "1.0.0",
+  "requires": {"host_api": {"min": 1, "max": 1}},
+  "capabilities": [{"kind": "tool", "id": "external_tool", "version": "1.0.0", "read_only": true, "destructive": false, "idempotent": true, "open_world": false, "consent": "none"}],
+  "configuration": {"schema_version": 1, "schema": {"type": "object", "properties": {}, "required": [], "additionalProperties": false}},
+  "secret_references": [],
+  "data_schema_version": 1,
+  "authority": {"filesystem": [], "network": false}
+}""",
+        encoding="utf-8",
+    )
+    configuration_path = application_directory / "config.toml"
+    configuration_path.write_text(
+        "schema_version = 2\n[[plugins]]\n"
+        'id = "external"\nenabled = true\n'
+        f'manifest_path = "{manifest}"\n'
+        'module = "tests.host.fixtures.operator_plugins.valid"\n',
+        encoding="utf-8",
+    )
+    configuration_path.chmod(0o600)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REMEMBER_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_ARCHIVE_RESTORE_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_REVISE_ENABLED", "false")
+    monkeypatch.setenv("MNEMOSYNE_MEMORY_FORGET_ENABLED", "false")
+
+    client = TestClient(app_module.create_production_app())
+    manifest.write_bytes(b"{")
+
+    assert client.post("/mcp", json={"id": 1, "method": "tools/list"}).status_code == 200
+    with pytest.raises(bootstrap.ExternalPluginLoadError) as captured:
+        app_module.create_production_app()
+    assert captured.value.code == "external_manifest_invalid"
 
 
 def test_ordinary_imports_do_not_read_invalid_host_configuration(

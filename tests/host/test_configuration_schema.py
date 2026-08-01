@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from mymcp.host.configuration import (
+    ExternalPluginDeclaration,
     HostConfiguration,
     HostConfigurationError,
     HostConfigurationSchemaVersion,
@@ -110,6 +111,171 @@ enabled = true
     )
 
 
+def test_schema_v2_declarations_preserve_explicit_immutable_locators() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 2
+
+[[plugins]]
+id = "alpha-plugin"
+enabled = false
+manifest_path = "/opt/mymcp/alpha/manifest.json"
+module = "operator_plugins.alpha"
+
+[[plugins]]
+id = "beta"
+enabled = true
+manifest_path = "/opt/mymcp/beta/manifest.json"
+module = "operator_plugins.beta"
+"""
+    )
+
+    assert configuration.schema_version == HostConfigurationSchemaVersion(2)
+    assert tuple(
+        (
+            declaration.plugin_id,
+            declaration.enabled,
+            declaration.manifest_path,
+            declaration.module,
+        )
+        for declaration in configuration.plugins
+    ) == (
+        (
+            PluginId("alpha-plugin"),
+            False,
+            "/opt/mymcp/alpha/manifest.json",
+            "operator_plugins.alpha",
+        ),
+        (
+            PluginId("beta"),
+            True,
+            "/opt/mymcp/beta/manifest.json",
+            "operator_plugins.beta",
+        ),
+    )
+    with pytest.raises(FrozenInstanceError):
+        configuration.plugins[0].module = "replacement"  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    "plugin_source",
+    [
+        'id = "alpha"\nenabled = false\nmanifest_path = "/opt/a/manifest.json"',
+        'id = "alpha"\nenabled = false\nmodule = "plugins.alpha"',
+        (
+            'id = "alpha"\nenabled = false\n'
+            'manifest_path = "/opt/a/manifest.json"\n'
+            'module = "plugins.alpha"\nunknown = true'
+        ),
+    ],
+)
+def test_schema_v2_plugin_tables_require_exact_fields(plugin_source: str) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            f"schema_version = 2\n[[plugins]]\n{plugin_source}\n"
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize(
+    "manifest_path",
+    [
+        "relative/manifest.json",
+        "~/plugins/manifest.json",
+        "/opt/$PLUGIN/manifest.json",
+        "/opt/%PLUGIN%/manifest.json",
+        "/opt/plugins/./manifest.json",
+        "/opt/plugins/../manifest.json",
+        "/opt/plugins/manifest.json\x00ignored",
+    ],
+)
+def test_schema_v2_rejects_invalid_manifest_locators(manifest_path: str) -> None:
+    source = (
+        "schema_version = 2\n[[plugins]]\n"
+        'id = "alpha"\nenabled = false\n'
+        f'manifest_path = "{manifest_path.replace(chr(0), "\\u0000")}"\n'
+        'module = "plugins.alpha"\n'
+    )
+
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(source)
+
+    assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize(
+    "module",
+    [
+        "",
+        ".plugins.alpha",
+        "plugins.alpha.",
+        "plugins..alpha",
+        "plugins-alpha",
+        "plugins.α",
+        f"plugins.{'a' * 248}",
+    ],
+)
+def test_schema_v2_rejects_invalid_module_locators(module: str) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            "schema_version = 2\n[[plugins]]\n"
+            'id = "alpha"\nenabled = false\n'
+            'manifest_path = "/opt/plugins/manifest.json"\n'
+            f'module = "{module}"\n'
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_schema_v1_rejects_schema_v2_locator_fields() -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            "schema_version = 1\n[[plugins]]\n"
+            'id = "alpha"\nenabled = false\n'
+            'manifest_path = "/opt/plugins/manifest.json"\n'
+            'module = "plugins.alpha"\n'
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_snapshot_schema_and_declaration_shape_cannot_disagree() -> None:
+    v1_declaration = ExternalPluginDeclaration(PluginId("alpha"), False)
+    v2_declaration = ExternalPluginDeclaration(
+        PluginId("alpha"),
+        False,
+        "/opt/plugins/manifest.json",
+        "plugins.alpha",
+    )
+
+    with pytest.raises(ValueError, match="^invalid host configuration$"):
+        HostConfiguration(
+            HostConfigurationSchemaVersion(1),
+            HostServerConfiguration(),
+            (v2_declaration,),
+        )
+    with pytest.raises(ValueError, match="^invalid host configuration$"):
+        HostConfiguration(
+            HostConfigurationSchemaVersion(2),
+            HostServerConfiguration(),
+            (v1_declaration,),
+        )
+
+
+@pytest.mark.parametrize("module", ["plugins.class", "plugins.import"])
+def test_schema_v2_rejects_keyword_module_components(module: str) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            "schema_version = 2\n[[plugins]]\n"
+            'id = "alpha"\nenabled = false\n'
+            'manifest_path = "/opt/plugins/manifest.json"\n'
+            f'module = "{module}"\n'
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
 @pytest.mark.parametrize(
     "plugin_source",
     [
@@ -173,7 +339,7 @@ def test_plugin_id_accepts_the_contract_maximum_length() -> None:
         ("schema_version = true", "invalid_schema"),
         ('schema_version = "1"', "invalid_schema"),
         ("schema_version = 0", "unsupported_schema_version"),
-        ("schema_version = 2", "unsupported_schema_version"),
+        ("schema_version = 3", "unsupported_schema_version"),
         ("schema_version = 1\nunknown = true", "invalid_schema"),
         ("schema_version = 1\nserver = []", "invalid_schema"),
         ("schema_version = 1\nplugins = {}", "invalid_schema"),
@@ -188,7 +354,7 @@ def test_document_schema_is_strict_and_versioned(source: str, code: str) -> None
 
 def test_unsupported_schema_version_has_a_fixed_bounded_message() -> None:
     with pytest.raises(HostConfigurationError) as captured:
-        parse_host_configuration_toml("schema_version = 2\n")
+        parse_host_configuration_toml("schema_version = 3\n")
 
     assert captured.value.code == "unsupported_schema_version"
     assert str(captured.value) == (

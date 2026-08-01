@@ -22,9 +22,9 @@ and ignored OpenCode migration with Claude exclusion, normal endpoint/client
 reconnect, and isolated approved-once and rejected/no-Tools-call checks are
 complete. The public, non-draft, non-prerelease release
 [`MyMCP 0.2.0: public-host cutover`](https://github.com/flyset/MyMCP/releases/tag/mymcp-v0.2.0)
-is tagged `mymcp-v0.2.0` at `c2852bc`. Startup composition for
-operator-installed trusted external plugins, gateway governance, and public
-metadata projection remain deferred.
+is tagged `mymcp-v0.2.0` at `c2852bc`. MyMCP `0.4.0` delivers Phase 3 startup
+composition for operator-installed, operator-trusted external plugins. Gateway
+governance and public metadata projection remain deferred.
 
 ## Role
 
@@ -55,15 +55,16 @@ local Uvicorn factory target. The production surface contains the trusted
 Mnemosyne `0.3.0` adapter over canonical registrations from the extracted bundled
 plugin. Its per-capability contract declarations identify `memory_recall` as
 `1.2.0` and the other seven capabilities as `1.1.0`; MyMCP's host/package/server
-marker is independently `0.3.0`.
+marker is independently `0.4.0`.
 
 The released public-host cutover includes repository and operational
-verification. MyMCP 0.3.0 adds the schema-v1 host-configuration foundation:
-one immutable XDG-selected startup snapshot, loopback-only packaged-launcher
-settings, and ordered external-plugin desired state. It does not load external
-implementations. Startup composition for operator-installed trusted external
-plugins, client-neutral gateway policy, public metadata projection, and reusable
-host services follow in that dependency order.
+verification. MyMCP 0.4.0 adds schema-2 external startup composition while
+retaining exact schema-1 behavior, including `enabled_plugin_unsupported`.
+Configuration remains an immutable XDG-selected startup snapshot with loopback
+packaged-launcher settings. Enabled schema-2 manifests preflight before any
+import; compatible operator-trusted implementations then compose once for the
+server start. Client-neutral gateway policy, public metadata projection, and
+reusable host services follow in that dependency order.
 
 ## Approved Target Architecture
 
@@ -76,11 +77,11 @@ plugins. The target places concrete bundled implementations under
 
 Bundled and configured external plugins share logical manifests, definitions,
 kind-qualified capabilities, configuration declarations, and host-owned public
-bindings. Before loading external implementation code where possible, startup
-validates inert manifest metadata, host-API compatibility, and identities and
-versions. It then loads the trusted implementation and validates its definition,
-contribution, and public bindings before runtime construction. Invalid
-composition fails startup clearly. Configuring an external plugin is the
+bindings. Enabled schema-2 manifests preflight before any external import; the
+host then loads the trusted zero-argument `mymcp_plugin_v1` implementation and
+validates definition/contribution parity and bindings before runtime construction.
+External defaults are deterministic `<plugin-id>__<tool-local-id>` names; any
+collision fails complete startup. Configuring an external plugin is the
 operator's decision to trust it to execute; after validation it may run in
 process. MyMCP does not promise sandboxing, isolation, filesystem or network
 restriction, supervision, killability, or resource control for plugins. A

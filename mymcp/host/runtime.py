@@ -25,6 +25,10 @@ _MAX_GENERATION_ID_LENGTH = 128
 _GENERATION_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._~-]*\Z")
 
 
+class HostRuntimeCompositionError(ValueError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeGenerationId:
     value: str
@@ -86,11 +90,14 @@ def build_host_runtime(
     *,
     generation_factory: GenerationFactory = _new_generation_id,
 ) -> HostRuntime:
-    surface = compose_tool_surface(
-        contributions,
-        bindings,
-        host_registration_factory,
-    )
+    try:
+        surface = compose_tool_surface(
+            contributions,
+            bindings,
+            host_registration_factory,
+        )
+    except ValueError as error:
+        raise HostRuntimeCompositionError(str(error)) from None
     generation = RuntimeGenerationId(generation_factory())
     return HostRuntime(
         registry=surface.registry,

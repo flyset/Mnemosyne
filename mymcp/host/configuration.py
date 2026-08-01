@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import errno
 import ipaddress
+import keyword
 import logging
 import os
+import re
 import stat
 import tomllib
 from collections.abc import Iterable
@@ -14,6 +16,7 @@ from mymcp.plugin.contracts import PluginId
 
 
 HOST_CONFIGURATION_SCHEMA_VERSION = 1
+SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2})
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 8000
 XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
@@ -317,7 +320,10 @@ class HostConfigurationSchemaVersion:
     value: int
 
     def __post_init__(self) -> None:
-        if type(self.value) is not int or self.value != HOST_CONFIGURATION_SCHEMA_VERSION:
+        if (
+            type(self.value) is not int
+            or self.value not in SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS
+        ):
             raise ValueError("invalid host configuration schema version")
 
 
@@ -345,9 +351,22 @@ class HostServerConfiguration:
 class ExternalPluginDeclaration:
     plugin_id: PluginId
     enabled: bool
+    manifest_path: str | None = None
+    module: str | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.plugin_id, PluginId) or type(self.enabled) is not bool:
+        locators = (self.manifest_path, self.module)
+        if (
+            not isinstance(self.plugin_id, PluginId)
+            or type(self.enabled) is not bool
+            or not (
+                locators == (None, None)
+                or (
+                    _valid_manifest_path(self.manifest_path)
+                    and _valid_module(self.module)
+                )
+            )
+        ):
             raise ValueError("invalid external plugin declaration")
 
 
@@ -367,6 +386,11 @@ class HostConfiguration:
                 for plugin in self.plugins
             )
             or len({plugin.plugin_id for plugin in self.plugins}) != len(self.plugins)
+            or any(
+                (plugin.manifest_path is not None)
+                != (self.schema_version.value == 2)
+                for plugin in self.plugins
+            )
         ):
             raise ValueError("invalid host configuration")
 
@@ -393,7 +417,35 @@ def _parse_server(value: object) -> HostServerConfiguration:
         raise HostConfigurationError("invalid_schema") from None
 
 
-def _parse_plugins(value: object) -> tuple[ExternalPluginDeclaration, ...]:
+def _valid_manifest_path(value: object) -> bool:
+    if type(value) is not str or not Path(value).is_absolute():
+        return False
+    if (
+        not value
+        or "\x00" in value
+        or "~" in value
+        or "$" in value
+        or "%" in value
+    ):
+        return False
+    return not any(part in {".", ".."} for part in re.split(r"[/\\]", value))
+
+
+def _valid_module(value: object) -> bool:
+    if type(value) is not str:
+        return False
+    parts = value.split(".")
+    return (
+        1 <= len(value) <= 255
+        and value.isascii()
+        and all(
+            part.isidentifier() and not keyword.iskeyword(part)
+            for part in parts
+        )
+    )
+
+
+def _parse_plugins_v1(value: object) -> tuple[ExternalPluginDeclaration, ...]:
     if not isinstance(value, list):
         raise HostConfigurationError("invalid_schema")
 
@@ -406,6 +458,40 @@ def _parse_plugins(value: object) -> tuple[ExternalPluginDeclaration, ...]:
             declaration = ExternalPluginDeclaration(
                 plugin_id=PluginId(item["id"]),
                 enabled=item["enabled"],
+            )
+        except (TypeError, ValueError):
+            raise HostConfigurationError("invalid_schema") from None
+        if declaration.plugin_id in identities:
+            raise HostConfigurationError("duplicate_plugin")
+        identities.add(declaration.plugin_id)
+        declarations.append(declaration)
+    return tuple(declarations)
+
+
+def _parse_plugins_v2(value: object) -> tuple[ExternalPluginDeclaration, ...]:
+    if not isinstance(value, list):
+        raise HostConfigurationError("invalid_schema")
+
+    declarations: list[ExternalPluginDeclaration] = []
+    identities: set[PluginId] = set()
+    for item in value:
+        if not isinstance(item, dict) or set(item) != {
+            "id",
+            "enabled",
+            "manifest_path",
+            "module",
+        }:
+            raise HostConfigurationError("invalid_schema")
+        if not _valid_manifest_path(item["manifest_path"]) or not _valid_module(
+            item["module"]
+        ):
+            raise HostConfigurationError("invalid_schema")
+        try:
+            declaration = ExternalPluginDeclaration(
+                plugin_id=PluginId(item["id"]),
+                enabled=item["enabled"],
+                manifest_path=item["manifest_path"],
+                module=item["module"],
             )
         except (TypeError, ValueError):
             raise HostConfigurationError("invalid_schema") from None
@@ -430,11 +516,14 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
     schema_version = document["schema_version"]
     if type(schema_version) is not int:
         raise HostConfigurationError("invalid_schema")
-    if schema_version != HOST_CONFIGURATION_SCHEMA_VERSION:
+    if schema_version not in SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS:
         raise HostConfigurationError("unsupported_schema_version")
 
     server = _parse_server(document.get("server", {}))
-    plugins = _parse_plugins(document.get("plugins", []))
+    if schema_version == 1:
+        plugins = _parse_plugins_v1(document.get("plugins", []))
+    else:
+        plugins = _parse_plugins_v2(document.get("plugins", []))
     return HostConfiguration(
         schema_version=HostConfigurationSchemaVersion(schema_version),
         server=server,
@@ -462,6 +551,9 @@ def validate_host_configuration_semantics(
     }
     if configured_identities.intersection(bundled_identities):
         raise HostConfigurationError("bundled_plugin_conflict")
-    if any(declaration.enabled for declaration in configuration.plugins):
+    if (
+        configuration.schema_version.value == 1
+        and any(declaration.enabled for declaration in configuration.plugins)
+    ):
         raise HostConfigurationError("enabled_plugin_unsupported")
     return configuration

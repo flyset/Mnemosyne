@@ -19,8 +19,10 @@ verification includes 1,139 full-suite tests and two packaging tests. Automated
 tests complement, but do not replace, repository/client/operational checks. The
 public, non-draft, non-prerelease release is
 [`MyMCP 0.2.0: public-host cutover`](https://github.com/flyset/MyMCP/releases/tag/mymcp-v0.2.0),
-tagged `mymcp-v0.2.0` at `c2852bc`. External plugin, lifecycle, and gateway work
-remains deferred.
+tagged `mymcp-v0.2.0` at `c2852bc`. MyMCP `0.4.0` adds tested external startup
+composition: schema-1 compatibility, schema-2 locators, source-safe manifest
+preflight, ordered loading/parity, deterministic bindings, and collision failure.
+Gateway work remains deferred.
 
 ## Layout
 
@@ -30,8 +32,9 @@ remains deferred.
 - `tests/plugin/` covers kind-qualified contracts, immutable definition values,
   strict manifest parsing, extracted bundled Mnemosyne declaration parity, and
   `ActivatedTool`/`PluginContribution` composition.
-- `tests/host/` covers immutable `HostRuntime` and explicit production bootstrap,
-  including validation before runtime generation.
+- `tests/host/` covers immutable `HostRuntime`, schema-1/schema-2 configuration,
+  source-safe external manifest preflight, ordered loading, and explicit complete
+  production bootstrap before runtime generation.
 - `tests/routes/` covers FastAPI HTTP transport through `TestClient`.
 - `tests/test_app.py` covers runtime-injected app assembly, production factory,
   and side-effect-free ordinary imports.

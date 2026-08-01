@@ -62,6 +62,35 @@ enabled = true
     ]
 
 
+def test_schema_v2_present_source_emits_one_bounded_loaded_event(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    selected = tmp_path / "selected"
+    _write_configuration(
+        selected,
+        b"""
+schema_version = 2
+[[plugins]]
+id = "alpha"
+enabled = true
+manifest_path = "/opt/alpha/manifest.json"
+module = "operator_plugins.alpha"
+""",
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(selected))
+
+    with caplog.at_level(logging.INFO, logger=CONFIGURATION_LOGGER):
+        snapshot = load_host_configuration()
+
+    assert snapshot.schema_version.value == 2
+    assert caplog.messages == [
+        "host_configuration outcome=loaded schema_version=2 "
+        "address=127.0.0.1 port=8000 declarations=1 enabled=1"
+    ]
+
+
 def test_absent_source_emits_one_bounded_defaults_event_without_creation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
