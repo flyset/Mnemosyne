@@ -23,6 +23,33 @@ The central distinction is:
 - FastAPI routes handle transport: where a request arrives.
 - MCP modules handle protocol meaning: what the request asks the server to do.
 
+## System Layers
+
+Use these layers, in this order, as the shared reference for architecture and
+planning discussions:
+
+1. **HTTP server** — implemented; receives and returns HTTP traffic without
+   owning MCP or plugin meaning.
+2. **Authentication** — planned; routes evidence across explicitly configured
+   adapters, optionally admits evidence-free anonymous access, and constructs
+   normalized namespaced principals as defined in
+   [Authentication Architecture](AUTHENTICATION.md).
+3. **MCP server** — implemented; interprets MCP/JSON-RPC messages and Tool
+   operations without owning plugin-domain behavior.
+4. **Governance** — planned; uses authenticated identity to decide which
+   capabilities may be discovered or invoked and under what conditions.
+5. **Plugin runtime** — implemented; holds the immutable composed capability
+   surface, bindings, origins, and routing information for one server start.
+6. **Plugin** — implemented; owns one integration's capability adapters and
+   domain-specific behavior.
+7. **Plugin data or external service** — implemented as applicable to each
+   plugin; it is the local data or outside service that the plugin reads or
+   changes.
+
+Keep each responsibility in its named layer. A later layer must not silently
+absorb an earlier layer's responsibility, and a transport or host layer must not
+absorb plugin-domain meaning.
+
 ## Current and Target Architecture
 
 This document describes the **current implementation**. The package layout has
