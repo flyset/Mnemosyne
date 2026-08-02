@@ -12,20 +12,25 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from mymcp.authentication.contracts import AdapterId, EvidenceRoute
 from mymcp.plugin.contracts import PluginId
 
 
 HOST_CONFIGURATION_SCHEMA_VERSION = 1
-SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2})
+SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2, 3})
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 8000
 XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
 APPLICATION_DIRECTORY_NAME = "mymcp"
 CONFIGURATION_FILE_NAME = "config.toml"
 CONFIGURATION_MAX_BYTES = 64 * 1024
+MAX_AUTHENTICATION_ADAPTERS = 32
 
 _OPEN_SUPPORTS_DIR_FD = os.open in os.supports_dir_fd
 _LOGGER = logging.getLogger("mymcp.host.configuration")
+_AUTHENTICATION_TYPE_PATTERN = re.compile(
+    r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*\Z"
+)
 
 _ERROR_MESSAGES = {
     "invalid_location": "MyMCP configuration location is unavailable",
@@ -45,6 +50,15 @@ _ERROR_MESSAGES = {
     "invalid_schema": "MyMCP configuration has an invalid schema",
     "duplicate_plugin": (
         "MyMCP configuration contains a duplicate plugin declaration"
+    ),
+    "duplicate_authentication_adapter_id": (
+        "MyMCP configuration contains a duplicate authentication adapter identity"
+    ),
+    "duplicate_authentication_adapter_route": (
+        "MyMCP configuration contains a duplicate authentication adapter route"
+    ),
+    "authentication_adapter_limit_exceeded": (
+        "MyMCP authentication adapter limit is exceeded"
     ),
     "bundled_plugin_conflict": (
         "MyMCP configuration conflicts with a bundled plugin identity"
@@ -371,15 +385,56 @@ class ExternalPluginDeclaration:
 
 
 @dataclass(frozen=True, slots=True)
+class AuthenticationAdapterDeclaration:
+    adapter_id: AdapterId
+    adapter_type: str
+    enabled: bool
+    route: EvidenceRoute
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.adapter_id, AdapterId)
+            or not _valid_authentication_type(self.adapter_type)
+            or type(self.enabled) is not bool
+            or not isinstance(self.route, EvidenceRoute)
+        ):
+            raise ValueError("invalid authentication adapter declaration")
+
+
+@dataclass(frozen=True, slots=True)
+class HostAuthenticationConfiguration:
+    anonymous_enabled: bool
+    adapters: tuple[AuthenticationAdapterDeclaration, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.anonymous_enabled) is not bool
+            or type(self.adapters) is not tuple
+            or any(
+                not isinstance(adapter, AuthenticationAdapterDeclaration)
+                for adapter in self.adapters
+            )
+            or len({adapter.adapter_id for adapter in self.adapters})
+            != len(self.adapters)
+            or len({adapter.route for adapter in self.adapters}) != len(self.adapters)
+        ):
+            raise ValueError("invalid host authentication configuration")
+
+
+@dataclass(frozen=True, slots=True)
 class HostConfiguration:
     schema_version: HostConfigurationSchemaVersion
     server: HostServerConfiguration
     plugins: tuple[ExternalPluginDeclaration, ...]
+    authentication: HostAuthenticationConfiguration = HostAuthenticationConfiguration(
+        True, ()
+    )
 
     def __post_init__(self) -> None:
         if (
             not isinstance(self.schema_version, HostConfigurationSchemaVersion)
             or not isinstance(self.server, HostServerConfiguration)
+            or not isinstance(self.authentication, HostAuthenticationConfiguration)
             or type(self.plugins) is not tuple
             or any(
                 not isinstance(plugin, ExternalPluginDeclaration)
@@ -388,8 +443,12 @@ class HostConfiguration:
             or len({plugin.plugin_id for plugin in self.plugins}) != len(self.plugins)
             or any(
                 (plugin.manifest_path is not None)
-                != (self.schema_version.value == 2)
+                != (self.schema_version.value in {2, 3})
                 for plugin in self.plugins
+            )
+            or (
+                self.schema_version.value in {1, 2}
+                and self.authentication != HostAuthenticationConfiguration(True, ())
             )
         ):
             raise ValueError("invalid host configuration")
@@ -402,6 +461,7 @@ class HostConfiguration:
             ),
             server=HostServerConfiguration(),
             plugins=(),
+            authentication=HostAuthenticationConfiguration(True, ()),
         )
 
 
@@ -442,6 +502,14 @@ def _valid_module(value: object) -> bool:
             part.isidentifier() and not keyword.iskeyword(part)
             for part in parts
         )
+    )
+
+
+def _valid_authentication_type(value: object) -> bool:
+    return (
+        type(value) is str
+        and 1 <= len(value) <= 64
+        and _AUTHENTICATION_TYPE_PATTERN.fullmatch(value) is not None
     )
 
 
@@ -502,13 +570,82 @@ def _parse_plugins_v2(value: object) -> tuple[ExternalPluginDeclaration, ...]:
     return tuple(declarations)
 
 
+def _parse_authentication_adapter(
+    value: object,
+) -> AuthenticationAdapterDeclaration:
+    if not isinstance(value, dict) or set(value) != {
+        "id",
+        "type",
+        "enabled",
+        "route",
+    }:
+        raise HostConfigurationError("invalid_schema")
+    route = value["route"]
+    if (
+        not isinstance(route, dict)
+        or not {"source", "scheme"} <= set(route)
+        or not set(route) <= {"source", "scheme", "profile"}
+    ):
+        raise HostConfigurationError("invalid_schema")
+    try:
+        return AuthenticationAdapterDeclaration(
+            adapter_id=AdapterId(value["id"]),
+            adapter_type=value["type"],
+            enabled=value["enabled"],
+            route=EvidenceRoute(
+                source=route["source"],
+                scheme=route["scheme"],
+                profile=route.get("profile"),
+            ),
+        )
+    except (TypeError, ValueError):
+        raise HostConfigurationError("invalid_schema") from None
+
+
+def _parse_authentication(value: object) -> HostAuthenticationConfiguration:
+    if (
+        not isinstance(value, dict)
+        or not set(value) <= {"anonymous_enabled", "adapters"}
+        or "anonymous_enabled" not in value
+    ):
+        raise HostConfigurationError("invalid_schema")
+    raw_adapters = value.get("adapters", [])
+    if not isinstance(raw_adapters, list):
+        raise HostConfigurationError("invalid_schema")
+    if len(raw_adapters) > MAX_AUTHENTICATION_ADAPTERS:
+        raise HostConfigurationError("authentication_adapter_limit_exceeded")
+
+    adapters = tuple(_parse_authentication_adapter(item) for item in raw_adapters)
+    identities: set[AdapterId] = set()
+    routes: set[EvidenceRoute] = set()
+    for adapter in adapters:
+        if adapter.adapter_id in identities:
+            raise HostConfigurationError("duplicate_authentication_adapter_id")
+        if adapter.route in routes:
+            raise HostConfigurationError("duplicate_authentication_adapter_route")
+        identities.add(adapter.adapter_id)
+        routes.add(adapter.route)
+    try:
+        return HostAuthenticationConfiguration(
+            anonymous_enabled=value["anonymous_enabled"],
+            adapters=adapters,
+        )
+    except ValueError:
+        raise HostConfigurationError("invalid_schema") from None
+
+
 def parse_host_configuration_toml(source: str) -> HostConfiguration:
     try:
         document = tomllib.loads(source)
     except (TypeError, tomllib.TOMLDecodeError):
         raise HostConfigurationError("invalid_toml") from None
 
-    if not set(document) <= {"schema_version", "server", "plugins"}:
+    if not set(document) <= {
+        "schema_version",
+        "server",
+        "plugins",
+        "authentication",
+    }:
         raise HostConfigurationError("invalid_schema")
     if "schema_version" not in document:
         raise HostConfigurationError("invalid_schema")
@@ -520,14 +657,25 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
         raise HostConfigurationError("unsupported_schema_version")
 
     server = _parse_server(document.get("server", {}))
+    if schema_version in {1, 2} and "authentication" in document:
+        raise HostConfigurationError("invalid_schema")
+    if schema_version == 3 and "authentication" not in document:
+        raise HostConfigurationError("invalid_schema")
+
     if schema_version == 1:
         plugins = _parse_plugins_v1(document.get("plugins", []))
     else:
         plugins = _parse_plugins_v2(document.get("plugins", []))
+    authentication = (
+        _parse_authentication(document["authentication"])
+        if schema_version == 3
+        else HostAuthenticationConfiguration(True, ())
+    )
     return HostConfiguration(
         schema_version=HostConfigurationSchemaVersion(schema_version),
         server=server,
         plugins=plugins,
+        authentication=authentication,
     )
 
 

@@ -20,14 +20,15 @@ while drive-relative paths are not. MyMCP does not expand `~` or variables in
 locations, merge files, or fall back to `~/.mymcp/config.toml`.
 
 An absent source supplies immutable schema-1 defaults: bundled Mnemosyne only,
-`127.0.0.1:8000`, and no external declarations. A present document must be
+`127.0.0.1:8000`, no external declarations, and compatibility anonymous access.
+A present document must be
 valid in full: an empty document, unsupported schema version, unknown field or
 table, duplicate key, or wrong type fails startup; disabled declarations do not
 suppress validation.
 
-## Host configuration schemas 1 and 2
+## Host configuration schemas 1, 2, and 3
 
-`schema_version` is required and must be the native TOML integer `1` or `2`.
+`schema_version` is required and must be the native TOML integer `1`, `2`, or `3`.
 It versions this document only, independently of the MyMCP package/server,
 host plugin API, manifest schema, external plugin-author contract, plugin,
 capability, runtime-generation, and record schemas. MyMCP never normalizes,
@@ -72,6 +73,31 @@ home/environment expansion, fallback, locator inference, or module/package
 autodiscovery. Locators are not host-managed installation, dependency or
 environment management, plugin configuration, secret storage, trust proof, or
 safety control.
+
+Schema 3 preserves schema-2 server and plugin syntax and requires explicit
+Authentication startup intent:
+
+```toml
+schema_version = 3
+
+[authentication]
+anonymous_enabled = true
+
+[[authentication.adapters]]
+id = "future-local"
+type = "future-bearer"
+enabled = false
+route = { source = "authorization", scheme = "bearer" }
+```
+
+`anonymous_enabled` is required and must be a native boolean. Up to 32 ordered
+adapter declarations contain exactly `id`, `type`, `enabled`, and `route`.
+IDs/types are bounded lowercase-kebab identities. A route contains required
+`source` and `scheme` plus optional `profile`; duplicate adapter IDs or complete
+routes fail. Schemas 1 and 2 imply anonymous enabled with no adapters. The
+current production build contains no registered adapter implementation: enabled
+declarations fail before plugin composition, while disabled declarations remain
+inert. Configuration contains no credential or method-specific setting.
 
 ## Startup composition and restart
 
@@ -133,7 +159,7 @@ external runtime-composition outcomes. Events do not expose paths, source
 content, plugin IDs, environment values, exception details, or tracebacks.
 
 Successful configuration events are
-`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
+`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2|3> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
 configuration failures are `host_configuration outcome=error code=<stable_code>`.
 Successful composition is
 `runtime_composition outcome=loaded bundled=<count> external=<count> capabilities=<count>`.
@@ -167,6 +193,9 @@ Configuration failures expose only these stable code/message pairs:
 | `unsupported_schema_version` | MyMCP configuration schema version is unsupported |
 | `invalid_schema` | MyMCP configuration has an invalid schema |
 | `duplicate_plugin` | MyMCP configuration contains a duplicate plugin declaration |
+| `duplicate_authentication_adapter_id` | MyMCP configuration contains a duplicate authentication adapter identity |
+| `duplicate_authentication_adapter_route` | MyMCP configuration contains a duplicate authentication adapter route |
+| `authentication_adapter_limit_exceeded` | MyMCP authentication adapter limit is exceeded |
 | `bundled_plugin_conflict` | MyMCP configuration conflicts with a bundled plugin identity |
 | `enabled_plugin_unsupported` | MyMCP external plugin enablement is not supported by this build |
 

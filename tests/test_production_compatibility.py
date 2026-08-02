@@ -73,12 +73,12 @@ def test_default_production_factory_preserves_public_read_only_surface(
     assert initialized.json()["result"] == {
         "protocolVersion": "2024-11-05",
         "capabilities": {"tools": {}},
-        "serverInfo": {"name": "mymcp", "version": "0.4.0"},
+        "serverInfo": {"name": "mymcp", "version": "0.5.0"},
     }
     assert version.status_code == 200
     assert version.json() == {
         "name": "mymcp",
-        "version": "0.4.0",
+        "version": "0.5.0",
         "protocolVersion": "2024-11-05",
     }
     assert discovered.status_code == 200
@@ -88,7 +88,7 @@ def test_default_production_factory_preserves_public_read_only_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mymcp 0.4.0. Available tools: "
+                    "Server: mymcp 0.5.0. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect"
                 ),
             }

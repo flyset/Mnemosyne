@@ -22,7 +22,9 @@ public, non-draft, non-prerelease release is
 tagged `mymcp-v0.2.0` at `c2852bc`. MyMCP `0.4.0` adds tested external startup
 composition: schema-1 compatibility, schema-2 locators, source-safe manifest
 preflight, ordered loading/parity, deterministic bindings, and collision failure.
-Gateway work remains deferred.
+MyMCP `0.5.0` adds tested Authentication contract/routing/principal behavior,
+schema-3 configuration, explicit anonymous compatibility, and pre-MCP empty-401
+rejection. Concrete registered methods and Gateway policy remain deferred.
 
 ## Layout
 
@@ -32,7 +34,9 @@ Gateway work remains deferred.
 - `tests/plugin/` covers kind-qualified contracts, immutable definition values,
   strict manifest parsing, extracted bundled Mnemosyne declaration parity, and
   `ActivatedTool`/`PluginContribution` composition.
-- `tests/host/` covers immutable `HostRuntime`, schema-1/schema-2 configuration,
+- `tests/authentication/` covers immutable principals/evidence/results, exact
+  no-fallback routing, anonymous admission, and synthetic multi-adapter behavior.
+- `tests/host/` covers immutable `HostRuntime`, schema-1/schema-2/schema-3 configuration,
   source-safe external manifest preflight, ordered loading, and explicit complete
   production bootstrap before runtime generation.
 - `tests/routes/` covers FastAPI HTTP transport through `TestClient`.

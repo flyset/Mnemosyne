@@ -4,7 +4,7 @@ MyMCP is the repository and Python host package for an experimental local MCP
 server. Released `0.2.0` established the host, application, package, and official
 tracked client as MyMCP/`mymcp`; `0.2.1` remains the Ollama schema-compatibility
 build and `0.3.0` the host-configuration foundation. The current
-MyMCP/package/server version is `0.4.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
+MyMCP/package/server version is `0.5.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
 bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
@@ -31,7 +31,7 @@ manifest/definition/contribution parity before generation construction.
 The plugin's trusted in-process Mnemosyne `0.3.0` adapter supplies canonical
 registrations. Every capability declares its own contract version: `memory_recall`
 is `1.2.0`; the other seven `memory_*` capabilities are `1.1.0`. The MyMCP
-host/package/server is independently `0.4.0`. A test-owned,
+host/package/server is independently `0.5.0`. A test-owned,
 version-keyed canonical Tool-definition digest ledger retains readable
 properties/required-field fingerprints and historical entries, so definition
 drift cannot silently reuse a capability version. The ledger covers declared Tool
@@ -65,10 +65,15 @@ non-draft, non-prerelease GitHub release
 is tagged `mymcp-v0.2.0` at `c2852bc` and contains one wheel,
 `mymcp-0.2.0-py3-none-any.whl`, with matching GitHub/local SHA-256
 `531cc9a603d16399b12650fd09d3bc76f43b4d5d1b15fed0377a6197c820e3e7`.
-Host configuration schemas 1 and 2 provide XDG-based process settings and ordered
+Host configuration schemas 1, 2, and 3 provide XDG-based process settings and ordered
 external-plugin declarations. Schema 1 remains exact compatibility and rejects
 enabled declarations with `enabled_plugin_unsupported`; schema 2 supports
-validated startup composition. Gateway governance remains deferred. See
+validated startup composition. Schema 3 adds required explicit anonymous intent
+and ordered Authentication adapter declarations. MyMCP `0.5.0` implements
+host-owned Authentication contract version 1, exact no-fallback evidence routing,
+and normalized namespaced principals while preserving anonymous compatibility.
+No production registered adapter, MCP session, or Governance policy is implemented.
+See [Authentication](docs/AUTHENTICATION.md). Gateway governance remains deferred. See
 [host configuration](docs/CONFIGURATION.md) and
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
@@ -494,7 +499,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mymcp 0.4.0.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.5.0.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -1089,7 +1094,19 @@ manifest_path = "/opt/mymcp-plugins/example-plugin/manifest.json"
 module = "example_plugin"
 ```
 
-The file is optional; its absence preserves bundled-only startup. Only literal
+Schema 3 additionally requires explicit Authentication intent:
+
+```toml
+schema_version = 3
+
+[authentication]
+anonymous_enabled = true
+```
+
+The current production build has no registered adapter implementation, so any
+enabled adapter declaration fails before plugin runtime composition. Disabled
+declarations are inert. The file is optional; its absence preserves bundled-only
+anonymous startup. Only literal
 loopback addresses and ports 1–65535 are supported. Schema 1 remains supported
 with exactly `id`/`enabled` and preserves `enabled_plugin_unsupported`; schema 2
 requires exact `id`/`enabled`/absolute `manifest_path`/dotted `module` fields.

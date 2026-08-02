@@ -9,8 +9,9 @@ client principal or rejects the request.
 Authentication answers **who the client is**. Governance decides what that
 principal may do.
 
-This document defines the approved architecture. Authentication is not yet
-implemented.
+MyMCP `0.5.0` implements the contract-version-1 principal, adapter-result,
+evidence-routing, configuration, and anonymous HTTP foundation described here.
+Concrete registered adapters, sessions, and Governance remain unimplemented.
 
 ## Adapter Model
 
@@ -57,7 +58,7 @@ Request handling follows these rules:
 Authentication constructs the canonical principal; clients and adapters cannot
 assert it directly.
 
-Conceptually, downstream layers receive:
+Downstream layers receive:
 
 ```text
 principal_kind: anonymous | registered
@@ -71,14 +72,15 @@ Anonymous has null adapter and subject values and the fixed canonical identity
 
 A registered principal has one configured adapter identity and one validated
 adapter-local subject. The host constructs a collision-free canonical identity
-using both values, conceptually:
+using both values:
 
 ```text
-<principal-adapter>:<principal-subject>
+registered:<principal-adapter>:<base64url-subject>
 ```
 
-The exact identity grammar and delimiter rules must prevent ambiguity and are
-versioned host contracts. No principal field contains a credential, token,
+The subject token is unpadded RFC 4648 base64url of the exact UTF-8 subject.
+Adapter IDs exclude the delimiter, making the mapping injective and namespaces
+collision-free. No principal field contains a credential, token,
 authorization header, raw OAuth claim set, certificate, or other secret.
 
 ## Downstream Contract
@@ -99,6 +101,20 @@ authentication credential or adapter capability. They receive only calls that
 have passed the upstream Authentication and Governance boundaries.
 
 ## Planned Adapters
+
+The current production registry contains no method implementation. Schema-3
+disabled declarations remain inert; an enabled unavailable type fails before
+plugin runtime composition. Test-owned synthetic adapters validate simultaneous
+routing without becoming production methods.
+
+## Delivered HTTP Boundary
+
+Both `GET /mcp` and `POST /mcp` authenticate before streaming, body parsing, MCP
+logging, or dispatch. Failure returns HTTP `401` with an empty body and no
+JSON-RPC envelope or challenge. The host currently extracts a strict two-part
+`Authorization` value into source `authorization`, normalized scheme, no profile,
+and opaque bounded bytes. Reliable profile classification belongs to each future
+concrete adapter Track.
 
 ### Operator-provisioned bearer credential
 

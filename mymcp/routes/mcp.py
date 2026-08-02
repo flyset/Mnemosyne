@@ -1,21 +1,76 @@
 import asyncio
 import logging
-from time import perf_counter
 from collections.abc import AsyncIterator
+from time import perf_counter
+from typing import Any, Protocol
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from mymcp.mcp.dispatcher import MCPDispatcher
+from mymcp.authentication.contracts import (
+    AuthenticationEvidence,
+    AuthenticationFailure,
+    AuthenticationRequestContext,
+    EvidenceRoute,
+    Principal,
+)
+from mymcp.authentication.router import Authenticator
+
 
 logger = logging.getLogger("mcp")
 
 
-def create_router(dispatcher: MCPDispatcher) -> APIRouter:
+class PrincipalAwareDispatcher(Protocol):
+    def dispatch(
+        self,
+        principal: Principal,
+        message: Any,
+    ) -> dict[str, Any] | None: ...
+
+
+def _extract_evidence(
+    request: Request,
+) -> AuthenticationEvidence | AuthenticationFailure | None:
+    authorization = request.headers.get("authorization")
+    if authorization is None:
+        return None
+    parts = authorization.split(" ")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return AuthenticationFailure("malformed")
+    try:
+        return AuthenticationEvidence(
+            EvidenceRoute("authorization", parts[0].lower(), None),
+            parts[1].encode("utf-8"),
+        )
+    except (UnicodeEncodeError, ValueError):
+        return AuthenticationFailure("malformed")
+
+
+def _authenticate(
+    request: Request,
+    authenticator: Authenticator,
+) -> Principal | AuthenticationFailure:
+    evidence = _extract_evidence(request)
+    if isinstance(evidence, AuthenticationFailure):
+        return evidence
+    return authenticator.authenticate(
+        evidence,
+        AuthenticationRequestContext(request.method, "mcp"),
+    )
+
+
+def create_router(
+    application: PrincipalAwareDispatcher,
+    authenticator: Authenticator,
+) -> APIRouter:
     router = APIRouter()
 
     @router.get("/mcp")
-    async def mcp_stream() -> StreamingResponse:
+    async def mcp_stream(request: Request) -> Response:
+        principal = _authenticate(request, authenticator)
+        if isinstance(principal, AuthenticationFailure):
+            return Response(status_code=401)
+
         async def event_stream() -> AsyncIterator[str]:
             while True:
                 yield ": keep-alive\n\n"
@@ -32,6 +87,9 @@ def create_router(dispatcher: MCPDispatcher) -> APIRouter:
 
     @router.post("/mcp")
     async def mcp_endpoint(request: Request) -> Response:
+        principal = _authenticate(request, authenticator)
+        if isinstance(principal, AuthenticationFailure):
+            return Response(status_code=401)
         message = await request.json()
         request_id = message.get("id") if isinstance(message, dict) else None
         method = message.get("method") if isinstance(message, dict) else None
@@ -40,7 +98,7 @@ def create_router(dispatcher: MCPDispatcher) -> APIRouter:
             logger.info("request id=%s method=%s", request_id, method)
 
         started_at = perf_counter()
-        response_body = dispatcher.dispatch(message)
+        response_body = application.dispatch(principal, message)
         duration_ms = round((perf_counter() - started_at) * 1000)
         if response_body is None:
             logger.debug("notification method=%s duration_ms=%s", method, duration_ms)

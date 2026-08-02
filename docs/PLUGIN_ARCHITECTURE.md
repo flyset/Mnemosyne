@@ -10,6 +10,9 @@
 > non-draft, non-prerelease GitHub release is tagged `mymcp-v0.2.0` at `c2852bc`.
 > See
 > [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current code organization.
+> TRACK_042 delivers MyMCP 0.5.0's Authentication contract/routing/principal
+> foundation and host configuration schema 3; registered adapters, sessions,
+> Governance policy, approval, and audit remain later Phase 4 Tracks.
 
 ## Purpose
 
@@ -110,9 +113,11 @@ mymcp/
     composition.py
 
   host/                           # immutable process assembly
-    configuration.py              # schema-1/schema-2 startup intent and source safety
+    configuration.py              # schema-1/schema-2/schema-3 startup intent and source safety
     runtime.py
     bootstrap.py
+    authentication.py            # production Authentication composition
+    mcp_application.py           # principal-aware MCP application seam
     gateway.py                   # principals, sessions, policy, approval
     audit.py                     # bounded host security records
 
@@ -148,6 +153,10 @@ mymcp/
           memory_restore/
           memory_revise/
           memory_forget/
+
+  authentication/                # host-owned contract v1 and exact router
+    contracts.py
+    router.py
 ```
 
 The exact implementation may add narrow `__init__.py` files and tests, but it
@@ -282,13 +291,14 @@ Several identities must remain separate:
 
 | Dimension | Owner | Compatibility and evolution rule | Target example |
 | --- | --- | --- | --- |
-| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.4.0` |
-| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.4.0` |
+| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.5.0` |
+| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.5.0` |
 | MCP protocol version | MCP specification and endpoint negotiation | Session-negotiated independently of plugin APIs | supported MCP revision |
 | Host plugin API | MyMCP | Integer logical-contract level; incompatible manifest, definition, or composition semantics require a new level | `1` |
 | Manifest schema | MyMCP | Strict integer shape; unsupported versions fail closed | `1` |
 | External plugin-author contract | MyMCP | Versioned external module entrypoint contract, separate from host API and manifest schema | `1` (`mymcp_plugin_v1`) |
-| Host configuration schema | MyMCP | Strict host startup-document shape; schema 1 is retained and schema 2 adds explicit external locators | `1`, `2` |
+| Host configuration schema | MyMCP | Strict host startup-document shape; schemas 1–2 retain plugin compatibility and schema 3 adds Authentication intent | `1`, `2`, `3` |
+| Authentication contract | MyMCP | Host-owned principal/evidence/adapter-result/routing compatibility, independent of MCP and plugin APIs | `1` |
 | Plugin identity | Plugin author, admitted by MyMCP | Stable machine identity excluding version | `mnemosyne` |
 | Plugin version | Plugin author | Semantic implementation release agreeing across manifest, definition, and contribution | Mnemosyne `0.3.0` |
 | Capability kind and local ID | Plugin author, validated by MyMCP | Stable identity excluding version; host API v1 admits only `tool` | `tool`, `memory_recall` |
@@ -309,7 +319,7 @@ Mnemosyne record schema versions remain plugin-owned.
 Current bundled Mnemosyne declares its plugin version as `0.3.0` and each
 capability version explicitly: `memory_recall` is `1.2.0`; the other seven
 `memory_*` capabilities are `1.1.0`. MyMCP's host/package/endpoint marker is
-independently `0.4.0`. Bundling does not merge host, plugin, or capability version
+independently `0.5.0`. Bundling does not merge host, plugin, or capability version
 ownership. A test-owned, version-keyed canonical-JSON Tool-definition
 digest ledger couples each declared capability version to a SHA-256 digest and
 readable properties/required-field fingerprints, preserving historical entries
@@ -688,14 +698,18 @@ not manufacture consent.
 
 ## Configuration and plugin-owned data
 
-MyMCP 0.4.0 supports host configuration schemas 1 and 2. Schema 1 remains an
+MyMCP 0.5.0 supports host configuration schemas 1, 2, and 3. Schema 1 remains an
 exact immutable desired-state contract: an enabled declaration fails with
 `enabled_plugin_unsupported`. Schema 2 explicitly adds an absolute manifest
 path and dotted module locator to every declaration, including disabled ones.
 It does not normalize, expand, fall back, or autodiscover locators. Enabled
 schema-2 manifests preflight as a complete ordered set before any import, then
 each zero-argument `mymcp_plugin_v1` entrypoint returns a `PluginAdapter` for
-parity validation and composition. See [Configuration](CONFIGURATION.md) for the
+parity validation and composition. Schema 3 preserves schema-2 plugin fields and
+requires explicit anonymous access plus bounded Authentication adapter
+declarations. The current production Authentication registry has no registered
+method implementation; enabled unavailable types fail before plugin composition.
+See [Configuration](CONFIGURATION.md) for the
 complete operator contract.
 
 The operator remains
@@ -877,7 +891,12 @@ killability, or resource-control guarantee.
 
 ### Phase 4 — Client-neutral governance gateway
 
-Add authenticated local client principals and sessions, immutable policy
+**Track 1 delivered by TRACK_042:** MyMCP 0.5.0 provides Authentication contract
+version 1, normalized namespaced principals, exact evidence routing, independent
+anonymous admission, host configuration schema 3, and the principal-aware MCP
+application seam without a production registered method.
+
+Continue by adding authenticated local client adapters and sessions, immutable policy
 revisions, policy-filtered discovery and dispatch, host-verifiable single-use
 exact-call approval, and bounded content-free security audit behind one
 machine-local endpoint. Validate at least two principals with distinct policies.

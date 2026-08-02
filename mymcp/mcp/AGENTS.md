@@ -1,7 +1,7 @@
 # MCP Scope Rules
 
 - This is the MyMCP host's MCP layer, dispatching the runtime-bound
-  MyMCP/`mymcp` `0.4.0` endpoint surface through the extracted trusted bundled
+  MyMCP/`mymcp` `0.5.0` endpoint surface through the extracted trusted bundled
   Mnemosyne 0.3.0 adapter. Static bootstrap validates bundled parity and enabled
   schema-2 external manifests before any external import, then composes one
   immutable runtime. Mnemosyne Tool and domain compatibility remain preserved;
@@ -18,3 +18,5 @@
 - Preserve stable public tool names, schemas, result shapes, and JSON-RPC error behavior; document migration when changing any of them.
 - Validate tool-owned user inputs. Do not add broad ambient access, shell execution, or unrestricted filesystem access.
 - Keep HTTP transport concerns in `mymcp/routes/`.
+- Remain Authentication-protocol-neutral; principal carrying belongs to the
+  host-owned application boundary.

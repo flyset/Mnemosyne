@@ -11,8 +11,10 @@ from fastapi.testclient import TestClient
 
 import mymcp.app as app_module
 from mymcp.app import create_app
+from mymcp.authentication.router import compose_authenticator
 from mymcp.host import bootstrap
-from mymcp.host.configuration import HostConfiguration
+from mymcp.host.configuration import HostConfiguration, parse_host_configuration_toml
+from mymcp.host.authentication import HostAuthenticationCompositionError
 from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
 from mymcp.settings import PROTOCOL_VERSION, SERVER_NAME, SERVER_VERSION
 
@@ -97,6 +99,20 @@ def test_create_app_requires_runtime_and_module_exports_no_global_app() -> None:
     assert not hasattr(app_module, "app")
 
 
+def test_create_app_accepts_explicit_authenticator() -> None:
+    application = create_app(
+        _runtime("first", []),
+        compose_authenticator((), anonymous_enabled=False),
+    )
+
+    response = TestClient(application).post(
+        "/mcp", content=b"invalid-json"
+    )
+
+    assert response.status_code == 401
+    assert response.content == b""
+
+
 def test_production_app_uses_injected_configuration_without_loading(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -112,8 +128,8 @@ def test_production_app_uses_injected_configuration_without_loading(
         assert selected_configuration is configuration
         return runtime
 
-    def build_app(selected_runtime):
-        app_calls.append(selected_runtime)
+    def build_app(selected_runtime, selected_authenticator):
+        app_calls.append((selected_runtime, selected_authenticator))
         return application
 
     monkeypatch.setattr(bootstrap, "build_production_runtime", build_runtime)
@@ -126,7 +142,8 @@ def test_production_app_uses_injected_configuration_without_loading(
 
     assert app_module.create_production_app(configuration) is application
     assert bootstrap_calls == 1
-    assert app_calls == [runtime]
+    assert app_calls[0][0] is runtime
+    assert app_calls[0][1].anonymous_enabled is True
 
 
 def test_production_app_loads_configuration_once_when_not_injected(
@@ -148,7 +165,11 @@ def test_production_app_loads_configuration_once_when_not_injected(
         "build_production_runtime",
         lambda selected: runtime if selected is configuration else pytest.fail(),
     )
-    monkeypatch.setattr(app_module, "create_app", lambda selected: application)
+    monkeypatch.setattr(
+        app_module,
+        "create_app",
+        lambda selected, authenticator: application,
+    )
 
     assert app_module.create_production_app() is application
     assert loader_calls == 1
@@ -175,6 +196,76 @@ def test_runtime_requests_never_reload_host_configuration(
     assert client.get("/health").status_code == 200
     assert client.post("/mcp", json={"id": 1, "method": "tools/list"}).status_code == 200
     assert loader_calls == 1
+
+
+def test_production_app_rejects_enabled_unavailable_adapter_before_publication() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 3
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "unavailable"
+type = "synthetic"
+enabled = true
+route = {source = "authorization", scheme = "bearer"}
+"""
+    )
+
+    with pytest.raises(
+        HostAuthenticationCompositionError,
+        match="^enabled authentication adapter type is unavailable$",
+    ):
+        app_module.create_production_app(configuration)
+
+
+def test_unavailable_authentication_rejects_before_runtime_composition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 3
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "unavailable"
+type = "synthetic"
+enabled = true
+route = {source = "authorization", scheme = "bearer"}
+"""
+    )
+    monkeypatch.setattr(
+        bootstrap,
+        "build_production_runtime",
+        lambda _configuration: pytest.fail(
+            "runtime composition must follow Authentication composition"
+        ),
+    )
+
+    with pytest.raises(HostAuthenticationCompositionError):
+        app_module.create_production_app(configuration)
+
+
+def test_production_app_ignores_disabled_adapter_and_applies_anonymous_setting() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 3
+[authentication]
+anonymous_enabled = false
+[[authentication.adapters]]
+id = "unavailable"
+type = "synthetic"
+enabled = false
+route = {source = "authorization", scheme = "bearer"}
+"""
+    )
+
+    response = TestClient(app_module.create_production_app(configuration)).post(
+        "/mcp", content=b"not-json"
+    )
+
+    assert response.status_code == 401
+    assert response.content == b""
 
 
 def test_direct_and_reload_worker_factory_emits_one_event_and_requests_emit_none(

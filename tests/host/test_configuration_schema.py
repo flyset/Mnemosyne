@@ -3,6 +3,8 @@ from dataclasses import FrozenInstanceError
 import pytest
 
 from mymcp.host.configuration import (
+    AuthenticationAdapterDeclaration,
+    HostAuthenticationConfiguration,
     ExternalPluginDeclaration,
     HostConfiguration,
     HostConfigurationError,
@@ -10,6 +12,7 @@ from mymcp.host.configuration import (
     HostServerConfiguration,
     parse_host_configuration_toml,
 )
+from mymcp.authentication.contracts import AdapterId, EvidenceRoute
 from mymcp.plugin.contracts import PluginId
 
 
@@ -22,6 +25,10 @@ def test_absent_document_defaults_are_explicit_and_immutable() -> None:
         port=8000,
     )
     assert configuration.plugins == ()
+    assert configuration.authentication == HostAuthenticationConfiguration(
+        anonymous_enabled=True,
+        adapters=(),
+    )
 
     with pytest.raises(FrozenInstanceError):
         configuration.server.port = 9000  # type: ignore[misc]
@@ -157,6 +164,175 @@ module = "operator_plugins.beta"
         configuration.plugins[0].module = "replacement"  # type: ignore[misc]
 
 
+def test_schema_v3_requires_explicit_authentication_and_preserves_v2_plugins() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 3
+
+[authentication]
+anonymous_enabled = false
+
+[[authentication.adapters]]
+id = "local-client"
+type = "synthetic-local"
+enabled = true
+route = {source = "authorization", scheme = "bearer", profile = "local"}
+
+[[authentication.adapters]]
+id = "external-oauth"
+type = "synthetic-oauth"
+enabled = false
+route = {source = "authorization", scheme = "bearer", profile = "oauth"}
+
+[[plugins]]
+id = "alpha"
+enabled = false
+manifest_path = "/opt/alpha/manifest.json"
+module = "plugins.alpha"
+"""
+    )
+
+    assert configuration.schema_version == HostConfigurationSchemaVersion(3)
+    assert configuration.authentication.anonymous_enabled is False
+    assert tuple(
+        (item.adapter_id.value, item.adapter_type, item.enabled, item.route)
+        for item in configuration.authentication.adapters
+    ) == (
+        (
+            "local-client",
+            "synthetic-local",
+            True,
+            EvidenceRoute("authorization", "bearer", "local"),
+        ),
+        (
+            "external-oauth",
+            "synthetic-oauth",
+            False,
+            EvidenceRoute("authorization", "bearer", "oauth"),
+        ),
+    )
+    assert configuration.plugins[0].manifest_path == "/opt/alpha/manifest.json"
+    with pytest.raises(FrozenInstanceError):
+        configuration.authentication.anonymous_enabled = True  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        configuration.authentication.adapters[0].enabled = False  # type: ignore[misc]
+
+
+def test_schema_v3_route_profile_is_optional() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 3
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "local"
+type = "synthetic"
+enabled = false
+route = {source = "authorization", scheme = "bearer"}
+"""
+    )
+
+    assert configuration.authentication.adapters[0].route.profile is None
+
+
+def test_schema_v3_bounds_authentication_adapter_count() -> None:
+    declarations = "\n".join(
+        (
+            "[[authentication.adapters]]\n"
+            f'id = "adapter-{index}"\n'
+            'type = "synthetic"\n'
+            "enabled = false\n"
+            "route = {source = \"authorization\", scheme = \"bearer\", "
+            f'profile = "profile-{index}"}}'
+        )
+        for index in range(33)
+    )
+
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            "schema_version = 3\n[authentication]\nanonymous_enabled = true\n"
+            + declarations
+        )
+
+    assert captured.value.code == "authentication_adapter_limit_exceeded"
+    assert str(captured.value) == "MyMCP authentication adapter limit is exceeded"
+
+
+def test_schema_v1_and_v2_reject_authentication_table() -> None:
+    for schema_version in (1, 2):
+        with pytest.raises(HostConfigurationError) as captured:
+            parse_host_configuration_toml(
+                f"schema_version = {schema_version}\n"
+                "[authentication]\nanonymous_enabled = true\n"
+            )
+        assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "schema_version = 3",
+        "schema_version = 3\n[authentication]",
+        'schema_version = 3\n[authentication]\nanonymous_enabled = "true"',
+        "schema_version = 3\n[authentication]\nanonymous_enabled = true\nunknown = 1",
+        (
+            "schema_version = 3\n[authentication]\nanonymous_enabled = true\n"
+            "[[authentication.adapters]]\n"
+            'id = "local"\ntype = "synthetic"\nenabled = true'
+        ),
+        (
+            "schema_version = 3\n[authentication]\nanonymous_enabled = true\n"
+            "[[authentication.adapters]]\n"
+            'id = "local"\ntype = "Synthetic"\nenabled = true\n'
+            'route = {source = "authorization", scheme = "bearer", profile = "local"}'
+        ),
+        (
+            "schema_version = 3\n[authentication]\nanonymous_enabled = true\n"
+            "[[authentication.adapters]]\n"
+            'id = "local"\ntype = "synthetic"\nenabled = 1\n'
+            'route = {source = "authorization", scheme = "bearer", profile = "local"}'
+        ),
+        (
+            "schema_version = 3\n[authentication]\nanonymous_enabled = true\n"
+            "[[authentication.adapters]]\n"
+            'id = "local"\ntype = "synthetic"\nenabled = true\n'
+            'route = {source = "Authorization", scheme = "bearer", profile = "local"}'
+        ),
+    ],
+)
+def test_schema_v3_authentication_shape_is_strict(source: str) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(source)
+
+    assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize("duplicate", ["id", "route"])
+def test_schema_v3_rejects_duplicate_adapter_identity_or_route(duplicate: str) -> None:
+    second_id = "first" if duplicate == "id" else "second"
+    second_profile = "one" if duplicate == "route" else "two"
+    source = f"""
+schema_version = 3
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "first"
+type = "synthetic"
+enabled = true
+route = {{source = "authorization", scheme = "bearer", profile = "one"}}
+[[authentication.adapters]]
+id = "{second_id}"
+type = "synthetic"
+enabled = false
+route = {{source = "authorization", scheme = "bearer", profile = "{second_profile}"}}
+"""
+
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(source)
+
+    assert captured.value.code == f"duplicate_authentication_adapter_{duplicate}"
+
+
 @pytest.mark.parametrize(
     "plugin_source",
     [
@@ -254,13 +430,40 @@ def test_snapshot_schema_and_declaration_shape_cannot_disagree() -> None:
             HostConfigurationSchemaVersion(1),
             HostServerConfiguration(),
             (v2_declaration,),
+            HostAuthenticationConfiguration(True, ()),
         )
     with pytest.raises(ValueError, match="^invalid host configuration$"):
         HostConfiguration(
             HostConfigurationSchemaVersion(2),
             HostServerConfiguration(),
             (v1_declaration,),
+            HostAuthenticationConfiguration(True, ()),
         )
+
+
+def test_schema_v3_snapshot_requires_v2_plugins_and_authentication_values() -> None:
+    adapter = AuthenticationAdapterDeclaration(
+        AdapterId("local"),
+        "synthetic",
+        True,
+        EvidenceRoute("authorization", "bearer", "local"),
+    )
+    authentication = HostAuthenticationConfiguration(False, (adapter,))
+    plugin = ExternalPluginDeclaration(
+        PluginId("alpha"),
+        False,
+        "/opt/plugins/manifest.json",
+        "plugins.alpha",
+    )
+
+    configuration = HostConfiguration(
+        HostConfigurationSchemaVersion(3),
+        HostServerConfiguration(),
+        (plugin,),
+        authentication,
+    )
+
+    assert configuration.authentication is authentication
 
 
 @pytest.mark.parametrize("module", ["plugins.class", "plugins.import"])
@@ -339,7 +542,7 @@ def test_plugin_id_accepts_the_contract_maximum_length() -> None:
         ("schema_version = true", "invalid_schema"),
         ('schema_version = "1"', "invalid_schema"),
         ("schema_version = 0", "unsupported_schema_version"),
-        ("schema_version = 3", "unsupported_schema_version"),
+        ("schema_version = 4", "unsupported_schema_version"),
         ("schema_version = 1\nunknown = true", "invalid_schema"),
         ("schema_version = 1\nserver = []", "invalid_schema"),
         ("schema_version = 1\nplugins = {}", "invalid_schema"),
@@ -354,7 +557,7 @@ def test_document_schema_is_strict_and_versioned(source: str, code: str) -> None
 
 def test_unsupported_schema_version_has_a_fixed_bounded_message() -> None:
     with pytest.raises(HostConfigurationError) as captured:
-        parse_host_configuration_toml("schema_version = 3\n")
+        parse_host_configuration_toml("schema_version = 4\n")
 
     assert captured.value.code == "unsupported_schema_version"
     assert str(captured.value) == (
