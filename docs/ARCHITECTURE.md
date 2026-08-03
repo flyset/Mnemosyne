@@ -21,8 +21,12 @@ TRACK_042 delivers MyMCP `0.5.0`, Authentication contract version 1, normalized
 namespaced principals, exact no-fallback routing, host configuration schema 3,
 and explicit compatibility anonymous access. Sessions and Governance remain
 deferred. TRACK_043 delivers MyMCP `0.6.0`, host
-configuration schema 4, and the transport-neutral `operator-bearer-v1` production
-adapter over the unchanged Authentication contract v1.
+configuration schema 4 and the transport-neutral `operator-bearer-v1` production
+adapter over unchanged Authentication contract v1. TRACK_045 delivers MyMCP
+`0.7.0`, schema 5, and `oauth-jwt-jwks-v1` as a startup-fixed alternative
+production Bearer method. Enabled OAuth composes one immutable validation snapshot
+before plugin runtime publication and conditionally exposes RFC 9728
+protected-resource metadata plus its Bearer challenge.
 
 The central distinction is:
 
@@ -36,11 +40,14 @@ planning discussions:
 
 1. **HTTP server** — implemented; receives and returns HTTP traffic without
    owning MCP or plugin meaning.
-2. **Authentication** — foundation implemented; routes evidence across explicitly configured
+2. **Authentication** — implemented; routes evidence across explicitly configured
 adapters, optionally admits evidence-free anonymous access, and constructs
-normalized namespaced principals. `operator-bearer-v1` validates the one exact
-configured bearer route from a startup-fixed verifier snapshot as defined in
-   [Authentication Architecture](AUTHENTICATION.md).
+normalized namespaced principals. `operator-bearer-v1` and
+`oauth-jwt-jwks-v1` are mutually exclusive production Bearer methods. Operator
+bearer validates its startup-fixed verifier snapshot; enabled schema-5 OAuth
+validates through one immutable startup snapshot and requires anonymous access
+disabled. Both use the same exact route without token-shape selection, as defined
+in [Authentication Architecture](AUTHENTICATION.md).
 3. **MCP server** — implemented; interprets MCP/JSON-RPC messages and Tool
    operations without owning plugin-domain behavior.
 4. **Governance** — planned; uses authenticated identity to decide which
@@ -98,7 +105,7 @@ The approved target is defined in
 Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
 adapter over canonical registrations. `memory_recall` declares capability
 contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
-MyMCP's host/package/server marker is independently `0.6.0`. Host configuration
+MyMCP's host/package/server marker is independently `0.7.0`. Host configuration
 is loaded into one immutable startup snapshot before bootstrap. Schema 1 retains
 its exact desired-state behavior and `enabled_plugin_unsupported`; schema 2 has
 explicit locators. Bootstrap preflights every enabled external manifest before
@@ -107,8 +114,12 @@ selected contribution, loads external `mymcp_plugin_v1` adapters in configuratio
 order, validates external parity, creates bundled-first deterministic bindings,
 and rejects any collision before constructing one runtime generation. Validation
 is compatibility/composition validation, not an authority grant or safety claim.
-Authentication routing/principals are implemented upstream of MCP; concrete
-registered methods, sessions, Gateway governance, and public metadata projection remain deferred.
+Authentication routing/principals are implemented upstream of MCP. Schema-5
+OAuth and operator bearer are alternative production configurations; OAuth adds
+only immutable startup validation, conditional RFC 9728 metadata, and the exact
+OAuth-only Bearer challenge. It establishes identity only. Sessions, Gateway
+governance, Tool authorization, approval, audit, and public metadata beyond this
+protected-resource document remain deferred.
 The canonical repository is `https://github.com/flyset/MyMCP`, and the former
 URL redirects there. Local origin/history/tag/placeholder verification is
 complete. The tracked and ignored OpenCode migration uses connection/agent/prefix
@@ -128,6 +139,8 @@ The public HTTP surface is intentionally small:
 - `POST /mcp` — MCP JSON-RPC message endpoint.
 - `GET /health` — liveness check for the running process.
 - `GET /version` — server identity and supported MCP protocol version.
+- `GET /.well-known/oauth-protected-resource/mcp` — conditional enabled-OAuth
+  RFC 9728 metadata route; it is absent for every other configuration.
 
 The `/mcp` endpoint is the main protocol gate. Most behavior should be expressed as MCP methods or tools, not as extra HTTP routes.
 
@@ -146,14 +159,15 @@ mymcp/
 
   routes/
     __init__.py
-    mcp.py            # HTTP transport for /mcp
+    mcp.py            # thin /mcp transport and conditional OAuth challenge
+    oauth.py          # conditional RFC 9728 protected-resource metadata
     health.py         # GET /health
-    version.py        # GET /version
+    version.py        # GET /version server identity marker
 
   host/
     authentication.py     # production Authentication composition
     mcp_application.py    # principal-aware, method-neutral application seam
-    configuration.py    # XDG source, strict schema-1 through schema-4 snapshots
+    configuration.py    # XDG source, strict schema-1 through schema-5 snapshots
     bootstrap.py        # explicit production runtime construction
     runtime.py          # immutable HostRuntime and opaque generation
 
@@ -175,6 +189,9 @@ mymcp/
   authentication/
     contracts.py        # contract-v1 principals, evidence, adapter outcomes
     router.py           # exact immutable routing and anonymous admission
+    adapters/
+      oauth_jwt.py      # oauth-jwt-jwks-v1 validator, lazily loaded for enabled OAuth
+      oauth_discovery.py # immutable startup metadata/JWKS snapshot loader
 
   mcp/
     __init__.py
@@ -209,16 +226,21 @@ Owns HTTP transport concerns:
 Route modules should not accumulate MCP semantics or tool execution logic.
 `/mcp` routes extract bounded Authorization evidence and authenticate before
 streaming, body parsing, MCP logging, or dispatch; failure is an empty HTTP 401.
+Only enabled OAuth failures add the exact RFC 9728 metadata Bearer challenge.
 
 ### `mymcp/authentication/`
 
-Owns standard-library-only Authentication contract version 1: immutable adapter
-IDs, normalized anonymous/registered principals, host-derived canonical identity,
-bounded opaque evidence/context/results, exact route registrations, independent
-anonymous admission, and fail-closed no-fallback routing. Concrete
-`operator-bearer-v1` method code lives beneath `mymcp/authentication/adapters/`.
-Authentication imports no FastAPI, MCP, Governance, plugin, or host configuration
-module.
+Owns Authentication contract version 1: immutable adapter IDs, normalized
+anonymous/registered principals, host-derived canonical identity, bounded opaque
+evidence/context/results, exact route registrations, independent anonymous
+admission, and fail-closed no-fallback routing. `contracts.py`, `router.py`, and
+the OAuth discovery loader have no third-party imports; concrete
+`adapters/oauth_jwt.py` is the sole Authentication module permitted to import the
+isolated `PyJWT[crypto]` runtime dependency. OAuth modules load lazily only for
+enabled schema-5 OAuth; schemas 1–4, operator bearer, and anonymous startup do
+not load them. `operator-bearer-v1` and `oauth-jwt-jwks-v1` are alternative
+production methods, never co-composed. Authentication imports no FastAPI, MCP,
+Governance, plugin, or host configuration module.
 
 ### `mymcp/mcp/`
 
@@ -275,7 +297,7 @@ integration metadata, gate selection, or plugin lifecycle.
 ### `mymcp/host/bootstrap.py` and `mymcp/host/runtime.py`
 
 `mymcp/host/configuration.py` exclusively owns XDG path selection, safe bounded
-source reading, strict schema-1 through schema-4 TOML parsing, immutable host/server/external
+source reading, strict schema-1 through schema-5 TOML parsing, immutable host/server/external
 declaration values, and bounded configuration errors. It imports neither FastAPI,
 routes, MCP dispatch, nor concrete plugins. The snapshot expresses process and
 startup composition desired state; it is not Mnemosyne configuration, consent,
@@ -653,7 +675,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.6.0` and is kept equal to the package version. The marker is also
+is `mymcp 0.7.0` and is kept equal to the package version. The marker is also
 returned by initialize and `/version`; the
 public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
 processes after public-contract updates; it is not a dynamic Git identifier or a

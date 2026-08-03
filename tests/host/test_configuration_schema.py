@@ -543,7 +543,7 @@ def test_plugin_id_accepts_the_contract_maximum_length() -> None:
         ("schema_version = true", "invalid_schema"),
         ('schema_version = "1"', "invalid_schema"),
         ("schema_version = 0", "unsupported_schema_version"),
-        ("schema_version = 5", "unsupported_schema_version"),
+        ("schema_version = 6", "unsupported_schema_version"),
         ("schema_version = 1\nunknown = true", "invalid_schema"),
         ("schema_version = 1\nserver = []", "invalid_schema"),
         ("schema_version = 1\nplugins = {}", "invalid_schema"),
@@ -558,7 +558,7 @@ def test_document_schema_is_strict_and_versioned(source: str, code: str) -> None
 
 def test_unsupported_schema_version_has_a_fixed_bounded_message() -> None:
     with pytest.raises(HostConfigurationError) as captured:
-        parse_host_configuration_toml("schema_version = 5\n")
+        parse_host_configuration_toml("schema_version = 6\n")
 
     assert captured.value.code == "unsupported_schema_version"
     assert str(captured.value) == (

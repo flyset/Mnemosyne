@@ -1,13 +1,17 @@
 # Route Scope Rules
 
 - This is the MyMCP host's HTTP transport layer for the runtime-bound
-  MyMCP/`mymcp` `0.6.0` Authentication surface and its compatible bundled
-  Mnemosyne plugin surface. Host configuration schemas 1 through 4 are
+  MyMCP/`mymcp` `0.7.0` Authentication surface and its compatible bundled
+  Mnemosyne plugin surface. Host configuration schemas 1 through 5 are
   startup-only; external composition is bootstrap-owned. The public-host cutover was released as `0.2.0`; its
   extraction, repository migration, operational verification, and release
   publication are complete. The prior `0.2.1` compatibility build remains
-  historical; `operator-bearer-v1` is the first production registered adapter,
-  while sessions and Governance remain deferred.
+  historical; `operator-bearer-v1` and the schema-5 `oauth-jwt-jwks-v1`
+  (enabled OAuth) production registered adapters are mutually exclusive under
+  schema 5. Enabled OAuth conditionally adds only RFC 9728 protected-resource
+  metadata and its exact body-free 401 Bearer challenge; its loopback HTTP
+  resource is a local interoperability exception, while sessions and Governance
+  remain deferred.
 - Own HTTP paths, request and response transport, and lightweight operational endpoints here.
 - Extract bounded host-defined Authentication evidence and return an empty `401`
   before MCP streaming, body parsing, logging, or dispatch on failure.

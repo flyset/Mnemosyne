@@ -26,10 +26,10 @@ valid in full: an empty document, unsupported schema version, unknown field or
 table, duplicate key, or wrong type fails startup; disabled declarations do not
 suppress validation.
 
-## Host configuration schemas 1–4
+## Host configuration schemas 1–5
 
 `schema_version` is required and must be the native TOML integer `1`, `2`, `3`, or
-`4`.
+`4`, or `5`.
 It versions this document only, independently of the MyMCP package/server,
 host plugin API, manifest schema, external plugin-author contract, plugin,
 capability, runtime-generation, and record schemas. MyMCP never normalizes,
@@ -128,10 +128,47 @@ source itself is read only for an enabled adapter. An enabled
 `{ source = "authorization", scheme = "bearer" }` with no profile. Only one
 enabled adapter may claim that exact route.
 
-Schemas 1–3 and absent-file defaults remain unchanged. Schema 3 disabled
-declarations remain inert; enabled types other than the delivered
+Schemas 1–3 and absent-file defaults remain unchanged. In schemas 3–4, disabled
+declarations remain inert and enabled types other than the delivered
 `operator-bearer-v1` fail before plugin composition. Configuration never contains
 credential or verifier material.
+
+Schema 5 preserves schemas 1–4 and adds one OAuth resource-server intent:
+
+```toml
+schema_version = 5
+
+[server]
+address = "127.0.0.1"
+port = 8000
+
+[authentication]
+anonymous_enabled = false
+
+[[authentication.adapters]]
+id = "local-oauth"
+type = "oauth-jwt-jwks-v1"
+enabled = true
+route = { source = "authorization", scheme = "bearer" }
+
+[authentication.oauth_jwt]
+issuer = "https://issuer.invalid"
+```
+
+The exact `[authentication.oauth_jwt]` table contains only `issuer`, a canonical
+HTTPS issuer URI. It is non-secret intent, not a token, key, provider response,
+or credential. The table is required whenever an `oauth-jwt-jwks-v1` declaration
+exists, including a disabled declaration, and prohibited otherwise. An enabled
+OAuth declaration must use exactly `{ source = "authorization", scheme =
+"bearer" }` with no profile and requires `anonymous_enabled = false`.
+
+OAuth and `operator-bearer-v1` are mutually exclusive production Bearer methods:
+schema 5 rejects co-declaration, even if one or both declarations are disabled.
+The HTTP boundary never infers a method from token shape. For enabled OAuth,
+startup reads the configured issuer metadata and same-origin JWKS once into an
+immutable validation snapshot before plugin runtime composition. It does not
+refresh, introspect, or fall back at runtime; changing the issuer, keys, or
+configuration requires server restart.
 
 ### Operator bearer verifier file
 
@@ -226,7 +263,7 @@ external runtime-composition outcomes. Events do not expose paths, source
 content, plugin IDs, environment values, exception details, or tracebacks.
 
 Successful configuration events are
-`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2|3|4> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
+`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2|3|4|5> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
 configuration failures are `host_configuration outcome=error code=<stable_code>`.
 Successful composition is
 `runtime_composition outcome=loaded bundled=<count> external=<count> capabilities=<count>`.

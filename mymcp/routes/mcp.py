@@ -69,14 +69,28 @@ def _authenticate(
 def create_router(
     application: PrincipalAwareDispatcher,
     authenticator: Authenticator,
+    *,
+    oauth_resource_metadata_url: str | None = None,
 ) -> APIRouter:
     router = APIRouter()
+
+    def unauthorized() -> Response:
+        if oauth_resource_metadata_url is None:
+            return Response(status_code=401)
+        return Response(
+            status_code=401,
+            headers={
+                "WWW-Authenticate": (
+                    f'Bearer resource_metadata="{oauth_resource_metadata_url}"'
+                )
+            },
+        )
 
     @router.get("/mcp")
     async def mcp_stream(request: Request) -> Response:
         principal = _authenticate(request, authenticator)
         if isinstance(principal, AuthenticationFailure):
-            return Response(status_code=401)
+            return unauthorized()
 
         async def event_stream() -> AsyncIterator[str]:
             while True:
@@ -96,7 +110,7 @@ def create_router(
     async def mcp_endpoint(request: Request) -> Response:
         principal = _authenticate(request, authenticator)
         if isinstance(principal, AuthenticationFailure):
-            return Response(status_code=401)
+            return unauthorized()
         message = await request.json()
         request_id = message.get("id") if isinstance(message, dict) else None
         method = message.get("method") if isinstance(message, dict) else None

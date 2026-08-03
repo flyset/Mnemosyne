@@ -13,8 +13,10 @@
 > TRACK_042 delivers MyMCP 0.5.0's Authentication contract/routing/principal
 > foundation and host configuration schema 3. TRACK_043 delivers MyMCP 0.6.0's
 > `operator-bearer-v1` registered adapter and host configuration schema 4 while
-> retaining Authentication contract v1; sessions, Governance policy, approval,
-> and audit remain later Phase 4 Tracks.
+> retaining Authentication contract v1. TRACK_045 delivers MyMCP `0.7.0`, schema
+> 5 OAuth integration, conditional RFC 9728 protected-resource metadata, and the
+> OAuth-only Bearer challenge. OAuth establishes identity only; sessions,
+> Governance policy, approval, and audit remain later Phase 4 Tracks.
 
 ## Purpose
 
@@ -115,7 +117,7 @@ mymcp/
     composition.py
 
   host/                           # immutable process assembly
-    configuration.py              # schema-1 through schema-4 startup intent and source safety
+    configuration.py              # schema-1 through schema-5 startup intent and source safety
     runtime.py
     bootstrap.py
     authentication.py            # production Authentication composition
@@ -295,15 +297,15 @@ Several identities must remain separate:
 
 | Dimension | Owner | Compatibility and evolution rule | Target example |
 | --- | --- | --- | --- |
-| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.6.0` |
-| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.6.0` |
+| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.7.0` |
+| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.7.0` |
 | MCP protocol version | MCP specification and endpoint negotiation | Session-negotiated independently of plugin APIs | supported MCP revision |
 | Host plugin API | MyMCP | Integer logical-contract level; incompatible manifest, definition, or composition semantics require a new level | `1` |
 | Manifest schema | MyMCP | Strict integer shape; unsupported versions fail closed | `1` |
 | External plugin-author contract | MyMCP | Versioned external module entrypoint contract, separate from host API and manifest schema | `1` (`mymcp_plugin_v1`) |
-| Host configuration schema | MyMCP | Strict host startup-document shape; schemas 1–2 retain plugin compatibility, schema 3 adds Authentication intent, and schema 4 adds operator-bearer verifier-source metadata | `1`, `2`, `3`, `4` |
+| Host configuration schema | MyMCP | Strict host startup-document shape; schemas 1–2 retain plugin compatibility, schema 3 adds Authentication intent, schema 4 adds operator-bearer verifier-source metadata, and schema 5 adds OAuth issuer intent | `1`, `2`, `3`, `4`, `5` |
 | Authentication contract | MyMCP | Host-owned principal/evidence/adapter-result/routing compatibility, independent of MCP and plugin APIs | `1` |
-| Authentication adapter type | MyMCP | Stable concrete method identity, separate from the Authentication contract and route | `operator-bearer-v1` |
+| Authentication adapter type | MyMCP | Stable concrete method identity, separate from the Authentication contract and route | `operator-bearer-v1` or `oauth-jwt-jwks-v1` |
 | Operator bearer verifier-source format | MyMCP | Strict separately sourced verifier snapshot shape, independent of host configuration and Authentication contract versions | `1` |
 | Plugin identity | Plugin author, admitted by MyMCP | Stable machine identity excluding version | `mnemosyne` |
 | Plugin version | Plugin author | Semantic implementation release agreeing across manifest, definition, and contribution | Mnemosyne `0.3.0` |
@@ -325,7 +327,7 @@ Mnemosyne record schema versions remain plugin-owned.
 Current bundled Mnemosyne declares its plugin version as `0.3.0` and each
 capability version explicitly: `memory_recall` is `1.2.0`; the other seven
 `memory_*` capabilities are `1.1.0`. MyMCP's host/package/endpoint marker is
-independently `0.6.0`. Bundling does not merge host, plugin, or capability version
+independently `0.7.0`. Bundling does not merge host, plugin, or capability version
 ownership. A test-owned, version-keyed canonical-JSON Tool-definition
 digest ledger couples each declared capability version to a SHA-256 digest and
 readable properties/required-field fingerprints, preserving historical entries
@@ -704,7 +706,7 @@ not manufacture consent.
 
 ## Configuration and plugin-owned data
 
-MyMCP 0.6.0 supports host configuration schemas 1–4. Schema 1 remains an
+MyMCP 0.7.0 supports host configuration schemas 1–5. Schema 1 remains an
 exact immutable desired-state contract: an enabled declaration fails with
 `enabled_plugin_unsupported`. Schema 2 explicitly adds an absolute manifest
 path and dotted module locator to every declaration, including disabled ones.
@@ -715,7 +717,13 @@ parity validation and composition. Schema 3 preserves schema-2 plugin fields and
 requires explicit anonymous access plus bounded Authentication adapter
 declarations. Schema 4 preserves schema-3 syntax and adds the exact non-secret
 operator-bearer `verifier_path` selector, required with any
-`operator-bearer-v1` declaration. The production adapter claims only exact
+`operator-bearer-v1` declaration. Schema 5 adds the exact non-secret OAuth
+`issuer` table, required with any `oauth-jwt-jwks-v1` declaration, including a
+disabled declaration, and prohibited otherwise. OAuth and operator bearer cannot
+be co-declared in schema 5; enabled OAuth requires anonymous access disabled,
+claims the same exact `(authorization, bearer, null)` route, and obtains one
+immutable validation snapshot before plugin runtime construction. The production
+operator adapter claims only exact
 `(authorization, bearer, null)` evidence and loads its complete protected verifier
 snapshot before plugin runtime construction. Authentication contract v1 and
 schemas 1–3 remain unchanged. Enabled unavailable types fail before plugin

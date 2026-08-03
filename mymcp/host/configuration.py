@@ -13,11 +13,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from mymcp.authentication.contracts import AdapterId, EvidenceRoute
+from mymcp.authentication.oauth import (
+    OAUTH_JWT_PROFILE,
+    validate_oauth_issuer,
+)
 from mymcp.plugin.contracts import PluginId
 
 
 HOST_CONFIGURATION_SCHEMA_VERSION = 1
-SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2, 3, 4})
+SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2, 3, 4, 5})
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 8000
 XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
@@ -26,6 +30,7 @@ CONFIGURATION_FILE_NAME = "config.toml"
 CONFIGURATION_MAX_BYTES = 64 * 1024
 MAX_AUTHENTICATION_ADAPTERS = 32
 OPERATOR_BEARER_ADAPTER_TYPE = "operator-bearer-v1"
+OAUTH_JWT_ADAPTER_TYPE = OAUTH_JWT_PROFILE
 
 _OPEN_SUPPORTS_DIR_FD = os.open in os.supports_dir_fd
 _LOGGER = logging.getLogger("mymcp.host.configuration")
@@ -412,10 +417,22 @@ class HostOperatorBearerConfiguration:
 
 
 @dataclass(frozen=True, slots=True)
+class HostOAuthJwtConfiguration:
+    issuer: str
+
+    def __post_init__(self) -> None:
+        try:
+            validate_oauth_issuer(self.issuer)
+        except ValueError:
+            raise ValueError("invalid host operator oauth configuration") from None
+
+
+@dataclass(frozen=True, slots=True)
 class HostAuthenticationConfiguration:
     anonymous_enabled: bool
     adapters: tuple[AuthenticationAdapterDeclaration, ...]
     operator_bearer: HostOperatorBearerConfiguration | None = None
+    oauth_jwt: HostOAuthJwtConfiguration | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -430,6 +447,10 @@ class HostAuthenticationConfiguration:
                 and not isinstance(
                     self.operator_bearer, HostOperatorBearerConfiguration
                 )
+            )
+            or (
+                self.oauth_jwt is not None
+                and not isinstance(self.oauth_jwt, HostOAuthJwtConfiguration)
             )
             or len({adapter.adapter_id for adapter in self.adapters})
             != len(self.adapters)
@@ -460,7 +481,7 @@ class HostConfiguration:
             or len({plugin.plugin_id for plugin in self.plugins}) != len(self.plugins)
             or any(
                 (plugin.manifest_path is not None)
-                != (self.schema_version.value in {2, 3, 4})
+                != (self.schema_version.value in {2, 3, 4, 5})
                 for plugin in self.plugins
             )
             or (
@@ -469,7 +490,10 @@ class HostConfiguration:
             )
             or (
                 self.schema_version.value == 3
-                and self.authentication.operator_bearer is not None
+                and (
+                    self.authentication.operator_bearer is not None
+                    or self.authentication.oauth_jwt is not None
+                )
             )
             or (
                 self.schema_version.value == 4
@@ -477,6 +501,30 @@ class HostConfiguration:
                     (self.authentication.operator_bearer is not None)
                     != _has_operator_bearer_declaration(
                         self.authentication.adapters
+                    )
+                    or self.authentication.oauth_jwt is not None
+                )
+            )
+            or (
+                self.schema_version.value == 5
+                and (
+                    (self.authentication.operator_bearer is not None)
+                    != _has_operator_bearer_declaration(
+                        self.authentication.adapters
+                    )
+                    or (self.authentication.oauth_jwt is not None)
+                    != _has_oauth_jwt_declaration(self.authentication.adapters)
+                    or (
+                        self.authentication.operator_bearer is not None
+                        and self.authentication.oauth_jwt is not None
+                    )
+                    or (
+                        _has_operator_bearer_declaration(
+                            self.authentication.adapters
+                        )
+                        and _has_oauth_jwt_declaration(
+                            self.authentication.adapters
+                        )
                     )
                 )
             )
@@ -556,6 +604,15 @@ def _has_operator_bearer_declaration(
 ) -> bool:
     return any(
         adapter.adapter_type == OPERATOR_BEARER_ADAPTER_TYPE
+        for adapter in adapters
+    )
+
+
+def _has_oauth_jwt_declaration(
+    adapters: Iterable[AuthenticationAdapterDeclaration],
+) -> bool:
+    return any(
+        adapter.adapter_type == OAUTH_JWT_ADAPTER_TYPE
         for adapter in adapters
     )
 
@@ -658,12 +715,23 @@ def _parse_operator_bearer(value: object) -> HostOperatorBearerConfiguration:
         raise HostConfigurationError("invalid_schema") from None
 
 
+def _parse_oauth_jwt(value: object) -> HostOAuthJwtConfiguration:
+    if not isinstance(value, dict) or set(value) != {"issuer"}:
+        raise HostConfigurationError("invalid_schema")
+    try:
+        return HostOAuthJwtConfiguration(issuer=value["issuer"])
+    except (TypeError, ValueError):
+        raise HostConfigurationError("invalid_schema") from None
+
+
 def _parse_authentication(
     value: object,
     schema_version: int,
 ) -> HostAuthenticationConfiguration:
     allowed_keys = (
-        {"anonymous_enabled", "adapters", "operator_bearer"}
+        {"anonymous_enabled", "adapters", "operator_bearer", "oauth_jwt"}
+        if schema_version == 5
+        else {"anonymous_enabled", "adapters", "operator_bearer"}
         if schema_version == 4
         else {"anonymous_enabled", "adapters"}
     )
@@ -680,6 +748,12 @@ def _parse_authentication(
         raise HostConfigurationError("authentication_adapter_limit_exceeded")
 
     adapters = tuple(_parse_authentication_adapter(item) for item in raw_adapters)
+    if (
+        schema_version == 5
+        and _has_operator_bearer_declaration(adapters)
+        and _has_oauth_jwt_declaration(adapters)
+    ):
+        raise HostConfigurationError("invalid_schema")
     identities: set[AdapterId] = set()
     routes: set[EvidenceRoute] = set()
     for adapter in adapters:
@@ -691,12 +765,32 @@ def _parse_authentication(
         routes.add(adapter.route)
 
     operator_bearer: HostOperatorBearerConfiguration | None = None
-    if schema_version == 4 and value.get("operator_bearer") is not None:
+    if schema_version in {4, 5} and value.get("operator_bearer") is not None:
         operator_bearer = _parse_operator_bearer(value["operator_bearer"])
     if (
-        schema_version == 4
+        schema_version in {4, 5}
         and _has_operator_bearer_declaration(adapters)
         != (operator_bearer is not None)
+    ):
+        raise HostConfigurationError("invalid_schema")
+
+    oauth_jwt: HostOAuthJwtConfiguration | None = None
+    if schema_version == 5 and value.get("oauth_jwt") is not None:
+        oauth_jwt = _parse_oauth_jwt(value["oauth_jwt"])
+    if (
+        schema_version == 5
+        and _has_oauth_jwt_declaration(adapters) != (oauth_jwt is not None)
+    ):
+        raise HostConfigurationError("invalid_schema")
+    if (
+        schema_version == 5
+        and (
+            (operator_bearer is not None and oauth_jwt is not None)
+            or (
+                _has_operator_bearer_declaration(adapters)
+                and _has_oauth_jwt_declaration(adapters)
+            )
+        )
     ):
         raise HostConfigurationError("invalid_schema")
     try:
@@ -704,6 +798,7 @@ def _parse_authentication(
             anonymous_enabled=value["anonymous_enabled"],
             adapters=adapters,
             operator_bearer=operator_bearer,
+            oauth_jwt=oauth_jwt,
         )
     except ValueError:
         raise HostConfigurationError("invalid_schema") from None
@@ -734,7 +829,7 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
     server = _parse_server(document.get("server", {}))
     if schema_version in {1, 2} and "authentication" in document:
         raise HostConfigurationError("invalid_schema")
-    if schema_version in {3, 4} and "authentication" not in document:
+    if schema_version in {3, 4, 5} and "authentication" not in document:
         raise HostConfigurationError("invalid_schema")
 
     if schema_version == 1:
@@ -743,7 +838,7 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
         plugins = _parse_plugins_v2(document.get("plugins", []))
     authentication = (
         _parse_authentication(document["authentication"], schema_version)
-        if schema_version in {3, 4}
+        if schema_version in {3, 4, 5}
         else HostAuthenticationConfiguration(True, ())
     )
     return HostConfiguration(

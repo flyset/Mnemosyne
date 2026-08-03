@@ -9,11 +9,14 @@ client principal or rejects the request.
 Authentication answers **who the client is**. Governance decides what that
 principal may do.
 
-MyMCP `0.6.0` delivers the contract-version-1 principal, adapter-result,
-evidence-routing, configuration, and anonymous HTTP foundation, plus the first
-production registered adapter, `operator-bearer-v1`. Authentication contract v1
-is unchanged. Sessions, Governance, Tool authorization, exact-call approval, and
-security audit remain unimplemented.
+MyMCP `0.7.0` delivers the contract-version-1 principal, adapter-result,
+evidence-routing, configuration, and anonymous HTTP foundation, plus two
+alternative production methods: `operator-bearer-v1` and
+`oauth-jwt-jwks-v1`. Authentication contract v1 is unchanged. Schema 5 selects
+OAuth only from immutable startup configuration and composes one immutable
+validation snapshot before the plugin runtime. Authentication establishes
+identity only; sessions, Governance, Tool authorization, exact-call approval,
+and security audit remain unimplemented.
 
 ## Adapter Model
 
@@ -160,12 +163,83 @@ restart. There is no credential issuance command or API, HTTP/MCP management
 endpoint, plaintext TOML or environment setting, merge, revoked marker, runtime
 reread, file watch, fallback, or hot revocation.
 
-## Other adapters
+## Delivered OAuth resource-server method
 
-External OAuth and other methods remain future work. A new method requires an
-explicit architecture and Track decision and must preserve the router and
-normalized-principal contracts without changing MCP, plugin runtime, plugins, or
-plugin data.
+`oauth-jwt-jwks-v1` is a host-owned, transport-neutral OAuth resource-server
+method. Schema 5 requires the exact non-secret `[authentication.oauth_jwt]`
+table containing one canonical HTTPS `issuer` whenever an OAuth declaration
+exists, including a disabled declaration, and prohibits it otherwise. An enabled
+OAuth declaration claims exactly `(authorization, bearer, null)`, requires
+`anonymous_enabled = false`, and obtains its metadata/JWKS validation material
+once at startup. The resulting snapshot is immutable for the process; key
+rotation, removal, or configuration changes require restart.
+
+OAuth and `operator-bearer-v1` claim the same Bearer evidence route because HTTP
+cannot safely select a method from token shape. They are mutually exclusive in a
+schema-5 document, including disabled declarations. The router still invokes
+exactly one configured adapter and never probes, falls back, or turns failed
+evidence into anonymous access.
+
+The foundation accepts only a narrow compact RS256 `at+jwt` access-token
+contract. It requires strict duplicate-free header and payload JSON, exact
+`alg`, `typ`, and keyed RSA verification; exact issuer and audience membership;
+required bounded identity and time claims; 30-second clock skew; and a maximum
+five-minute lifetime. Unsupported, malformed, ambiguous, incorrectly issued or
+targeted, expired, and invalidly signed inputs fail closed. It supports neither
+opaque-token introspection, ID tokens, nested or encrypted JWTs, symmetric or
+other signing algorithms, token refresh, nor token issuance.
+
+A successful validation returns only the opaque adapter-local subject
+`oauth-jwt-v1:` plus the unpadded base64url SHA-256 projection of exact UTF-8
+issuer, one zero byte, and exact UTF-8 subject. Raw claims do not cross the
+adapter boundary; the host would still construct the canonical principal.
+
+At enabled OAuth startup, the loader derives the RFC 8414
+metadata location from one canonical HTTPS issuer and acquires one immutable key
+snapshot through exactly two bounded fetches: metadata and its same-origin HTTPS
+JWKS. Its concrete transport uses verified certificate and hostname validation,
+no environment proxy, no redirects, one deadline, and bounded bodies. The
+validator makes no runtime metadata/JWKS refresh, provider call, fallback, or
+introspection request. Key rotation and removal require restart; there is no
+immediate revocation claim, and a valid token can remain acceptable only through
+its bounded expiry.
+
+`PyJWT[crypto]` is isolated to the concrete OAuth validator and supplies only
+the RS256 signature-verification primitive after MyMCP has performed strict
+parsing and key selection. Authentication principals, failures,
+representations, logs, and downstream layers exclude tokens, Authorization
+values, claims, keys, issuer/JWKS locations, provider responses, and exception
+details.
+
+The canonical OAuth resource and audience derive only from the validated loopback
+server address and port: `http://<IPv4>:<port>/mcp` or
+`http://[<compressed-IPv6>]:<port>/mcp`. Request `Host` and forwarded headers
+never influence either identity. The literal loopback HTTP endpoint is a
+deliberate local interoperability exception; it is not RFC-conformant HTTPS or
+remote deployment support. Other future methods require an explicit architecture
+and Track decision and must preserve the router and normalized-principal contracts
+without changing MCP, plugin runtime, plugins, or plugin data.
+
+## OAuth protected-resource discovery and challenge
+
+Only when enabled OAuth is composed, MyMCP serves one GET endpoint:
+
+```text
+/.well-known/oauth-protected-resource/mcp
+```
+
+It returns exactly `resource`, a one-element `authorization_servers` array, and
+`bearer_methods_supported: ["header"]`, with `Cache-Control: no-store`; it has no
+scopes or extra fields. No OAuth metadata route exists for anonymous,
+operator-bearer, or disabled-OAuth configuration. MyMCP does not host
+authorization-server metadata, OpenID Provider metadata, dynamic client
+registration, or `/register`.
+
+Every OAuth-protected `/mcp` authentication failure remains a body-free HTTP 401
+before streaming, body parsing, MCP logging, or dispatch. It carries exactly
+`WWW-Authenticate: Bearer resource_metadata="<derived metadata URL>"`, without
+token-derived error detail. Operator-bearer and anonymous-only configurations
+retain the existing challenge-free empty 401 behavior.
 
 ## Delivered HTTP Boundary
 
@@ -175,7 +249,9 @@ ASCII scheme/token pair separated by one ASCII space. For operator bearer, the
 scheme must be `Bearer` under ASCII case-insensitive comparison and the token must
 meet the exact grammar above. Duplicate headers, empty/malformed/non-ASCII values,
 wrong schemes, unsupported routes, and rejected credentials fail closed. Failure
-returns HTTP `401` with an empty body and no JSON-RPC envelope or challenge.
+returns HTTP `401` with an empty body and no JSON-RPC envelope. When enabled OAuth
+is selected, and only then, the response carries the exact protected-resource
+metadata Bearer challenge described above.
 Submitted failed evidence never becomes anonymous.
 
 ## Layer Responsibilities
@@ -225,5 +301,8 @@ Submitted failed evidence never becomes anonymous.
   an unverified client ID are not authentication proof.
 - Credentials and raw evidence are never exposed to MCP Tools, Governance policy,
   plugins, logs, errors, or durable project memory.
+- The OAuth method additionally excludes access tokens, claims, keys,
+  issuer/JWKS locations, provider responses, and exception details from its
+  results, representations, logs, and downstream context.
 - Authentication establishes principal context, not Tool authority, user
   consent, plugin safety, or process isolation.

@@ -4,7 +4,7 @@ MyMCP is the repository and Python host package for an experimental local MCP
 server. Released `0.2.0` established the host, application, package, and official
 tracked client as MyMCP/`mymcp`; `0.2.1` remains the Ollama schema-compatibility
 build and `0.3.0` the host-configuration foundation. The current
-MyMCP/package/server version is `0.6.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
+MyMCP/package/server version is `0.7.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
 bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
@@ -31,7 +31,7 @@ manifest/definition/contribution parity before generation construction.
 The plugin's trusted in-process Mnemosyne `0.3.0` adapter supplies canonical
 registrations. Every capability declares its own contract version: `memory_recall`
 is `1.2.0`; the other seven `memory_*` capabilities are `1.1.0`. The MyMCP
-host/package/server is independently `0.6.0`. A test-owned,
+host/package/server is independently `0.7.0`. A test-owned,
 version-keyed canonical Tool-definition digest ledger retains readable
 properties/required-field fingerprints and historical entries, so definition
 drift cannot silently reuse a capability version. The ledger covers declared Tool
@@ -65,18 +65,25 @@ non-draft, non-prerelease GitHub release
 is tagged `mymcp-v0.2.0` at `c2852bc` and contains one wheel,
 `mymcp-0.2.0-py3-none-any.whl`, with matching GitHub/local SHA-256
 `531cc9a603d16399b12650fd09d3bc76f43b4d5d1b15fed0377a6197c820e3e7`.
-Host configuration schemas 1–4 provide XDG-based process settings and ordered
+Host configuration schemas 1–5 provide XDG-based process settings and ordered
 external-plugin declarations. Schema 1 remains exact compatibility and rejects
 enabled declarations with `enabled_plugin_unsupported`; schema 2 supports
 validated startup composition. Schema 3 adds required explicit anonymous intent
 and ordered Authentication adapter declarations. Schema 4 adds the non-secret
-operator-bearer verifier source selector. MyMCP `0.6.0` delivers the
-`operator-bearer-v1` production Authentication adapter while retaining
-Authentication contract version 1, exact no-fallback evidence routing, normalized
-namespaced principals, and configured anonymous access. Sessions, Governance
-policy, Tool authorization, exact-call approval, and security audit remain
-unimplemented. See [Authentication](docs/AUTHENTICATION.md). Gateway governance
-remains deferred. See
+operator-bearer verifier source selector. Schema 5 adds one bounded OAuth issuer
+intent and integrates the `oauth-jwt-jwks-v1` production Authentication method.
+The two production Bearer methods are mutually exclusive per process; token shape
+never selects an adapter. OAuth composition acquires one immutable validation
+snapshot at startup and requires anonymous access disabled. It establishes only a
+normalized identity through unchanged Authentication contract version 1.
+When OAuth is enabled, MyMCP conditionally serves RFC 9728 protected-resource
+metadata at `/.well-known/oauth-protected-resource/mcp` and sends its exact
+Bearer metadata challenge on failed `/mcp` authentication. The loopback HTTP
+resource is an explicit local interoperability exception, not remote or TLS-ready
+OAuth deployment.
+Sessions, Governance policy, Tool authorization, exact-call approval, and
+security audit remain unimplemented. See [Authentication](docs/AUTHENTICATION.md).
+Gateway governance remains deferred. See
 [host configuration](docs/CONFIGURATION.md) and
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
@@ -502,7 +509,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mymcp 0.6.0.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.7.0.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -1122,6 +1129,51 @@ value. The verifier file is read only for an enabled `operator-bearer-v1`
 declaration. Schema-4 anonymous access remains independent of registered
 adapters; an evidence-free request is anonymous only when `anonymous_enabled` is
 true. Schemas 1–3 and an absent file preserve their existing anonymous defaults.
+
+Schema 5 adds OAuth as an alternative, startup-fixed production method. Use only
+a reserved issuer in examples; the value below is not a live provider:
+
+```toml
+schema_version = 5
+
+[server]
+address = "127.0.0.1"
+port = 8000
+
+[authentication]
+anonymous_enabled = false
+
+[[authentication.adapters]]
+id = "local-oauth"
+type = "oauth-jwt-jwks-v1"
+enabled = true
+route = { source = "authorization", scheme = "bearer" }
+
+[authentication.oauth_jwt]
+issuer = "https://issuer.invalid"
+```
+
+The exact `oauth_jwt` table contains only the non-secret canonical HTTPS
+`issuer`; it is required whenever an `oauth-jwt-jwks-v1` declaration exists,
+including a disabled declaration, and prohibited otherwise. A schema-5 document
+cannot declare OAuth and `operator-bearer-v1` together, even when either is
+disabled. Enabled OAuth requires `anonymous_enabled = false`. Startup fetches
+the configured issuer metadata and same-origin JWKS once into an immutable
+validation snapshot; changing issuer keys or configuration requires restart.
+
+For enabled OAuth only, the protected resource is derived from the validated
+loopback binding, never `Host` or forwarded headers. With the example binding,
+the exact resource is `http://127.0.0.1:8000/mcp` and metadata is available only
+at `http://127.0.0.1:8000/.well-known/oauth-protected-resource/mcp`. Its JSON has
+exactly `resource`, one `authorization_servers` value, and
+`bearer_methods_supported: ["header"]`, with `Cache-Control: no-store` and no
+scopes. OAuth authentication failures on `/mcp` remain body-free HTTP `401` and
+carry exactly `WWW-Authenticate: Bearer resource_metadata="<derived metadata URL>"`.
+Operator-bearer and anonymous-only configurations remain challenge-free.
+This literal loopback HTTP endpoint is a local interoperability exception; it is
+not HTTPS or remote-deployment support. MyMCP is a resource server only and does
+not provide authorization-server metadata, OpenID Provider metadata, dynamic
+client registration, or `/register`.
 Only literal
 loopback addresses and ports 1–65535 are supported. Schema 1 remains supported
 with exactly `id`/`enabled` and preserves `enabled_plugin_unsupported`; schema 2
