@@ -19,8 +19,10 @@ configuration schema 2, and Phase 3 external startup composition while retaining
 exact schema-1 compatibility.
 TRACK_042 delivers MyMCP `0.5.0`, Authentication contract version 1, normalized
 namespaced principals, exact no-fallback routing, host configuration schema 3,
-and explicit compatibility anonymous access. Concrete registered adapters,
-sessions, and Governance remain deferred.
+and explicit compatibility anonymous access. Sessions and Governance remain
+deferred. TRACK_043 delivers MyMCP `0.6.0`, host
+configuration schema 4, and the transport-neutral `operator-bearer-v1` production
+adapter over the unchanged Authentication contract v1.
 
 The central distinction is:
 
@@ -35,8 +37,9 @@ planning discussions:
 1. **HTTP server** — implemented; receives and returns HTTP traffic without
    owning MCP or plugin meaning.
 2. **Authentication** — foundation implemented; routes evidence across explicitly configured
-   adapters, optionally admits evidence-free anonymous access, and constructs
-   normalized namespaced principals as defined in
+adapters, optionally admits evidence-free anonymous access, and constructs
+normalized namespaced principals. `operator-bearer-v1` validates the one exact
+configured bearer route from a startup-fixed verifier snapshot as defined in
    [Authentication Architecture](AUTHENTICATION.md).
 3. **MCP server** — implemented; interprets MCP/JSON-RPC messages and Tool
    operations without owning plugin-domain behavior.
@@ -95,7 +98,7 @@ The approved target is defined in
 Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
 adapter over canonical registrations. `memory_recall` declares capability
 contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
-MyMCP's host/package/server marker is independently `0.5.0`. Host configuration
+MyMCP's host/package/server marker is independently `0.6.0`. Host configuration
 is loaded into one immutable startup snapshot before bootstrap. Schema 1 retains
 its exact desired-state behavior and `enabled_plugin_unsupported`; schema 2 has
 explicit locators. Bootstrap preflights every enabled external manifest before
@@ -150,7 +153,7 @@ mymcp/
   host/
     authentication.py     # production Authentication composition
     mcp_application.py    # principal-aware, method-neutral application seam
-    configuration.py    # XDG source, strict schema-1/schema-2/schema-3 snapshots
+    configuration.py    # XDG source, strict schema-1 through schema-4 snapshots
     bootstrap.py        # explicit production runtime construction
     runtime.py          # immutable HostRuntime and opaque generation
 
@@ -212,8 +215,10 @@ streaming, body parsing, MCP logging, or dispatch; failure is an empty HTTP 401.
 Owns standard-library-only Authentication contract version 1: immutable adapter
 IDs, normalized anonymous/registered principals, host-derived canonical identity,
 bounded opaque evidence/context/results, exact route registrations, independent
-anonymous admission, and fail-closed no-fallback routing. It imports no FastAPI,
-MCP, Governance, plugin, concrete adapter, or host configuration module.
+anonymous admission, and fail-closed no-fallback routing. Concrete
+`operator-bearer-v1` method code lives beneath `mymcp/authentication/adapters/`.
+Authentication imports no FastAPI, MCP, Governance, plugin, or host configuration
+module.
 
 ### `mymcp/mcp/`
 
@@ -270,7 +275,7 @@ integration metadata, gate selection, or plugin lifecycle.
 ### `mymcp/host/bootstrap.py` and `mymcp/host/runtime.py`
 
 `mymcp/host/configuration.py` exclusively owns XDG path selection, safe bounded
-source reading, strict schema-1/schema-2/schema-3 TOML parsing, immutable host/server/external
+source reading, strict schema-1 through schema-4 TOML parsing, immutable host/server/external
 declaration values, and bounded configuration errors. It imports neither FastAPI,
 routes, MCP dispatch, nor concrete plugins. The snapshot expresses process and
 startup composition desired state; it is not Mnemosyne configuration, consent,
@@ -648,7 +653,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.5.0` and is kept equal to the package version. The marker is also
+is `mymcp 0.6.0` and is kept equal to the package version. The marker is also
 returned by initialize and `/version`; the
 public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
 processes after public-contract updates; it is not a dynamic Git identifier or a

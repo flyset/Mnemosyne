@@ -9,9 +9,11 @@ client principal or rejects the request.
 Authentication answers **who the client is**. Governance decides what that
 principal may do.
 
-MyMCP `0.5.0` implements the contract-version-1 principal, adapter-result,
-evidence-routing, configuration, and anonymous HTTP foundation described here.
-Concrete registered adapters, sessions, and Governance remain unimplemented.
+MyMCP `0.6.0` delivers the contract-version-1 principal, adapter-result,
+evidence-routing, configuration, and anonymous HTTP foundation, plus the first
+production registered adapter, `operator-bearer-v1`. Authentication contract v1
+is unchanged. Sessions, Governance, Tool authorization, exact-call approval, and
+security audit remain unimplemented.
 
 ## Adapter Model
 
@@ -100,42 +102,81 @@ The plugin runtime, plugins, and plugin data or external services receive no
 authentication credential or adapter capability. They receive only calls that
 have passed the upstream Authentication and Governance boundaries.
 
-## Planned Adapters
+## Delivered operator-provisioned bearer adapter
 
-The current production registry contains no method implementation. Schema-3
-disabled declarations remain inert; an enabled unavailable type fails before
-plugin runtime composition. Test-owned synthetic adapters validate simultaneous
-routing without becoming production methods.
+`operator-bearer-v1` is a host-owned, transport-neutral production adapter. An
+enabled declaration must claim exactly `(authorization, bearer, null)` and
+returns only a verified stable adapter-local subject; the host still constructs
+the registered canonical principal. A route collision fails startup. No bearer
+profile is inferred from credential shape and no second adapter is probed.
+
+The accepted evidence is exactly one `Authorization` header with
+case-insensitive ASCII `Bearer`, one ASCII space, and this ASCII credential:
+
+```text
+mymcp1.<credential-id>.<secret>
+```
+
+`credential-id` is exactly 32 lowercase hexadecimal characters. `secret` is
+exactly 43 unpadded RFC 4648 base64url characters encoding 32 independently
+generated random bytes (256 bits). Leading/trailing whitespace, tabs, Unicode,
+empty or extra components, padding, and alternate base64 alphabets are rejected.
+
+The adapter computes SHA-256 over the decoded secret and uses fixed-length
+`hmac.compare_digest` verification against a stored 32-byte digest. An unknown ID
+performs the same digest calculation and one fixed dummy-digest comparison before
+the same bounded rejection. It retains only immutable credential IDs, subjects,
+and digests, never plaintext credentials.
+
+### Verifier source, provisioning, and lifecycle
+
+Schema 4 selects one absolute, unexpanded local `verifier_path` in the exact
+non-secret `[authentication.operator_bearer]` table. The table contains only that
+field and is required whenever an `operator-bearer-v1` declaration exists,
+including a disabled one; it is prohibited otherwise. Path shape is always
+validated, but the source is accessed only for an enabled declaration.
+
+The source is a complete strict UTF-8 JSON snapshot, at most 16 KiB:
+
+```json
+{"format_version":1,"credentials":[{"id":"<32-lowercase-hex>","subject":"<Authentication-v1 subject>","digest":"<43-character-unpadded-base64url-SHA-256>"}]}
+```
+
+Format version is `1`; top-level fields are exactly `format_version` and
+`credentials`; every record has exactly `id`, `subject`, and `digest`; and at most
+32 records are permitted. Duplicate JSON keys, unknown/missing fields, invalid
+encoding or lengths, and duplicate IDs fail startup. Multiple IDs may map to one
+subject for overlap rotation. The source and immediate parent must be non-link
+regular/directory objects; on POSIX neither may be group/world writable and the
+source has no group/world permission bits. No-follow and stable-source checks fail
+closed if the source changes while read.
+
+Provisioning is external and offline: stop MyMCP, independently generate a
+credential and its record digest, deliver the plaintext credential once through a
+chosen secure channel, atomically replace the complete protected snapshot, then
+restart. To rotate, add a new ID for the same subject and restart; remove the old
+ID in a later complete replacement and restart. To revoke, remove the ID and
+restart. There is no credential issuance command or API, HTTP/MCP management
+endpoint, plaintext TOML or environment setting, merge, revoked marker, runtime
+reread, file watch, fallback, or hot revocation.
+
+## Other adapters
+
+External OAuth and other methods remain future work. A new method requires an
+explicit architecture and Track decision and must preserve the router and
+normalized-principal contracts without changing MCP, plugin runtime, plugins, or
+plugin data.
 
 ## Delivered HTTP Boundary
 
 Both `GET /mcp` and `POST /mcp` authenticate before streaming, body parsing, MCP
-logging, or dispatch. Failure returns HTTP `401` with an empty body and no
-JSON-RPC envelope or challenge. The host currently extracts a strict two-part
-`Authorization` value into source `authorization`, normalized scheme, no profile,
-and opaque bounded bytes. Reliable profile classification belongs to each future
-concrete adapter Track.
-
-### Operator-provisioned bearer credential
-
-Validates a credential provisioned by the operator and returns one stable
-adapter-local subject. Its provisioning, evidence format, verifier storage,
-rotation, revocation, and client-support contracts require a bounded Track.
-
-### External OAuth
-
-Validates access tokens issued by a configured external authorization server and
-returns one stable adapter-local subject. MyMCP remains the protected resource;
-the external service owns client registration, user authorization, authorization
-codes, token issuance, refresh, and provider-side revocation. Its discovery,
-issuer, resource, validation, availability, and failure contracts require a
-separate bounded Track.
-
-### Future adapters
-
-Another method may be added only through an explicit architecture and Track
-decision. It must use the same router and normalized-principal contracts without
-changing MCP, plugin runtime, plugins, or plugin data.
+logging, or dispatch. A submitted Authorization value must be one header with one
+ASCII scheme/token pair separated by one ASCII space. For operator bearer, the
+scheme must be `Bearer` under ASCII case-insensitive comparison and the token must
+meet the exact grammar above. Duplicate headers, empty/malformed/non-ASCII values,
+wrong schemes, unsupported routes, and rejected credentials fail closed. Failure
+returns HTTP `401` with an empty body and no JSON-RPC envelope or challenge.
+Submitted failed evidence never becomes anonymous.
 
 ## Layer Responsibilities
 

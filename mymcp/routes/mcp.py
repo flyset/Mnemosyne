@@ -31,9 +31,16 @@ class PrincipalAwareDispatcher(Protocol):
 def _extract_evidence(
     request: Request,
 ) -> AuthenticationEvidence | AuthenticationFailure | None:
-    authorization = request.headers.get("authorization")
-    if authorization is None:
+    authorization_values = [
+        value.decode("latin-1")
+        for key, value in request.headers.raw
+        if key.decode("latin-1").lower() == "authorization"
+    ]
+    if not authorization_values:
         return None
+    if len(authorization_values) != 1:
+        return AuthenticationFailure("malformed")
+    authorization = authorization_values[0]
     parts = authorization.split(" ")
     if len(parts) != 2 or not parts[0] or not parts[1]:
         return AuthenticationFailure("malformed")

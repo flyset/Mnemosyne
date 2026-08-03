@@ -26,15 +26,16 @@ valid in full: an empty document, unsupported schema version, unknown field or
 table, duplicate key, or wrong type fails startup; disabled declarations do not
 suppress validation.
 
-## Host configuration schemas 1, 2, and 3
+## Host configuration schemas 1–4
 
-`schema_version` is required and must be the native TOML integer `1`, `2`, or `3`.
+`schema_version` is required and must be the native TOML integer `1`, `2`, `3`, or
+`4`.
 It versions this document only, independently of the MyMCP package/server,
 host plugin API, manifest schema, external plugin-author contract, plugin,
 capability, runtime-generation, and record schemas. MyMCP never normalizes,
 expands, migrates, rewrites, merges, or falls back between schemas.
 
-Both schemas support an optional `[server]` table. `address` is a literal
+All schemas support an optional `[server]` table. `address` is a literal
 loopback IPv4 or IPv6 address, not a hostname, wildcard, LAN, or public address;
 `port` is a native integer from 1 through 65535. They default to `127.0.0.1`
 and `8000` and apply to packaged `mymcp` and `mymcp-dev` launchers. Direct
@@ -94,10 +95,76 @@ route = { source = "authorization", scheme = "bearer" }
 adapter declarations contain exactly `id`, `type`, `enabled`, and `route`.
 IDs/types are bounded lowercase-kebab identities. A route contains required
 `source` and `scheme` plus optional `profile`; duplicate adapter IDs or complete
-routes fail. Schemas 1 and 2 imply anonymous enabled with no adapters. The
-current production build contains no registered adapter implementation: enabled
-declarations fail before plugin composition, while disabled declarations remain
-inert. Configuration contains no credential or method-specific setting.
+routes fail. Schemas 1 and 2 imply anonymous enabled with no adapters.
+
+Schema 4 preserves schema-3 server, plugin, anonymous, and adapter syntax and
+adds the sole method-specific selector for the production `operator-bearer-v1`
+adapter:
+
+```toml
+schema_version = 4
+
+[authentication]
+anonymous_enabled = false
+
+[[authentication.adapters]]
+id = "local-client"
+type = "operator-bearer-v1"
+enabled = true
+route = { source = "authorization", scheme = "bearer" }
+
+[authentication.operator_bearer]
+verifier_path = "/etc/mymcp/operator-bearer.json"
+```
+
+The exact `[authentication.operator_bearer]` table contains only
+`verifier_path`. It is required when any `operator-bearer-v1` declaration exists,
+including disabled declarations, and prohibited otherwise. The path is absolute,
+nonempty, and unexpanded: it cannot contain NUL, `~`, `$`, `%`, `.` or `..`
+components. It is source metadata, not a credential, token, digest, verifier
+value, or secret. Its shape is validated even for disabled declarations; the
+source itself is read only for an enabled adapter. An enabled
+`operator-bearer-v1` declaration must use exactly
+`{ source = "authorization", scheme = "bearer" }` with no profile. Only one
+enabled adapter may claim that exact route.
+
+Schemas 1–3 and absent-file defaults remain unchanged. Schema 3 disabled
+declarations remain inert; enabled types other than the delivered
+`operator-bearer-v1` fail before plugin composition. Configuration never contains
+credential or verifier material.
+
+### Operator bearer verifier file
+
+The selected file is one complete active snapshot, strict UTF-8 JSON, at most
+16 KiB:
+
+```json
+{
+  "format_version": 1,
+  "credentials": [
+    {
+      "id": "<32-lowercase-hex-credential-id>",
+      "subject": "<Authentication-v1 subject>",
+      "digest": "<43-character-unpadded-base64url-SHA-256-digest>"
+    }
+  ]
+}
+```
+
+The top level and each credential record have exact fields; duplicate JSON keys,
+unknown/missing fields, invalid values, duplicate IDs, and more than 32 records
+fail closed. Multiple IDs may use one subject for rotation. The file retains no
+plaintext credential. Its immediate parent must be a non-link directory and the
+file a non-link regular file. On POSIX, neither may be group/world writable and
+the file must have no group/world permission bits. MyMCP performs no-follow and
+stable-source checks and rejects replacement or mutation while reading.
+
+Provisioning, rotation, and revocation are offline operator actions. Stop the
+server, generate a 256-bit secret independently, calculate and place only its
+SHA-256 digest in an atomically replaced complete snapshot, deliver the plaintext
+credential once through a secure channel, and restart. Add a new ID for the same
+subject during overlap rotation; remove an ID to revoke it. MyMCP has no issuance,
+management API, runtime reread, watch, merge, revoked marker, or hot rotation.
 
 ## Startup composition and restart
 
@@ -159,7 +226,7 @@ external runtime-composition outcomes. Events do not expose paths, source
 content, plugin IDs, environment values, exception details, or tracebacks.
 
 Successful configuration events are
-`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2|3> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
+`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2|3|4> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
 configuration failures are `host_configuration outcome=error code=<stable_code>`.
 Successful composition is
 `runtime_composition outcome=loaded bundled=<count> external=<count> capabilities=<count>`.

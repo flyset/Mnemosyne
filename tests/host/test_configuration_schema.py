@@ -9,6 +9,7 @@ from mymcp.host.configuration import (
     HostConfiguration,
     HostConfigurationError,
     HostConfigurationSchemaVersion,
+    HostOperatorBearerConfiguration,
     HostServerConfiguration,
     parse_host_configuration_toml,
 )
@@ -542,7 +543,7 @@ def test_plugin_id_accepts_the_contract_maximum_length() -> None:
         ("schema_version = true", "invalid_schema"),
         ('schema_version = "1"', "invalid_schema"),
         ("schema_version = 0", "unsupported_schema_version"),
-        ("schema_version = 4", "unsupported_schema_version"),
+        ("schema_version = 5", "unsupported_schema_version"),
         ("schema_version = 1\nunknown = true", "invalid_schema"),
         ("schema_version = 1\nserver = []", "invalid_schema"),
         ("schema_version = 1\nplugins = {}", "invalid_schema"),
@@ -557,7 +558,7 @@ def test_document_schema_is_strict_and_versioned(source: str, code: str) -> None
 
 def test_unsupported_schema_version_has_a_fixed_bounded_message() -> None:
     with pytest.raises(HostConfigurationError) as captured:
-        parse_host_configuration_toml("schema_version = 4\n")
+        parse_host_configuration_toml("schema_version = 5\n")
 
     assert captured.value.code == "unsupported_schema_version"
     assert str(captured.value) == (
@@ -573,3 +574,294 @@ def test_malformed_or_duplicate_key_toml_has_a_bounded_error() -> None:
 
     assert captured.value.code == "invalid_toml"
     assert str(captured.value) == "MyMCP configuration is not valid TOML"
+
+
+def test_schema_v4_preserves_v3_syntax_and_adds_operator_bearer_table() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 4
+[server]
+address = "127.0.0.1"
+port = 8000
+[authentication]
+anonymous_enabled = false
+[[authentication.adapters]]
+id = "local-client"
+type = "operator-bearer-v1"
+enabled = false
+route = {source = "authorization", scheme = "bearer"}
+[[authentication.adapters]]
+id = "synthetic-client"
+type = "synthetic"
+enabled = false
+route = {source = "authorization", scheme = "bearer", profile = "local"}
+[authentication.operator_bearer]
+verifier_path = "/etc/mymcp/verifier.json"
+[[plugins]]
+id = "alpha"
+enabled = false
+manifest_path = "/opt/alpha/manifest.json"
+module = "plugins.alpha"
+"""
+    )
+
+    assert configuration.schema_version == HostConfigurationSchemaVersion(4)
+    assert configuration.server == HostServerConfiguration(
+        address="127.0.0.1",
+        port=8000,
+    )
+    assert configuration.authentication.anonymous_enabled is False
+    assert tuple(
+        (item.adapter_id.value, item.adapter_type, item.enabled, item.route)
+        for item in configuration.authentication.adapters
+    ) == (
+        (
+            "local-client",
+            "operator-bearer-v1",
+            False,
+            EvidenceRoute("authorization", "bearer", None),
+        ),
+        (
+            "synthetic-client",
+            "synthetic",
+            False,
+            EvidenceRoute("authorization", "bearer", "local"),
+        ),
+    )
+    assert configuration.authentication.operator_bearer is not None
+    assert configuration.authentication.operator_bearer.verifier_path == (
+        "/etc/mymcp/verifier.json"
+    )
+    assert configuration.plugins[0].manifest_path == "/opt/alpha/manifest.json"
+    with pytest.raises(FrozenInstanceError):
+        configuration.authentication.operator_bearer.verifier_path = (  # type: ignore[misc]
+            "/other/verifier.json"
+        )
+
+
+def test_schema_v4_requires_explicit_authentication_table() -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml("schema_version = 4\n")
+
+    assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_schema_v4_requires_operator_bearer_table_with_any_operator_declaration(
+    enabled: bool,
+) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            f"""
+schema_version = 4
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "local-client"
+type = "operator-bearer-v1"
+enabled = {str(enabled).lower()}
+route = {{source = "authorization", scheme = "bearer"}}
+"""
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_schema_v4_prohibits_operator_bearer_table_without_operator_declaration() -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            """
+schema_version = 4
+[authentication]
+anonymous_enabled = true
+[authentication.operator_bearer]
+verifier_path = "/etc/mymcp/verifier.json"
+"""
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize(
+    "operator_bearer_source",
+    [
+        "[authentication.operator_bearer]",
+        '[authentication.operator_bearer]\nverifier_path = 1',
+        (
+            '[authentication.operator_bearer]\n'
+            'verifier_path = "/etc/mymcp/verifier.json"\nunknown = true'
+        ),
+        '[authentication.operator_bearer]\nother = "/etc/mymcp/verifier.json"',
+    ],
+)
+def test_schema_v4_operator_bearer_table_shape_is_strict(
+    operator_bearer_source: str,
+) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            """
+schema_version = 4
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "local-client"
+type = "operator-bearer-v1"
+enabled = false
+route = {source = "authorization", scheme = "bearer"}
+"""
+            + operator_bearer_source
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize(
+    "verifier_path",
+    [
+        "relative/verifier.json",
+        "~/verifier.json",
+        "/etc/$MYMCP/verifier.json",
+        "/etc/%MYMCP%/verifier.json",
+        "/etc/./verifier.json",
+        "/etc/../verifier.json",
+        "",
+    ],
+)
+def test_schema_v4_rejects_invalid_verifier_paths(verifier_path: str) -> None:
+    source = (
+        "schema_version = 4\n[authentication]\nanonymous_enabled = true\n"
+        "[[authentication.adapters]]\n"
+        'id = "local-client"\ntype = "operator-bearer-v1"\nenabled = false\n'
+        'route = {source = "authorization", scheme = "bearer"}\n'
+        "[authentication.operator_bearer]\n"
+        f'verifier_path = "{verifier_path}"\n'
+    )
+
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(source)
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_schema_v4_rejects_nul_in_verifier_path() -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            "schema_version = 4\n[authentication]\nanonymous_enabled = true\n"
+            "[[authentication.adapters]]\n"
+            'id = "local-client"\ntype = "operator-bearer-v1"\nenabled = false\n'
+            'route = {source = "authorization", scheme = "bearer"}\n'
+            "[authentication.operator_bearer]\n"
+            'verifier_path = "/etc/verifier.json\\u0000ignored"\n'
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_schema_v3_rejects_operator_bearer_table() -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            """
+schema_version = 3
+[authentication]
+anonymous_enabled = true
+[authentication.operator_bearer]
+verifier_path = "/etc/mymcp/verifier.json"
+"""
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_schema_v4_requires_v2_plugin_locator_fields() -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            """
+schema_version = 4
+[authentication]
+anonymous_enabled = true
+[[plugins]]
+id = "alpha"
+enabled = false
+"""
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_schema_v4_accepts_v2_plugin_declarations() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 4
+[authentication]
+anonymous_enabled = true
+[[plugins]]
+id = "alpha"
+enabled = false
+manifest_path = "/opt/alpha/manifest.json"
+module = "plugins.alpha"
+"""
+    )
+
+    assert configuration.plugins[0].manifest_path == "/opt/alpha/manifest.json"
+
+
+def test_schema_v4_snapshot_requires_consistent_operator_bearer_values() -> None:
+    operator_adapter = AuthenticationAdapterDeclaration(
+        AdapterId("local-client"),
+        "operator-bearer-v1",
+        True,
+        EvidenceRoute("authorization", "bearer", None),
+    )
+    synthetic_adapter = AuthenticationAdapterDeclaration(
+        AdapterId("synthetic"),
+        "synthetic",
+        False,
+        EvidenceRoute("authorization", "bearer", "profile"),
+    )
+
+    with pytest.raises(ValueError, match="^invalid host configuration$"):
+        HostConfiguration(
+            HostConfigurationSchemaVersion(4),
+            HostServerConfiguration(),
+            (),
+            HostAuthenticationConfiguration(True, (operator_adapter,)),
+        )
+    with pytest.raises(ValueError, match="^invalid host configuration$"):
+        HostConfiguration(
+            HostConfigurationSchemaVersion(4),
+            HostServerConfiguration(),
+            (),
+            HostAuthenticationConfiguration(
+                True,
+                (synthetic_adapter,),
+                HostOperatorBearerConfiguration("/etc/mymcp/verifier.json"),
+            ),
+        )
+
+
+def test_schema_v4_snapshot_accepts_consistent_operator_bearer_values() -> None:
+    adapter = AuthenticationAdapterDeclaration(
+        AdapterId("local-client"),
+        "operator-bearer-v1",
+        False,
+        EvidenceRoute("authorization", "bearer", None),
+    )
+    operator_bearer = HostOperatorBearerConfiguration("/etc/mymcp/verifier.json")
+    authentication = HostAuthenticationConfiguration(True, (adapter,), operator_bearer)
+
+    configuration = HostConfiguration(
+        HostConfigurationSchemaVersion(4),
+        HostServerConfiguration(),
+        (),
+        authentication,
+    )
+
+    assert configuration.authentication is authentication
+    assert configuration.authentication.operator_bearer is operator_bearer
+
+
+def test_operator_bearer_configuration_rejects_invalid_paths() -> None:
+    with pytest.raises(ValueError, match="^invalid host operator bearer configuration$"):
+        HostOperatorBearerConfiguration("relative/verifier.json")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="^invalid host operator bearer configuration$"):
+        HostOperatorBearerConfiguration("/etc/~/verifier.json")

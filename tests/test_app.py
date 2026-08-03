@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -10,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import mymcp.app as app_module
+import mymcp.host.authentication as host_authentication
 from mymcp.app import create_app
 from mymcp.authentication.router import compose_authenticator
 from mymcp.host import bootstrap
@@ -411,3 +413,103 @@ def test_ordinary_imports_do_not_read_invalid_host_configuration(
     assert completed.returncode == 0
     assert completed.stdout == ""
     assert completed.stderr == ""
+
+
+def _schema_v4_operator_configuration(verifier_path: str, *, enabled: bool = True) -> Any:
+    return parse_host_configuration_toml(
+        f"""
+schema_version = 4
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "local-client"
+type = "operator-bearer-v1"
+enabled = {str(enabled).lower()}
+route = {{source = "authorization", scheme = "bearer"}}
+[authentication.operator_bearer]
+verifier_path = "{verifier_path}"
+"""
+    )
+
+
+def _verifier_digest_text() -> str:
+    import base64
+    import hashlib
+
+    return (
+        base64.urlsafe_b64encode(hashlib.sha256(bytes(range(32))).digest())
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+
+
+def test_production_app_loads_verifier_source_before_runtime_construction(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    verifier = tmp_path / "verifier.json"
+    verifier.write_text(
+        json.dumps(
+            {
+                "format_version": 1,
+                "credentials": [
+                    {
+                        "id": "a" * 32,
+                        "subject": "stable-subject",
+                        "digest": _verifier_digest_text(),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    verifier.chmod(0o600)
+    configuration = _schema_v4_operator_configuration(str(verifier))
+    calls: list[str] = []
+    original_loader = host_authentication.load_operator_bearer_verifier_source
+
+    def recording_loader(path):
+        calls.append("source")
+        return original_loader(path)
+
+    monkeypatch.setattr(
+        host_authentication,
+        "load_operator_bearer_verifier_source",
+        recording_loader,
+    )
+    monkeypatch.setattr(
+        bootstrap,
+        "build_production_runtime",
+        lambda _configuration: calls.append("runtime") or object(),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "create_app",
+        lambda _runtime, _authenticator: object(),
+    )
+
+    application = app_module.create_production_app(configuration)
+
+    assert application is not None
+    assert calls == ["source", "runtime"]
+
+
+def test_production_app_verifier_failure_rejects_before_runtime_composition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing = tmp_path / "missing.json"
+    configuration = _schema_v4_operator_configuration(str(missing))
+    monkeypatch.setattr(
+        bootstrap,
+        "build_production_runtime",
+        lambda _configuration: pytest.fail(
+            "runtime composition must follow Authentication composition"
+        ),
+    )
+
+    with pytest.raises(HostAuthenticationCompositionError) as captured:
+        app_module.create_production_app(configuration)
+
+    assert captured.value.code == "verifier_source"
+    assert str(captured.value) == "operator bearer verifier source is unavailable"

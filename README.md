@@ -4,7 +4,7 @@ MyMCP is the repository and Python host package for an experimental local MCP
 server. Released `0.2.0` established the host, application, package, and official
 tracked client as MyMCP/`mymcp`; `0.2.1` remains the Ollama schema-compatibility
 build and `0.3.0` the host-configuration foundation. The current
-MyMCP/package/server version is `0.5.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
+MyMCP/package/server version is `0.6.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
 bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
@@ -31,7 +31,7 @@ manifest/definition/contribution parity before generation construction.
 The plugin's trusted in-process Mnemosyne `0.3.0` adapter supplies canonical
 registrations. Every capability declares its own contract version: `memory_recall`
 is `1.2.0`; the other seven `memory_*` capabilities are `1.1.0`. The MyMCP
-host/package/server is independently `0.5.0`. A test-owned,
+host/package/server is independently `0.6.0`. A test-owned,
 version-keyed canonical Tool-definition digest ledger retains readable
 properties/required-field fingerprints and historical entries, so definition
 drift cannot silently reuse a capability version. The ledger covers declared Tool
@@ -65,15 +65,18 @@ non-draft, non-prerelease GitHub release
 is tagged `mymcp-v0.2.0` at `c2852bc` and contains one wheel,
 `mymcp-0.2.0-py3-none-any.whl`, with matching GitHub/local SHA-256
 `531cc9a603d16399b12650fd09d3bc76f43b4d5d1b15fed0377a6197c820e3e7`.
-Host configuration schemas 1, 2, and 3 provide XDG-based process settings and ordered
+Host configuration schemas 1–4 provide XDG-based process settings and ordered
 external-plugin declarations. Schema 1 remains exact compatibility and rejects
 enabled declarations with `enabled_plugin_unsupported`; schema 2 supports
 validated startup composition. Schema 3 adds required explicit anonymous intent
-and ordered Authentication adapter declarations. MyMCP `0.5.0` implements
-host-owned Authentication contract version 1, exact no-fallback evidence routing,
-and normalized namespaced principals while preserving anonymous compatibility.
-No production registered adapter, MCP session, or Governance policy is implemented.
-See [Authentication](docs/AUTHENTICATION.md). Gateway governance remains deferred. See
+and ordered Authentication adapter declarations. Schema 4 adds the non-secret
+operator-bearer verifier source selector. MyMCP `0.6.0` delivers the
+`operator-bearer-v1` production Authentication adapter while retaining
+Authentication contract version 1, exact no-fallback evidence routing, normalized
+namespaced principals, and configured anonymous access. Sessions, Governance
+policy, Tool authorization, exact-call approval, and security audit remain
+unimplemented. See [Authentication](docs/AUTHENTICATION.md). Gateway governance
+remains deferred. See
 [host configuration](docs/CONFIGURATION.md) and
 `docs/PLUGIN_ARCHITECTURE.md` for the target and migration boundaries.
 
@@ -499,7 +502,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mymcp 0.5.0.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.6.0.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory
@@ -1094,19 +1097,32 @@ manifest_path = "/opt/mymcp-plugins/example-plugin/manifest.json"
 module = "example_plugin"
 ```
 
-Schema 3 additionally requires explicit Authentication intent:
+Schema 3 requires explicit anonymous Authentication intent. Schema 4 preserves
+schema-3 server, plugin, anonymous, and adapter declarations and adds the
+operator-bearer verifier source selector:
 
 ```toml
-schema_version = 3
+schema_version = 4
 
 [authentication]
-anonymous_enabled = true
+anonymous_enabled = false
+
+[[authentication.adapters]]
+id = "local-client"
+type = "operator-bearer-v1"
+enabled = true
+route = { source = "authorization", scheme = "bearer" }
+
+[authentication.operator_bearer]
+verifier_path = "/etc/mymcp/operator-bearer.json"
 ```
 
-The current production build has no registered adapter implementation, so any
-enabled adapter declaration fails before plugin runtime composition. Disabled
-declarations are inert. The file is optional; its absence preserves bundled-only
-anonymous startup. Only literal
+`verifier_path` is non-secret source metadata, not a credential or verifier
+value. The verifier file is read only for an enabled `operator-bearer-v1`
+declaration. Schema-4 anonymous access remains independent of registered
+adapters; an evidence-free request is anonymous only when `anonymous_enabled` is
+true. Schemas 1–3 and an absent file preserve their existing anonymous defaults.
+Only literal
 loopback addresses and ports 1–65535 are supported. Schema 1 remains supported
 with exactly `id`/`enabled` and preserves `enabled_plugin_unsupported`; schema 2
 requires exact `id`/`enabled`/absolute `manifest_path`/dotted `module` fields.
@@ -1114,6 +1130,20 @@ Disabled plugins are neither accessed, imported, nor exposed. Enabled schema-2
 plugins are preflighted before imports and are operator-trusted in-process code. See
 [host configuration](docs/CONFIGURATION.md) for safety rules, errors, restart
 behavior, and the strict schema.
+
+For an enabled `operator-bearer-v1` adapter, send exactly one HTTP header:
+
+```text
+Authorization: Bearer mymcp1.<32-lowercase-hex-id>.<43-character-base64url-secret>
+```
+
+`Bearer` is ASCII case-insensitive, followed by exactly one ASCII space. The
+credential itself is ASCII and exact: no padding, tabs, leading/trailing
+whitespace, Unicode, extra components, or alternate base64 alphabet. Missing
+evidence follows `anonymous_enabled`; submitted malformed, duplicate, unsupported,
+unknown, revoked, or invalid evidence returns an empty HTTP `401` before MCP body
+parsing, logging, streaming, or dispatch. See [Authentication](docs/AUTHENTICATION.md)
+and [Configuration](docs/CONFIGURATION.md) for provisioning and verifier rules.
 
 The MCP endpoint is exposed at:
 

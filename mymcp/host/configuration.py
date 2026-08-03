@@ -17,7 +17,7 @@ from mymcp.plugin.contracts import PluginId
 
 
 HOST_CONFIGURATION_SCHEMA_VERSION = 1
-SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2, 3})
+SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2, 3, 4})
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 8000
 XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
@@ -25,6 +25,7 @@ APPLICATION_DIRECTORY_NAME = "mymcp"
 CONFIGURATION_FILE_NAME = "config.toml"
 CONFIGURATION_MAX_BYTES = 64 * 1024
 MAX_AUTHENTICATION_ADAPTERS = 32
+OPERATOR_BEARER_ADAPTER_TYPE = "operator-bearer-v1"
 
 _OPEN_SUPPORTS_DIR_FD = os.open in os.supports_dir_fd
 _LOGGER = logging.getLogger("mymcp.host.configuration")
@@ -402,9 +403,19 @@ class AuthenticationAdapterDeclaration:
 
 
 @dataclass(frozen=True, slots=True)
+class HostOperatorBearerConfiguration:
+    verifier_path: str
+
+    def __post_init__(self) -> None:
+        if not _valid_operator_bearer_verifier_path(self.verifier_path):
+            raise ValueError("invalid host operator bearer configuration")
+
+
+@dataclass(frozen=True, slots=True)
 class HostAuthenticationConfiguration:
     anonymous_enabled: bool
     adapters: tuple[AuthenticationAdapterDeclaration, ...]
+    operator_bearer: HostOperatorBearerConfiguration | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -413,6 +424,12 @@ class HostAuthenticationConfiguration:
             or any(
                 not isinstance(adapter, AuthenticationAdapterDeclaration)
                 for adapter in self.adapters
+            )
+            or (
+                self.operator_bearer is not None
+                and not isinstance(
+                    self.operator_bearer, HostOperatorBearerConfiguration
+                )
             )
             or len({adapter.adapter_id for adapter in self.adapters})
             != len(self.adapters)
@@ -443,12 +460,25 @@ class HostConfiguration:
             or len({plugin.plugin_id for plugin in self.plugins}) != len(self.plugins)
             or any(
                 (plugin.manifest_path is not None)
-                != (self.schema_version.value in {2, 3})
+                != (self.schema_version.value in {2, 3, 4})
                 for plugin in self.plugins
             )
             or (
                 self.schema_version.value in {1, 2}
                 and self.authentication != HostAuthenticationConfiguration(True, ())
+            )
+            or (
+                self.schema_version.value == 3
+                and self.authentication.operator_bearer is not None
+            )
+            or (
+                self.schema_version.value == 4
+                and (
+                    (self.authentication.operator_bearer is not None)
+                    != _has_operator_bearer_declaration(
+                        self.authentication.adapters
+                    )
+                )
             )
         ):
             raise ValueError("invalid host configuration")
@@ -510,6 +540,23 @@ def _valid_authentication_type(value: object) -> bool:
         type(value) is str
         and 1 <= len(value) <= 64
         and _AUTHENTICATION_TYPE_PATTERN.fullmatch(value) is not None
+    )
+
+
+def _valid_operator_bearer_verifier_path(value: object) -> bool:
+    if type(value) is not str or not value or not Path(value).is_absolute():
+        return False
+    if "\x00" in value or "~" in value or "$" in value or "%" in value:
+        return False
+    return not any(part in {".", ".."} for part in re.split(r"[/\\]", value))
+
+
+def _has_operator_bearer_declaration(
+    adapters: Iterable[AuthenticationAdapterDeclaration],
+) -> bool:
+    return any(
+        adapter.adapter_type == OPERATOR_BEARER_ADAPTER_TYPE
+        for adapter in adapters
     )
 
 
@@ -602,10 +649,27 @@ def _parse_authentication_adapter(
         raise HostConfigurationError("invalid_schema") from None
 
 
-def _parse_authentication(value: object) -> HostAuthenticationConfiguration:
+def _parse_operator_bearer(value: object) -> HostOperatorBearerConfiguration:
+    if not isinstance(value, dict) or set(value) != {"verifier_path"}:
+        raise HostConfigurationError("invalid_schema")
+    try:
+        return HostOperatorBearerConfiguration(verifier_path=value["verifier_path"])
+    except ValueError:
+        raise HostConfigurationError("invalid_schema") from None
+
+
+def _parse_authentication(
+    value: object,
+    schema_version: int,
+) -> HostAuthenticationConfiguration:
+    allowed_keys = (
+        {"anonymous_enabled", "adapters", "operator_bearer"}
+        if schema_version == 4
+        else {"anonymous_enabled", "adapters"}
+    )
     if (
         not isinstance(value, dict)
-        or not set(value) <= {"anonymous_enabled", "adapters"}
+        or not set(value) <= allowed_keys
         or "anonymous_enabled" not in value
     ):
         raise HostConfigurationError("invalid_schema")
@@ -625,10 +689,21 @@ def _parse_authentication(value: object) -> HostAuthenticationConfiguration:
             raise HostConfigurationError("duplicate_authentication_adapter_route")
         identities.add(adapter.adapter_id)
         routes.add(adapter.route)
+
+    operator_bearer: HostOperatorBearerConfiguration | None = None
+    if schema_version == 4 and value.get("operator_bearer") is not None:
+        operator_bearer = _parse_operator_bearer(value["operator_bearer"])
+    if (
+        schema_version == 4
+        and _has_operator_bearer_declaration(adapters)
+        != (operator_bearer is not None)
+    ):
+        raise HostConfigurationError("invalid_schema")
     try:
         return HostAuthenticationConfiguration(
             anonymous_enabled=value["anonymous_enabled"],
             adapters=adapters,
+            operator_bearer=operator_bearer,
         )
     except ValueError:
         raise HostConfigurationError("invalid_schema") from None
@@ -659,7 +734,7 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
     server = _parse_server(document.get("server", {}))
     if schema_version in {1, 2} and "authentication" in document:
         raise HostConfigurationError("invalid_schema")
-    if schema_version == 3 and "authentication" not in document:
+    if schema_version in {3, 4} and "authentication" not in document:
         raise HostConfigurationError("invalid_schema")
 
     if schema_version == 1:
@@ -667,8 +742,8 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
     else:
         plugins = _parse_plugins_v2(document.get("plugins", []))
     authentication = (
-        _parse_authentication(document["authentication"])
-        if schema_version == 3
+        _parse_authentication(document["authentication"], schema_version)
+        if schema_version in {3, 4}
         else HostAuthenticationConfiguration(True, ())
     )
     return HostConfiguration(

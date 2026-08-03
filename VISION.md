@@ -24,9 +24,11 @@ complete. The public, non-draft, non-prerelease release
 [`MyMCP 0.2.0: public-host cutover`](https://github.com/flyset/MyMCP/releases/tag/mymcp-v0.2.0)
 is tagged `mymcp-v0.2.0` at `c2852bc`. MyMCP `0.4.0` delivered Phase 3 startup
 composition for operator-installed, operator-trusted external plugins. MyMCP
-`0.5.0` delivers Authentication contract version 1, exact routing, normalized
-principals, and explicit anonymous configuration. Registered adapters, sessions,
-Gateway governance, and public metadata projection remain deferred.
+`0.5.0` delivered Authentication contract version 1, exact routing, normalized
+principals, and explicit anonymous configuration. MyMCP `0.6.0` delivers the
+first production registered adapter, `operator-bearer-v1`, and host configuration
+schema 4 while retaining Authentication contract version 1. Sessions, Gateway
+governance, and public metadata projection remain deferred.
 
 ## Role
 
@@ -57,7 +59,7 @@ local Uvicorn factory target. The production surface contains the trusted
 Mnemosyne `0.3.0` adapter over canonical registrations from the extracted bundled
 plugin. Its per-capability contract declarations identify `memory_recall` as
 `1.2.0` and the other seven capabilities as `1.1.0`; MyMCP's host/package/server
-marker is independently `0.5.0`.
+marker is independently `0.6.0`.
 
 The released public-host cutover includes repository and operational
 verification. MyMCP 0.4.0 adds schema-2 external startup composition while
@@ -66,7 +68,9 @@ Configuration remains an immutable XDG-selected startup snapshot with loopback
 packaged-launcher settings. Enabled schema-2 manifests preflight before any
 import; compatible operator-trusted implementations then compose once for the
 server start. Schema 3 adds immutable Authentication declarations and explicit
-anonymous access; Authentication composes before plugin runtime publication.
+anonymous access. Schema 4 adds bounded non-secret verifier-source metadata for
+the startup-fixed `operator-bearer-v1` adapter; Authentication composes before
+plugin runtime publication.
 Client-neutral gateway policy, public metadata projection, and
 reusable host services follow in that dependency order.
 

@@ -24,7 +24,10 @@ composition: schema-1 compatibility, schema-2 locators, source-safe manifest
 preflight, ordered loading/parity, deterministic bindings, and collision failure.
 MyMCP `0.5.0` adds tested Authentication contract/routing/principal behavior,
 schema-3 configuration, explicit anonymous compatibility, and pre-MCP empty-401
-rejection. Concrete registered methods and Gateway policy remain deferred.
+rejection. The delivered `0.6.0` build adds the tested `operator-bearer-v1`
+production adapter, protected verifier-source format 1, schema-4 configuration,
+exact Authorization bearer handling, and registered-principal delivery. Sessions
+and Gateway policy remain deferred.
 
 ## Layout
 
@@ -35,8 +38,9 @@ rejection. Concrete registered methods and Gateway policy remain deferred.
   strict manifest parsing, extracted bundled Mnemosyne declaration parity, and
   `ActivatedTool`/`PluginContribution` composition.
 - `tests/authentication/` covers immutable principals/evidence/results, exact
-  no-fallback routing, anonymous admission, and synthetic multi-adapter behavior.
-- `tests/host/` covers immutable `HostRuntime`, schema-1/schema-2/schema-3 configuration,
+  no-fallback routing, anonymous admission, synthetic multi-adapter behavior, and
+  `operator-bearer-v1` credential/verifier/source contracts.
+- `tests/host/` covers immutable `HostRuntime`, schema-1 through schema-4 configuration,
   source-safe external manifest preflight, ordered loading, and explicit complete
   production bootstrap before runtime generation.
 - `tests/routes/` covers FastAPI HTTP transport through `TestClient`.
