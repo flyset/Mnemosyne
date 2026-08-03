@@ -56,6 +56,11 @@ runtime lifecycle management. Keep changes minimal and protocol-aware.
 - Use `@test` for independent test review and automated verification. It may
   modify tests only within an explicitly approved TDD chunk and must not change
   production code.
+- Use `@build` for implementing approved TDD chunks (failing focused test,
+  smallest passing change, refactor, validate); it never changes Tracks, durable
+  memory, configuration, or Git history.
+- Use `@plan` for read-only architecture analysis and implementation-plan
+  design; it never edits files or runs state-changing commands.
 - Use `@repo` only for read-only Git status, diff, history, and repository
   structure inspection; it must not modify files or implement behavior, tests,
   or documentation.

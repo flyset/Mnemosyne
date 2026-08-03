@@ -16,7 +16,11 @@
     "mymcp": {
       "type": "remote",
       "url": "http://127.0.0.1:8000/mcp",
-      "enabled": true
+      "enabled": true,
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {file:./.opencode/secrets/mymcp-credential}"
+      }
     }
   },
   "agent": {
@@ -33,6 +37,14 @@
         "mymcp_memory_restore": "ask",
         "mymcp_memory_forget": "ask"
       }
+    },
+    "build": {
+      "model": "opencode/deepseek-v4-flash-free",
+      "variant": "high"
+    },
+    "plan": {
+      "model": "openai/gpt-5.6-terra",
+      "variant": "medium"
     },
     "explore": {
       "model": "opencode/deepseek-v4-flash-free",
