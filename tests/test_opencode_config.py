@@ -29,6 +29,10 @@ def test_opencode_allows_listing_and_requires_memory_mutation_approval() -> None
         "type": "remote",
         "url": "http://127.0.0.1:8000/mcp",
         "enabled": True,
+        "oauth": False,
+        "headers": {
+            "Authorization": "Bearer {file:./.opencode/secrets/mymcp-credential}"
+        },
     }
     assert "mnemosyne" not in config["mcp"]
     assert "mnemosyne" not in config["agent"]
