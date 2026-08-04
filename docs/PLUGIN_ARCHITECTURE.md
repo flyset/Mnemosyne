@@ -118,7 +118,7 @@ mymcp/
     composition.py
 
   host/                           # immutable process assembly
-    configuration.py              # schema-1 through schema-5 startup intent and source safety
+    configuration.py              # schema-1 through schema-7 startup intent and source safety
     runtime.py
     bootstrap.py
     authentication.py            # production Authentication composition
@@ -305,7 +305,7 @@ Several identities must remain separate:
 | Host plugin API | MyMCP | Integer logical-contract level; incompatible manifest, definition, or composition semantics require a new level | `1` |
 | Manifest schema | MyMCP | Strict integer shape; unsupported versions fail closed | `1` |
 | External plugin-author contract | MyMCP | Versioned external module entrypoint contract, separate from host API and manifest schema | `1` (`mymcp_plugin_v1`) |
-| Host configuration schema | MyMCP | Strict host startup-document shape; schemas 1–2 retain plugin compatibility, schema 3 adds Authentication intent, schema 4 adds operator-bearer verifier-source metadata, and schema 5 adds OAuth issuer intent | `1`, `2`, `3`, `4`, `5` |
+| Host configuration schema | MyMCP | Strict host startup-document shape; schema 6 adds protocol-header strictness and schema 7 adds bounded session lifetimes | `1`–`7` |
 | Authentication contract | MyMCP | Host-owned principal/evidence/adapter-result/routing compatibility, independent of MCP and plugin APIs | `1` |
 | Authentication adapter type | MyMCP | Stable concrete method identity, separate from the Authentication contract and route | `operator-bearer-v1` or `oauth-jwt-jwks-v1` |
 | Operator bearer verifier-source format | MyMCP | Strict separately sourced verifier snapshot shape, independent of host configuration and Authentication contract versions | `1` |

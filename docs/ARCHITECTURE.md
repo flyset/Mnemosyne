@@ -21,7 +21,7 @@ TRACK_042 delivers MyMCP `0.5.0`, Authentication contract version 1, normalized
 namespaced principals, exact no-fallback routing, host configuration schema 3,
 and explicit compatibility anonymous access. TRACK_046 delivers MyMCP `0.8.0`
 method-neutral registered-principal MCP sessions under protocol `2025-11-25`.
-TRACK_047 delivers MyMCP `0.9.0`, schema 6, and an explicit registered-session
+TRACK_047 delivered MyMCP `0.9.0`, schema 6, and an explicit registered-session
 fallback for an absent post-initialize protocol header;
 Governance remains deferred. TRACK_043 delivers MyMCP `0.6.0`, host
 configuration schema 4 and the transport-neutral `operator-bearer-v1` production
@@ -108,7 +108,7 @@ The approved target is defined in
 Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
 adapter over canonical registrations. `memory_recall` declares capability
 contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
-MyMCP's host/package/server marker is independently `0.9.0`. Host configuration
+MyMCP's host/package/server marker is independently `0.10.0`. Host configuration
 is loaded into one immutable startup snapshot before bootstrap. Schema 1 retains
 its exact desired-state behavior and `enabled_plugin_unsupported`; schema 2 has
 explicit locators. Bootstrap preflights every enabled external manifest before
@@ -179,7 +179,7 @@ mymcp/
     authentication.py     # production Authentication composition
     mcp_application.py    # principal/session-aware host application seam
     sessions.py           # process-local registered-principal session lifecycle
-    configuration.py    # XDG source, strict schema-1 through schema-5 snapshots
+    configuration.py    # XDG source, strict schema-1 through schema-7 snapshots
     bootstrap.py        # explicit production runtime construction
     runtime.py          # immutable HostRuntime and opaque generation
 
@@ -309,7 +309,7 @@ integration metadata, gate selection, or plugin lifecycle.
 ### `mymcp/host/bootstrap.py` and `mymcp/host/runtime.py`
 
 `mymcp/host/configuration.py` exclusively owns XDG path selection, safe bounded
-source reading, strict schema-1 through schema-5 TOML parsing, immutable host/server/external
+source reading, strict schema-1 through schema-7 TOML parsing, immutable host/server/external
 declaration values, and bounded configuration errors. It imports neither FastAPI,
 routes, MCP dispatch, nor concrete plugins. The snapshot expresses process and
 startup composition desired state; it is not Mnemosyne configuration, consent,
@@ -687,7 +687,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.9.0` and is kept equal to the package version. The marker is also
+is `mymcp 0.10.0` and is kept equal to the package version. The marker is also
 returned by initialize and `/version`; the
 public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
 processes after public-contract updates; it is not a dynamic Git identifier or a

@@ -101,7 +101,7 @@ def test_built_wheel_contains_exact_parseable_mnemosyne_manifest(
     assert result.returncode == 0, result.stdout + result.stderr
     wheels = tuple(wheel_directory.glob("*.whl"))
     assert len(wheels) == 1
-    assert wheels[0].name == f"mymcp-0.9.0-py3-none-any.whl"
+    assert wheels[0].name == f"mymcp-0.10.0-py3-none-any.whl"
     with ZipFile(wheels[0]) as wheel:
         wheel_names = wheel.namelist()
         assert len(wheel_names) == len(set(wheel_names))
@@ -109,7 +109,7 @@ def test_built_wheel_contains_exact_parseable_mnemosyne_manifest(
             name for name in wheel_names if name.endswith(".dist-info/METADATA")
         )
         metadata_text = wheel.read(dist_info_metadata).decode("utf-8")
-        assert "Version: 0.9.0" in metadata_text
+        assert "Version: 0.10.0" in metadata_text
         manifest_path = "mymcp/plugins/mnemosyne/manifest.json"
         assert wheel_names.count(manifest_path) == 1
         wheel_files = set(wheel_names)

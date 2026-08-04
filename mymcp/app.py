@@ -56,6 +56,8 @@ def create_app(
     *,
     oauth_protected_resource: OAuthProtectedResource | None = None,
     strict_protocol_version: bool = True,
+    session_inactivity_timeout_seconds: int | None = 1800,
+    session_absolute_lifetime_seconds: int | None = 28800,
 ) -> FastAPI:
     selected_authenticator = (
         compose_authenticator((), anonymous_enabled=True)
@@ -74,7 +76,11 @@ def create_app(
             PrincipalAwareMCPApplication(
                 MCPDispatcher(runtime),
                 selected_generation,
-                ProcessLocalSessionStore(selected_generation),
+                ProcessLocalSessionStore(
+                    selected_generation,
+                    inactivity_timeout_seconds=session_inactivity_timeout_seconds,
+                    absolute_lifetime_seconds=session_absolute_lifetime_seconds,
+                ),
                 strict_protocol_version,
             ),
             selected_authenticator,
@@ -108,10 +114,22 @@ def create_production_app(
             runtime,
             authenticator,
             strict_protocol_version=selected_configuration.mcp.strict_protocol_version,
+            session_inactivity_timeout_seconds=(
+                selected_configuration.mcp.session_inactivity_timeout_seconds
+            ),
+            session_absolute_lifetime_seconds=(
+                selected_configuration.mcp.session_absolute_lifetime_seconds
+            ),
         )
     return create_app(
         runtime,
         authenticator,
         oauth_protected_resource=oauth_protected_resource,
         strict_protocol_version=selected_configuration.mcp.strict_protocol_version,
+        session_inactivity_timeout_seconds=(
+            selected_configuration.mcp.session_inactivity_timeout_seconds
+        ),
+        session_absolute_lifetime_seconds=(
+            selected_configuration.mcp.session_absolute_lifetime_seconds
+        ),
     )

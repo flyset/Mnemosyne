@@ -12,6 +12,7 @@ MCP_PROTOCOL_VERSION = "2025-11-25"
 _SESSION_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{43}\Z")
 _INACTIVITY_TIMEOUT_SECONDS = 30 * 60
 _ABSOLUTE_LIFETIME_SECONDS = 8 * 60 * 60
+_MAX_SESSION_LIFETIME_SECONDS = 30 * 24 * 60 * 60
 _MAXIMUM_SESSIONS = 128
 _TOKEN_ATTEMPTS = 8
 
@@ -48,6 +49,8 @@ class ProcessLocalSessionStore:
         monotonic_clock: Callable[[], float] = monotonic,
         token_factory: Callable[[], str] = lambda: secrets.token_urlsafe(32),
         maximum_sessions: int = _MAXIMUM_SESSIONS,
+        inactivity_timeout_seconds: int | None = _INACTIVITY_TIMEOUT_SECONDS,
+        absolute_lifetime_seconds: int | None = _ABSOLUTE_LIFETIME_SECONDS,
     ) -> None:
         if (
             not isinstance(runtime_generation, RuntimeGenerationId)
@@ -55,12 +58,16 @@ class ProcessLocalSessionStore:
             or not callable(token_factory)
             or type(maximum_sessions) is not int
             or maximum_sessions < 1
+            or not self._valid_lifetime(inactivity_timeout_seconds)
+            or not self._valid_lifetime(absolute_lifetime_seconds)
         ):
             raise ValueError("invalid MCP session store")
         self._runtime_generation = runtime_generation
         self._monotonic_clock = monotonic_clock
         self._token_factory = token_factory
         self._maximum_sessions = maximum_sessions
+        self._inactivity_timeout_seconds = inactivity_timeout_seconds
+        self._absolute_lifetime_seconds = absolute_lifetime_seconds
         self._sessions: dict[SessionId, MCPProtocolSession] = {}
 
     def create(self, principal: Principal) -> MCPProtocolSession:
@@ -80,7 +87,11 @@ class ProcessLocalSessionStore:
                     protocol_version=MCP_PROTOCOL_VERSION,
                     created_at=now,
                     last_valid_activity_at=now,
-                    absolute_expires_at=now + _ABSOLUTE_LIFETIME_SECONDS,
+                    absolute_expires_at=(
+                        float("inf")
+                        if self._absolute_lifetime_seconds is None
+                        else now + self._absolute_lifetime_seconds
+                    ),
                 )
                 self._sessions[identifier] = session
                 return session
@@ -183,8 +194,14 @@ class ProcessLocalSessionStore:
                 self._sessions.pop(identifier, None)
 
     @staticmethod
-    def _expired(session: MCPProtocolSession, now: float) -> bool:
+    def _valid_lifetime(value: object) -> bool:
+        return value is None or (
+            type(value) is int and 0 < value <= _MAX_SESSION_LIFETIME_SECONDS
+        )
+
+    def _expired(self, session: MCPProtocolSession, now: float) -> bool:
         return (
-            now - session.last_valid_activity_at > _INACTIVITY_TIMEOUT_SECONDS
+            self._inactivity_timeout_seconds is not None
+            and now - session.last_valid_activity_at > self._inactivity_timeout_seconds
             or now >= session.absolute_expires_at
         )

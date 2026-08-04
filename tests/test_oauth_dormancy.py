@@ -268,7 +268,7 @@ def test_production_host_source_never_imports_dormant_oauth_modules_at_module_le
 def test_host_authentication_registration_adds_oauth_under_schema_five() -> None:
     assert OPERATOR_BEARER_ADAPTER_TYPE == "operator-bearer-v1"
     assert OAUTH_PROFILE not in {OPERATOR_BEARER_ADAPTER_TYPE}
-    assert SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS == frozenset({1, 2, 3, 4, 5, 6})
+    assert SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS == frozenset({1, 2, 3, 4, 5, 6, 7})
     assert 5 in SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS
 
 
@@ -370,7 +370,7 @@ def test_mcp_dispatch_preserves_initialize_contract(production_client) -> None:
     assert response.json()["result"] == {
         "protocolVersion": "2025-11-25",
         "capabilities": {"tools": {}},
-        "serverInfo": {"name": "mymcp", "version": "0.9.0"},
+        "serverInfo": {"name": "mymcp", "version": "0.10.0"},
     }
 
 

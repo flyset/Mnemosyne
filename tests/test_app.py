@@ -195,11 +195,11 @@ strict_protocol_version = false
 
     monkeypatch.setattr(bootstrap, "build_production_runtime", lambda _configuration: runtime)
 
-    def build_app(selected_runtime, selected_authenticator, *, strict_protocol_version=True):
+    def build_app(selected_runtime, selected_authenticator, **kwargs):
         observed.update(
             runtime=selected_runtime,
             authenticator=selected_authenticator,
-            strict_protocol_version=strict_protocol_version,
+            **kwargs,
         )
         return object()
 
@@ -209,6 +209,42 @@ strict_protocol_version = false
 
     assert observed["runtime"] is runtime
     assert observed["strict_protocol_version"] is False
+
+
+def test_production_app_propagates_schema_v7_session_lifetimes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = _runtime("production", [])
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 7
+[authentication]
+anonymous_enabled = true
+[mcp]
+strict_protocol_version = true
+session_inactivity_timeout_seconds = 0
+session_absolute_lifetime_seconds = 1234
+"""
+    )
+    observed: dict[str, object] = {}
+
+    monkeypatch.setattr(bootstrap, "build_production_runtime", lambda _configuration: runtime)
+
+    def build_app(selected_runtime, selected_authenticator, **kwargs):
+        observed.update(
+            runtime=selected_runtime,
+            authenticator=selected_authenticator,
+            **kwargs,
+        )
+        return object()
+
+    monkeypatch.setattr(app_module, "create_app", build_app)
+
+    app_module.create_production_app(configuration)
+
+    assert observed["runtime"] is runtime
+    assert observed["session_inactivity_timeout_seconds"] is None
+    assert observed["session_absolute_lifetime_seconds"] == 1234
 
 
 def test_runtime_requests_never_reload_host_configuration(

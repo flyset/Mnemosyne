@@ -26,10 +26,10 @@ valid in full: an empty document, unsupported schema version, unknown field or
 table, duplicate key, or wrong type fails startup; disabled declarations do not
 suppress validation.
 
-## Host configuration schemas 1–6
+## Host configuration schemas 1–7
 
 `schema_version` is required and must be the native TOML integer `1`, `2`, `3`, or
-`4`, `5`, or `6`.
+`4`, `5`, `6`, or `7`.
 It versions this document only, independently of the MyMCP package/server,
 host plugin API, manifest schema, external plugin-author contract, plugin,
 capability, runtime-generation, and record schemas. MyMCP never normalizes,
@@ -193,6 +193,25 @@ unsupported, or conflicting value remains a body-free `400`. Anonymous traffic
 remains stateless and always requires the header after initialization. Schemas
 1–5 and absent-file defaults remain strict.
 
+Schema 7 preserves schema 6 and adds required `[mcp]` lifetime keys:
+
+```toml
+schema_version = 7
+[authentication]
+anonymous_enabled = true
+[mcp]
+strict_protocol_version = true
+session_inactivity_timeout_seconds = 1800
+session_absolute_lifetime_seconds = 28800
+```
+
+Each lifetime is a native TOML integer from `0` through `2,592,000` seconds.
+Zero disables only that limit; both may be zero. Booleans, floats, strings,
+negative values, and values above the bound are rejected. Schema 7 requires
+both lifetime keys. Schemas 1–6 and absent configuration retain strict protocol
+behavior and the 30-minute inactivity / 8-hour absolute defaults. Values are
+startup-fixed and require restart.
+
 ### Operator bearer verifier file
 
 The selected file is one complete active snapshot, strict UTF-8 JSON, at most
@@ -286,7 +305,7 @@ external runtime-composition outcomes. Events do not expose paths, source
 content, plugin IDs, environment values, exception details, or tracebacks.
 
 Successful configuration events are
-`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2|3|4|5|6> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
+`host_configuration outcome=<loaded|absent_defaults> schema_version=<1|2|3|4|5|6|7> address=<loopback> port=<port> declarations=<count> enabled=<count>`;
 configuration failures are `host_configuration outcome=error code=<stable_code>`.
 Successful composition is
 `runtime_composition outcome=loaded bundled=<count> external=<count> capabilities=<count>`.

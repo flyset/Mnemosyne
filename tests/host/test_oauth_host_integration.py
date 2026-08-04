@@ -174,7 +174,7 @@ enabled = {str(enabled).lower()}
 
 
 def test_schema_v5_is_supported_alongside_schemas_one_through_four() -> None:
-    assert SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS == frozenset({1, 2, 3, 4, 5, 6})
+    assert SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS == frozenset({1, 2, 3, 4, 5, 6, 7})
 
 
 def test_schema_v5_parses_exact_optional_oauth_issuer_intent() -> None:

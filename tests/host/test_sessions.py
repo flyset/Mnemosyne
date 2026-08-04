@@ -22,11 +22,15 @@ def _store(
     now: list[float],
     generation: str = "generation-one",
     token_factory=lambda: "a" * 43,
+    inactivity_timeout_seconds: int | None = 1800,
+    absolute_lifetime_seconds: int | None = 28800,
 ) -> ProcessLocalSessionStore:
     return ProcessLocalSessionStore(
         RuntimeGenerationId(generation),
         monotonic_clock=lambda: now[0],
         token_factory=token_factory,
+        inactivity_timeout_seconds=inactivity_timeout_seconds,
+        absolute_lifetime_seconds=absolute_lifetime_seconds,
     )
 
 
@@ -135,6 +139,101 @@ def test_session_expiry_is_bounded_by_inactivity_and_absolute_lifetime_without_b
         RuntimeGenerationId("generation-one"),
         MCP_PROTOCOL_VERSION,
     ) is None
+
+
+def test_custom_session_lifetimes_preserve_inactivity_refresh_and_exact_boundaries() -> None:
+    now = [100.0]
+    store = _store(
+        now=now,
+        inactivity_timeout_seconds=10,
+        absolute_lifetime_seconds=30,
+    )
+    principal = _principal()
+    session = store.create(principal)
+
+    now[0] = 110.0
+    assert store.validate(
+        session.identifier,
+        principal,
+        RuntimeGenerationId("generation-one"),
+        MCP_PROTOCOL_VERSION,
+    ) is not None
+    now[0] = 120.0
+    assert store.validate(
+        session.identifier,
+        principal,
+        RuntimeGenerationId("generation-one"),
+        MCP_PROTOCOL_VERSION,
+    ) is not None
+    now[0] = 130.0
+    assert store.validate(
+        session.identifier,
+        principal,
+        RuntimeGenerationId("generation-one"),
+        MCP_PROTOCOL_VERSION,
+    ) is None
+
+    now[0] = 100.0
+    fresh = store.create(_principal("fresh"))
+    now[0] = 111.0
+    assert store.validate(
+        fresh.identifier,
+        _principal("fresh"),
+        RuntimeGenerationId("generation-one"),
+        MCP_PROTOCOL_VERSION,
+    ) is None
+
+
+def test_disabled_session_lifetime_limits_are_independent_and_keep_capacity_guard() -> None:
+    now = [0.0]
+    tokens = iter(("a" * 43, "b" * 43))
+    store = _store(
+        now=now,
+        token_factory=lambda: next(tokens),
+        inactivity_timeout_seconds=None,
+        absolute_lifetime_seconds=None,
+    )
+    session = store.create(_principal())
+    now[0] = 10_000_000.0
+
+    assert store.validate(
+        session.identifier,
+        _principal(),
+        RuntimeGenerationId("generation-one"),
+        MCP_PROTOCOL_VERSION,
+    ) is not None
+
+    limited = _store(
+        now=now,
+        inactivity_timeout_seconds=None,
+        absolute_lifetime_seconds=10,
+    )
+    limited_session = limited.create(_principal("limited"))
+    now[0] += 10
+    assert limited.validate(
+        limited_session.identifier,
+        _principal("limited"),
+        RuntimeGenerationId("generation-one"),
+        MCP_PROTOCOL_VERSION,
+    ) is None
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("inactivity_timeout_seconds", True),
+        ("inactivity_timeout_seconds", 0),
+        ("inactivity_timeout_seconds", -1),
+        ("absolute_lifetime_seconds", True),
+        ("absolute_lifetime_seconds", 0),
+        ("absolute_lifetime_seconds", -1),
+        ("absolute_lifetime_seconds", 2_592_001),
+    ],
+)
+def test_session_store_rejects_invalid_lifetime_values(field: str, value: object) -> None:
+    kwargs = {field: value}
+    with pytest.raises(ValueError, match="^invalid MCP session store$"):
+        ProcessLocalSessionStore(RuntimeGenerationId("generation-one"), **kwargs)  # type: ignore[arg-type]
 
 
 def test_session_store_is_process_local_terminates_exact_valid_session_and_refuses_capacity_eviction() -> None:

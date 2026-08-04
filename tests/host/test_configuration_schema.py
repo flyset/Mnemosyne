@@ -545,7 +545,7 @@ def test_plugin_id_accepts_the_contract_maximum_length() -> None:
         ("schema_version = true", "invalid_schema"),
         ('schema_version = "1"', "invalid_schema"),
         ("schema_version = 0", "unsupported_schema_version"),
-        ("schema_version = 7", "unsupported_schema_version"),
+        ("schema_version = 8", "unsupported_schema_version"),
         ("schema_version = 1\nunknown = true", "invalid_schema"),
         ("schema_version = 1\nserver = []", "invalid_schema"),
         ("schema_version = 1\nplugins = {}", "invalid_schema"),
@@ -560,7 +560,7 @@ def test_document_schema_is_strict_and_versioned(source: str, code: str) -> None
 
 def test_unsupported_schema_version_has_a_fixed_bounded_message() -> None:
     with pytest.raises(HostConfigurationError) as captured:
-        parse_host_configuration_toml("schema_version = 7\n")
+        parse_host_configuration_toml("schema_version = 8\n")
 
     assert captured.value.code == "unsupported_schema_version"
     assert str(captured.value) == (
@@ -583,6 +583,84 @@ strict_protocol_version = false
     assert configuration.mcp == HostMCPConfiguration(strict_protocol_version=False)
     with pytest.raises(FrozenInstanceError):
         configuration.mcp.strict_protocol_version = True  # type: ignore[misc]
+
+
+def test_schema_v7_requires_bounded_session_lifetime_settings_and_maps_zero_to_none() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 7
+[authentication]
+anonymous_enabled = true
+[mcp]
+strict_protocol_version = false
+session_inactivity_timeout_seconds = 0
+session_absolute_lifetime_seconds = 2592000
+"""
+    )
+
+    assert configuration.schema_version == HostConfigurationSchemaVersion(7)
+    assert configuration.mcp == HostMCPConfiguration(
+        strict_protocol_version=False,
+        session_inactivity_timeout_seconds=None,
+        session_absolute_lifetime_seconds=2592000,
+    )
+    with pytest.raises(FrozenInstanceError):
+        configuration.mcp.session_absolute_lifetime_seconds = 1  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    "mcp_source",
+    [
+        "",
+        "strict_protocol_version = true",
+        "session_inactivity_timeout_seconds = 1\nsession_absolute_lifetime_seconds = 1",
+        "strict_protocol_version = true\nsession_absolute_lifetime_seconds = 1",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = 1",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = true\nsession_absolute_lifetime_seconds = 1",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = false\nsession_absolute_lifetime_seconds = 1",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = 1\nsession_absolute_lifetime_seconds = 1.0",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = -1\nsession_absolute_lifetime_seconds = 1",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = 1\nsession_absolute_lifetime_seconds = 2592001",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = 1\nsession_absolute_lifetime_seconds = false",
+        "strict_protocol_version = true\nsession_inactivity_timeout_seconds = 1\nsession_absolute_lifetime_seconds = 1\nunknown = true",
+    ],
+)
+def test_schema_v7_mcp_lifetime_shape_is_strict(mcp_source: str) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            "schema_version = 7\n[authentication]\nanonymous_enabled = true\n"
+            "[mcp]\n"
+            + mcp_source
+        )
+
+    assert captured.value.code == "invalid_schema"
+
+
+def test_prior_schemas_and_absent_defaults_retain_fixed_session_lifetimes() -> None:
+    assert HostConfiguration.default().mcp == HostMCPConfiguration(
+        strict_protocol_version=True,
+        session_inactivity_timeout_seconds=1800,
+        session_absolute_lifetime_seconds=28800,
+    )
+    for schema_version in (1, 2, 3, 4, 5, 6):
+        authentication = (
+            "[authentication]\nanonymous_enabled = true\n"
+            if schema_version >= 3
+            else ""
+        )
+        mcp = (
+            "[mcp]\nstrict_protocol_version = true\n"
+            if schema_version == 6
+            else ""
+        )
+        configuration = parse_host_configuration_toml(
+            f"schema_version = {schema_version}\n{authentication}{mcp}"
+        )
+        assert configuration.mcp == HostMCPConfiguration(
+            strict_protocol_version=True,
+            session_inactivity_timeout_seconds=1800,
+            session_absolute_lifetime_seconds=28800,
+        )
 
 
 def test_schema_v6_preserves_operator_bearer_configuration() -> None:

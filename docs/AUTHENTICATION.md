@@ -9,7 +9,7 @@ client principal or rejects the request.
 Authentication answers **who the client is**. Governance decides what that
 principal may do.
 
-MyMCP `0.9.0` retains the contract-version-1 principal, adapter-result,
+MyMCP `0.10.0` retains the contract-version-1 principal, adapter-result,
 evidence-routing, configuration, and anonymous HTTP foundation, plus two
 alternative production methods: `operator-bearer-v1` and
 `oauth-jwt-jwks-v1`. Authentication contract v1 is unchanged. Schema 5 selects
@@ -118,7 +118,12 @@ registered session; the host then uses that session's immutable negotiated versi
 Supplied-header validation and anonymous stateless behavior remain strict. Sessions bind the complete
 normalized principal and host runtime generation, are not persisted or shared
 across restart, and are unavailable to adapters, generic MCP, plugins, and plugin
-data. Anonymous access remains stateless and sends the negotiated
+data. Schema 7 independently configures inactivity and absolute lifetime from
+`0` through `2,592,000` seconds; zero disables that limit, while the prior
+30-minute and 8-hour values remain defaults for schemas 1–6 and absent
+configuration. Lifetime checks occur only after Authentication and do not alter
+principal binding, protocol headers, termination, or anonymous stateless behavior.
+Anonymous access remains stateless and sends the negotiated
 `MCP-Protocol-Version` without a session identifier after initialization. This context establishes no Tool
 authority, policy, approval, or mutation consent.
 
