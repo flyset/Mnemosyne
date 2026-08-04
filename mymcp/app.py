@@ -55,6 +55,7 @@ def create_app(
     authenticator: Authenticator | None = None,
     *,
     oauth_protected_resource: OAuthProtectedResource | None = None,
+    strict_protocol_version: bool = True,
 ) -> FastAPI:
     selected_authenticator = (
         compose_authenticator((), anonymous_enabled=True)
@@ -74,6 +75,7 @@ def create_app(
                 MCPDispatcher(runtime),
                 selected_generation,
                 ProcessLocalSessionStore(selected_generation),
+                strict_protocol_version,
             ),
             selected_authenticator,
             oauth_resource_metadata_url=(
@@ -102,9 +104,14 @@ def create_production_app(
     runtime = build_production_runtime(selected_configuration)
     oauth_protected_resource = _oauth_protected_resource(selected_configuration)
     if oauth_protected_resource is None:
-        return create_app(runtime, authenticator)
+        return create_app(
+            runtime,
+            authenticator,
+            strict_protocol_version=selected_configuration.mcp.strict_protocol_version,
+        )
     return create_app(
         runtime,
         authenticator,
         oauth_protected_resource=oauth_protected_resource,
+        strict_protocol_version=selected_configuration.mcp.strict_protocol_version,
     )

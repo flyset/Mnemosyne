@@ -30,6 +30,7 @@ def _application(
     *,
     token_factory=lambda: "a" * 43,
     maximum_sessions: int = 128,
+    strict_protocol_version: bool = True,
 ) -> tuple[PrincipalAwareMCPApplication, list[dict[str, Any]]]:
     calls: list[dict[str, Any]] = []
 
@@ -59,7 +60,12 @@ def _application(
         token_factory=token_factory,
         maximum_sessions=maximum_sessions,
     )
-    return PrincipalAwareMCPApplication(dispatcher, generation, store), calls
+    return PrincipalAwareMCPApplication(
+        dispatcher,
+        generation,
+        store,
+        strict_protocol_version,
+    ), calls
 
 
 def _initialize(*, request_id: str | None = "initialize") -> dict[str, Any]:
@@ -115,6 +121,65 @@ def test_later_registered_request_requires_matching_session_context_without_expo
     assert accepted.status_code == 200
     assert accepted.headers == {}
     assert calls == [{}]
+
+
+def test_compatibility_mode_uses_only_a_valid_registered_session_protocol_when_header_is_absent() -> None:
+    application, calls = _application(strict_protocol_version=False)
+    initialized = application.handle(_principal(), _initialize())
+    identifier = initialized.headers["MCP-Session-Id"]
+
+    accepted = application.handle(
+        _principal(),
+        {
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "synthetic", "arguments": {}},
+        },
+        session_id=identifier,
+    )
+    unsupported = application.handle(
+        _principal(),
+        {"id": 3, "method": "tools/list"},
+        session_id=identifier,
+        protocol_version="unsupported",
+    )
+    missing_session = application.handle(
+        _principal(),
+        {"id": 4, "method": "tools/list"},
+    )
+    anonymous = application.handle(Principal.anonymous(), {"id": 5, "method": "ping"})
+
+    assert accepted.status_code == 200
+    assert unsupported.status_code == 400
+    assert unsupported.body is None
+    assert missing_session.status_code == 400
+    assert anonymous.status_code == 400
+    assert calls == [{}]
+
+
+def test_compatibility_mode_uses_the_validated_session_fallback_for_stream_and_termination() -> None:
+    application, _ = _application(strict_protocol_version=False)
+    identifier = application.handle(_principal(), _initialize()).headers["MCP-Session-Id"]
+
+    stream = application.validate_stream(
+        _principal(),
+        session_id=identifier,
+        protocol_version=None,
+    )
+    terminated = application.terminate_session(
+        _principal(),
+        session_id=identifier,
+        protocol_version=None,
+    )
+    absent = application.validate_stream(
+        _principal(),
+        session_id=identifier,
+        protocol_version=None,
+    )
+
+    assert stream.status_code == 200
+    assert terminated.status_code == 204
+    assert absent.status_code == 404
 
 
 def test_registered_initialize_rejects_transport_context_and_bad_negotiation_without_minting() -> None:

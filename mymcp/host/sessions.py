@@ -91,9 +91,17 @@ class ProcessLocalSessionStore:
         identifier: SessionId,
         principal: Principal,
         runtime_generation: RuntimeGenerationId,
-        protocol_version: str,
+        protocol_version: str | None,
+        *,
+        allow_missing_protocol_version: bool = False,
     ) -> MCPProtocolSession | None:
-        session = self._lookup(identifier, principal, runtime_generation, protocol_version)
+        session = self._lookup(
+            identifier,
+            principal,
+            runtime_generation,
+            protocol_version,
+            allow_missing_protocol_version=allow_missing_protocol_version,
+        )
         if session is None:
             return None
         now = self._monotonic_clock()
@@ -117,9 +125,17 @@ class ProcessLocalSessionStore:
         identifier: SessionId,
         principal: Principal,
         runtime_generation: RuntimeGenerationId,
-        protocol_version: str,
+        protocol_version: str | None,
+        *,
+        allow_missing_protocol_version: bool = False,
     ) -> bool:
-        session = self.validate(identifier, principal, runtime_generation, protocol_version)
+        session = self.validate(
+            identifier,
+            principal,
+            runtime_generation,
+            protocol_version,
+            allow_missing_protocol_version=allow_missing_protocol_version,
+        )
         if session is None:
             return False
         self._sessions.pop(identifier, None)
@@ -130,13 +146,22 @@ class ProcessLocalSessionStore:
         identifier: SessionId,
         principal: Principal,
         runtime_generation: RuntimeGenerationId,
-        protocol_version: str,
+        protocol_version: str | None,
+        *,
+        allow_missing_protocol_version: bool,
     ) -> MCPProtocolSession | None:
         if (
             not isinstance(identifier, SessionId)
             or not isinstance(principal, Principal)
             or not isinstance(runtime_generation, RuntimeGenerationId)
-            or protocol_version != MCP_PROTOCOL_VERSION
+            or (
+                protocol_version is None
+                and not allow_missing_protocol_version
+            )
+            or (
+                protocol_version is not None
+                and protocol_version != MCP_PROTOCOL_VERSION
+            )
         ):
             return None
         session = self._sessions.get(identifier)
@@ -144,7 +169,10 @@ class ProcessLocalSessionStore:
             session is None
             or session.principal != principal
             or session.runtime_generation != runtime_generation
-            or session.protocol_version != protocol_version
+            or (
+                protocol_version is not None
+                and session.protocol_version != protocol_version
+            )
         ):
             return None
         return session

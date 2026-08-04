@@ -168,6 +168,39 @@ def test_operator_bearer_registered_session_lifecycle_uses_the_common_transport_
     assert (terminated.status_code, terminated.content) == (204, b"")
 
 
+def test_operator_bearer_compatibility_session_accepts_absent_protocol_header() -> None:
+    runtime = type("Runtime", (), {"registry": ToolRegistry(())})()
+    generation = RuntimeGenerationId("operator-compatibility-session-generation")
+    application = PrincipalAwareMCPApplication(
+        MCPDispatcher(runtime),
+        generation,
+        ProcessLocalSessionStore(generation, token_factory=lambda: "a" * 43),
+        strict_protocol_version=False,
+    )
+    app = FastAPI()
+    app.include_router(create_router(application, _operator_authenticator()))
+    client = TestClient(app)
+    authorization = {"Authorization": f"Bearer {CREDENTIAL}"}
+    initialized = client.post(
+        "/mcp",
+        headers=authorization,
+        json={
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": MCP_PROTOCOL_VERSION},
+        },
+    )
+
+    followed = client.post(
+        "/mcp",
+        headers={**authorization, "MCP-Session-Id": initialized.headers["mcp-session-id"]},
+        json={"id": 2, "method": "ping"},
+    )
+
+    assert initialized.status_code == 200
+    assert followed.status_code == 200
+
+
 def test_credential_and_raw_evidence_absent_from_downstream_and_response() -> None:
     client, application = _client(_operator_authenticator())
 

@@ -35,7 +35,9 @@ class SyntheticAdapter:
         return AuthenticationSuccess("session-client")
 
 
-def _client() -> tuple[TestClient, list[dict[str, Any]]]:
+def _client(
+    *, strict_protocol_version: bool = True
+) -> tuple[TestClient, list[dict[str, Any]], FastAPI]:
     calls: list[dict[str, Any]] = []
 
     def handler(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -61,6 +63,7 @@ def _client() -> tuple[TestClient, list[dict[str, Any]]]:
         MCPDispatcher(runtime),
         generation,
         ProcessLocalSessionStore(generation, token_factory=lambda: "a" * 43),
+        strict_protocol_version,
     )
     authenticator = compose_authenticator(
         (
@@ -74,7 +77,7 @@ def _client() -> tuple[TestClient, list[dict[str, Any]]]:
     )
     app = FastAPI()
     app.include_router(create_router(application, authenticator))
-    return TestClient(app), calls
+    return TestClient(app), calls, app
 
 
 def _initialize() -> dict[str, Any]:
@@ -90,7 +93,7 @@ def _registered_headers() -> dict[str, str]:
 
 
 def test_registered_initialize_serializes_only_the_approved_session_header() -> None:
-    client, _ = _client()
+    client, _, _ = _client()
 
     response = client.post("/mcp", headers=_registered_headers(), json=_initialize())
 
@@ -100,7 +103,7 @@ def test_registered_initialize_serializes_only_the_approved_session_header() -> 
 
 
 def test_registered_followup_requires_single_valid_headers_before_logging_or_dispatch(caplog) -> None:
-    client, calls = _client()
+    client, calls, _ = _client()
     identifier = client.post(
         "/mcp", headers=_registered_headers(), json=_initialize()
     ).headers["mcp-session-id"]
@@ -156,7 +159,7 @@ def test_registered_followup_requires_single_valid_headers_before_logging_or_dis
 
 
 def test_registered_delete_terminates_only_the_valid_session_and_get_requires_it() -> None:
-    client, _ = _client()
+    client, _, _ = _client()
     identifier = client.post(
         "/mcp", headers=_registered_headers(), json=_initialize()
     ).headers["mcp-session-id"]
@@ -177,8 +180,59 @@ def test_registered_delete_terminates_only_the_valid_session_and_get_requires_it
     assert (missing_get.status_code, missing_get.content) == (400, b"")
 
 
+def test_compatibility_mode_accepts_captured_registered_sequence_without_protocol_header() -> None:
+    client, calls, _ = _client(strict_protocol_version=False)
+    identifier = client.post(
+        "/mcp", headers=_registered_headers(), json=_initialize()
+    ).headers["mcp-session-id"]
+    headers = {**_registered_headers(), "MCP-Session-Id": identifier}
+
+    followed = client.post(
+        "/mcp",
+        headers=headers,
+        json={"id": 2, "method": "tools/call", "params": {"name": "synthetic"}},
+    )
+    terminated = client.delete("/mcp", headers=headers)
+
+    assert followed.status_code == 200
+    assert (terminated.status_code, terminated.content) == (204, b"")
+    assert calls == [{}]
+
+
+def test_compatibility_mode_rejects_supplied_invalid_protocol_header_before_dispatch() -> None:
+    client, calls, _ = _client(strict_protocol_version=False)
+    identifier = client.post(
+        "/mcp", headers=_registered_headers(), json=_initialize()
+    ).headers["mcp-session-id"]
+
+    invalid = client.post(
+        "/mcp",
+        headers={
+            **_registered_headers(),
+            "MCP-Session-Id": identifier,
+            "MCP-Protocol-Version": "unsupported",
+        },
+        content=b"not-json",
+    )
+
+    assert (invalid.status_code, invalid.content) == (400, b"")
+    assert calls == []
+
+
+def test_strict_mode_rejects_registered_get_and_delete_without_protocol_header() -> None:
+    client, _, _ = _client()
+    identifier = client.post(
+        "/mcp", headers=_registered_headers(), json=_initialize()
+    ).headers["mcp-session-id"]
+    headers = {**_registered_headers(), "MCP-Session-Id": identifier}
+
+    deleted = client.delete("/mcp", headers=headers)
+
+    assert (deleted.status_code, deleted.content) == (400, b"")
+
+
 def test_authentication_precedes_session_header_validation_and_anonymous_remains_compatible() -> None:
-    client, _ = _client()
+    client, _, _ = _client()
 
     unauthenticated = client.post(
         "/mcp",
@@ -204,7 +258,7 @@ def test_authentication_precedes_session_header_validation_and_anonymous_remains
 
 
 def test_unknown_registered_session_is_rejected_before_invalid_json_body_parsing() -> None:
-    client, _ = _client()
+    client, _, _ = _client()
 
     response = client.post(
         "/mcp",

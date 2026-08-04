@@ -9,7 +9,7 @@ client principal or rejects the request.
 Authentication answers **who the client is**. Governance decides what that
 principal may do.
 
-MyMCP `0.8.0` retains the contract-version-1 principal, adapter-result,
+MyMCP `0.9.0` retains the contract-version-1 principal, adapter-result,
 evidence-routing, configuration, and anonymous HTTP foundation, plus two
 alternative production methods: `operator-bearer-v1` and
 `oauth-jwt-jwks-v1`. Authentication contract v1 is unchanged. Schema 5 selects
@@ -112,7 +112,10 @@ Authentication runs before every session lookup; `MCP-Session-Id` is never
 Authentication evidence. Under MCP `2025-11-25`, a registered principal's
 successful response-bearing `initialize` creates one opaque process-local session
 and returns `MCP-Session-Id`. Later registered `/mcp` traffic must repeat exact
-singleton session and `MCP-Protocol-Version` headers. Sessions bind the complete
+singleton session and `MCP-Protocol-Version` headers. Schema 6 may explicitly
+permit only an absent protocol header on an already authenticated, validated
+registered session; the host then uses that session's immutable negotiated version.
+Supplied-header validation and anonymous stateless behavior remain strict. Sessions bind the complete
 normalized principal and host runtime generation, are not persisted or shared
 across restart, and are unavailable to adapters, generic MCP, plugins, and plugin
 data. Anonymous access remains stateless and sends the negotiated

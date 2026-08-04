@@ -117,6 +117,26 @@ issuer = "{ISSUER}"
     )
 
 
+def _schema6_compatibility_configuration():
+    from mymcp.host.configuration import parse_host_configuration_toml
+
+    return parse_host_configuration_toml(
+        f'''schema_version = 6
+[authentication]
+anonymous_enabled = false
+[[authentication.adapters]]
+id = "external-oauth"
+type = "oauth-jwt-jwks-v1"
+enabled = true
+route = {{source = "authorization", scheme = "bearer"}}
+[authentication.oauth_jwt]
+issuer = "{ISSUER}"
+[mcp]
+strict_protocol_version = false
+'''
+    )
+
+
 def _valid_token(
     private: rsa.RSAPrivateKey,
     *,
@@ -356,6 +376,33 @@ def test_oauth_registered_session_lifecycle_uses_the_common_transport_contract(
     assert initialized.status_code == 200
     assert followed.status_code == 200
     assert (terminated.status_code, terminated.content) == (204, b"")
+
+
+def test_oauth_compatibility_session_accepts_absent_protocol_header(
+    isolated_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private = _install_oauth_seam(monkeypatch)
+    client = TestClient(create_production_app(_schema6_compatibility_configuration()))
+    authorization = {"Authorization": f"Bearer {_valid_token(private)}"}
+    initialized = client.post(
+        "/mcp",
+        headers=authorization,
+        json={
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2025-11-25"},
+        },
+    )
+
+    followed = client.post(
+        "/mcp",
+        headers={**authorization, "MCP-Session-Id": initialized.headers["mcp-session-id"]},
+        json={"id": 2, "method": "ping"},
+    )
+
+    assert initialized.status_code == 200
+    assert followed.status_code == 200
 
 
 # --------------------------------------------------------------------------- #

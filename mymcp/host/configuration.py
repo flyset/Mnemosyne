@@ -21,7 +21,7 @@ from mymcp.plugin.contracts import PluginId
 
 
 HOST_CONFIGURATION_SCHEMA_VERSION = 1
-SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2, 3, 4, 5})
+SUPPORTED_HOST_CONFIGURATION_SCHEMA_VERSIONS = frozenset({1, 2, 3, 4, 5, 6})
 DEFAULT_SERVER_ADDRESS = "127.0.0.1"
 DEFAULT_SERVER_PORT = 8000
 XDG_CONFIG_HOME_ENV = "XDG_CONFIG_HOME"
@@ -460,6 +460,15 @@ class HostAuthenticationConfiguration:
 
 
 @dataclass(frozen=True, slots=True)
+class HostMCPConfiguration:
+    strict_protocol_version: bool
+
+    def __post_init__(self) -> None:
+        if type(self.strict_protocol_version) is not bool:
+            raise ValueError("invalid host MCP configuration")
+
+
+@dataclass(frozen=True, slots=True)
 class HostConfiguration:
     schema_version: HostConfigurationSchemaVersion
     server: HostServerConfiguration
@@ -467,12 +476,14 @@ class HostConfiguration:
     authentication: HostAuthenticationConfiguration = HostAuthenticationConfiguration(
         True, ()
     )
+    mcp: HostMCPConfiguration = HostMCPConfiguration(True)
 
     def __post_init__(self) -> None:
         if (
             not isinstance(self.schema_version, HostConfigurationSchemaVersion)
             or not isinstance(self.server, HostServerConfiguration)
             or not isinstance(self.authentication, HostAuthenticationConfiguration)
+            or not isinstance(self.mcp, HostMCPConfiguration)
             or type(self.plugins) is not tuple
             or any(
                 not isinstance(plugin, ExternalPluginDeclaration)
@@ -481,7 +492,7 @@ class HostConfiguration:
             or len({plugin.plugin_id for plugin in self.plugins}) != len(self.plugins)
             or any(
                 (plugin.manifest_path is not None)
-                != (self.schema_version.value in {2, 3, 4, 5})
+                != (self.schema_version.value in {2, 3, 4, 5, 6})
                 for plugin in self.plugins
             )
             or (
@@ -506,7 +517,7 @@ class HostConfiguration:
                 )
             )
             or (
-                self.schema_version.value == 5
+                self.schema_version.value in {5, 6}
                 and (
                     (self.authentication.operator_bearer is not None)
                     != _has_operator_bearer_declaration(
@@ -528,6 +539,10 @@ class HostConfiguration:
                     )
                 )
             )
+            or (
+                self.schema_version.value != 6
+                and self.mcp != HostMCPConfiguration(True)
+            )
         ):
             raise ValueError("invalid host configuration")
 
@@ -540,6 +555,7 @@ class HostConfiguration:
             server=HostServerConfiguration(),
             plugins=(),
             authentication=HostAuthenticationConfiguration(True, ()),
+            mcp=HostMCPConfiguration(True),
         )
 
 
@@ -730,7 +746,7 @@ def _parse_authentication(
 ) -> HostAuthenticationConfiguration:
     allowed_keys = (
         {"anonymous_enabled", "adapters", "operator_bearer", "oauth_jwt"}
-        if schema_version == 5
+        if schema_version in {5, 6}
         else {"anonymous_enabled", "adapters", "operator_bearer"}
         if schema_version == 4
         else {"anonymous_enabled", "adapters"}
@@ -749,7 +765,7 @@ def _parse_authentication(
 
     adapters = tuple(_parse_authentication_adapter(item) for item in raw_adapters)
     if (
-        schema_version == 5
+        schema_version in {5, 6}
         and _has_operator_bearer_declaration(adapters)
         and _has_oauth_jwt_declaration(adapters)
     ):
@@ -765,25 +781,25 @@ def _parse_authentication(
         routes.add(adapter.route)
 
     operator_bearer: HostOperatorBearerConfiguration | None = None
-    if schema_version in {4, 5} and value.get("operator_bearer") is not None:
+    if schema_version in {4, 5, 6} and value.get("operator_bearer") is not None:
         operator_bearer = _parse_operator_bearer(value["operator_bearer"])
     if (
-        schema_version in {4, 5}
+        schema_version in {4, 5, 6}
         and _has_operator_bearer_declaration(adapters)
         != (operator_bearer is not None)
     ):
         raise HostConfigurationError("invalid_schema")
 
     oauth_jwt: HostOAuthJwtConfiguration | None = None
-    if schema_version == 5 and value.get("oauth_jwt") is not None:
+    if schema_version in {5, 6} and value.get("oauth_jwt") is not None:
         oauth_jwt = _parse_oauth_jwt(value["oauth_jwt"])
     if (
-        schema_version == 5
+        schema_version in {5, 6}
         and _has_oauth_jwt_declaration(adapters) != (oauth_jwt is not None)
     ):
         raise HostConfigurationError("invalid_schema")
     if (
-        schema_version == 5
+        schema_version in {5, 6}
         and (
             (operator_bearer is not None and oauth_jwt is not None)
             or (
@@ -804,6 +820,15 @@ def _parse_authentication(
         raise HostConfigurationError("invalid_schema") from None
 
 
+def _parse_mcp(value: object) -> HostMCPConfiguration:
+    if not isinstance(value, dict) or set(value) != {"strict_protocol_version"}:
+        raise HostConfigurationError("invalid_schema")
+    try:
+        return HostMCPConfiguration(value["strict_protocol_version"])
+    except (KeyError, ValueError):
+        raise HostConfigurationError("invalid_schema") from None
+
+
 def parse_host_configuration_toml(source: str) -> HostConfiguration:
     try:
         document = tomllib.loads(source)
@@ -815,6 +840,7 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
         "server",
         "plugins",
         "authentication",
+        "mcp",
     }:
         raise HostConfigurationError("invalid_schema")
     if "schema_version" not in document:
@@ -829,7 +855,11 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
     server = _parse_server(document.get("server", {}))
     if schema_version in {1, 2} and "authentication" in document:
         raise HostConfigurationError("invalid_schema")
-    if schema_version in {3, 4, 5} and "authentication" not in document:
+    if schema_version in {3, 4, 5, 6} and "authentication" not in document:
+        raise HostConfigurationError("invalid_schema")
+    if schema_version == 6 and "mcp" not in document:
+        raise HostConfigurationError("invalid_schema")
+    if schema_version != 6 and "mcp" in document:
         raise HostConfigurationError("invalid_schema")
 
     if schema_version == 1:
@@ -838,14 +868,16 @@ def parse_host_configuration_toml(source: str) -> HostConfiguration:
         plugins = _parse_plugins_v2(document.get("plugins", []))
     authentication = (
         _parse_authentication(document["authentication"], schema_version)
-        if schema_version in {3, 4, 5}
+        if schema_version in {3, 4, 5, 6}
         else HostAuthenticationConfiguration(True, ())
     )
+    mcp = _parse_mcp(document["mcp"]) if schema_version == 6 else HostMCPConfiguration(True)
     return HostConfiguration(
         schema_version=HostConfigurationSchemaVersion(schema_version),
         server=server,
         plugins=plugins,
         authentication=authentication,
+        mcp=mcp,
     )
 
 

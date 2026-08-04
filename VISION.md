@@ -31,7 +31,10 @@ schema-5 OAuth integration: `oauth-jwt-jwks-v1` is a startup-fixed alternative
 Bearer method, with one immutable validation snapshot and conditional RFC 9728
 protected-resource metadata/challenge. Authentication still establishes identity
 only. MyMCP `0.8.0` delivers method-neutral, process-local registered-principal
-MCP sessions under protocol revision `2025-11-25`; Governance remains deferred.
+MCP sessions under protocol revision `2025-11-25`. MyMCP `0.9.0` adds schema-6
+configurable protocol-header strictness: default strict handling remains unchanged,
+while explicit compatibility resolves only an absent header from validated
+immutable registered-session context; Governance remains deferred.
 
 ## Role
 
@@ -62,7 +65,7 @@ local Uvicorn factory target. The production surface contains the trusted
 Mnemosyne `0.3.0` adapter over canonical registrations from the extracted bundled
 plugin. Its per-capability contract declarations identify `memory_recall` as
 `1.2.0` and the other seven capabilities as `1.1.0`; MyMCP's host/package/server
-marker is independently `0.8.0`.
+marker is independently `0.9.0`.
 
 The released public-host cutover includes repository and operational
 verification. MyMCP 0.4.0 adds schema-2 external startup composition while

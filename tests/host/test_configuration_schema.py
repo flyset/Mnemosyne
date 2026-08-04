@@ -9,6 +9,7 @@ from mymcp.host.configuration import (
     HostConfiguration,
     HostConfigurationError,
     HostConfigurationSchemaVersion,
+    HostMCPConfiguration,
     HostOperatorBearerConfiguration,
     HostServerConfiguration,
     parse_host_configuration_toml,
@@ -30,6 +31,7 @@ def test_absent_document_defaults_are_explicit_and_immutable() -> None:
         anonymous_enabled=True,
         adapters=(),
     )
+    assert configuration.mcp == HostMCPConfiguration(strict_protocol_version=True)
 
     with pytest.raises(FrozenInstanceError):
         configuration.server.port = 9000  # type: ignore[misc]
@@ -543,7 +545,7 @@ def test_plugin_id_accepts_the_contract_maximum_length() -> None:
         ("schema_version = true", "invalid_schema"),
         ('schema_version = "1"', "invalid_schema"),
         ("schema_version = 0", "unsupported_schema_version"),
-        ("schema_version = 6", "unsupported_schema_version"),
+        ("schema_version = 7", "unsupported_schema_version"),
         ("schema_version = 1\nunknown = true", "invalid_schema"),
         ("schema_version = 1\nserver = []", "invalid_schema"),
         ("schema_version = 1\nplugins = {}", "invalid_schema"),
@@ -558,12 +560,89 @@ def test_document_schema_is_strict_and_versioned(source: str, code: str) -> None
 
 def test_unsupported_schema_version_has_a_fixed_bounded_message() -> None:
     with pytest.raises(HostConfigurationError) as captured:
-        parse_host_configuration_toml("schema_version = 6\n")
+        parse_host_configuration_toml("schema_version = 7\n")
 
     assert captured.value.code == "unsupported_schema_version"
     assert str(captured.value) == (
         "MyMCP configuration schema version is unsupported"
     )
+
+
+def test_schema_v6_requires_exact_immutable_mcp_strictness_setting() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 6
+[authentication]
+anonymous_enabled = true
+[mcp]
+strict_protocol_version = false
+"""
+    )
+
+    assert configuration.schema_version == HostConfigurationSchemaVersion(6)
+    assert configuration.mcp == HostMCPConfiguration(strict_protocol_version=False)
+    with pytest.raises(FrozenInstanceError):
+        configuration.mcp.strict_protocol_version = True  # type: ignore[misc]
+
+
+def test_schema_v6_preserves_operator_bearer_configuration() -> None:
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 6
+[authentication]
+anonymous_enabled = true
+[[authentication.adapters]]
+id = "opencode"
+type = "operator-bearer-v1"
+enabled = true
+route = {source = "authorization", scheme = "bearer"}
+[authentication.operator_bearer]
+verifier_path = "/Users/example/.config/mymcp/operator-bearer.json"
+[mcp]
+strict_protocol_version = false
+"""
+    )
+
+    assert configuration.authentication.operator_bearer == HostOperatorBearerConfiguration(
+        "/Users/example/.config/mymcp/operator-bearer.json"
+    )
+    assert configuration.mcp.strict_protocol_version is False
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "schema_version = 6\n[authentication]\nanonymous_enabled = true\n",
+        "schema_version = 6\n[authentication]\nanonymous_enabled = true\n[mcp]\n",
+        (
+            "schema_version = 6\n[authentication]\nanonymous_enabled = true\n"
+            '[mcp]\nstrict_protocol_version = "false"\n'
+        ),
+        (
+            "schema_version = 6\n[authentication]\nanonymous_enabled = true\n"
+            "[mcp]\nstrict_protocol_version = false\nunknown = true\n"
+        ),
+    ],
+)
+def test_schema_v6_mcp_strictness_shape_is_exact(source: str) -> None:
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(source)
+
+    assert captured.value.code == "invalid_schema"
+
+
+@pytest.mark.parametrize("schema_version", [1, 2, 3, 4, 5])
+def test_prior_schemas_reject_mcp_strictness_table(schema_version: int) -> None:
+    authentication = (
+        "[authentication]\nanonymous_enabled = true\n" if schema_version >= 3 else ""
+    )
+    with pytest.raises(HostConfigurationError) as captured:
+        parse_host_configuration_toml(
+            f"schema_version = {schema_version}\n{authentication}"
+            "[mcp]\nstrict_protocol_version = false\n"
+        )
+
+    assert captured.value.code == "invalid_schema"
 
 
 def test_malformed_or_duplicate_key_toml_has_a_bounded_error() -> None:

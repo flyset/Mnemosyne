@@ -131,7 +131,7 @@ def test_production_app_uses_injected_configuration_without_loading(
         assert selected_configuration is configuration
         return runtime
 
-    def build_app(selected_runtime, selected_authenticator):
+    def build_app(selected_runtime, selected_authenticator, **_kwargs):
         app_calls.append((selected_runtime, selected_authenticator))
         return application
 
@@ -171,11 +171,44 @@ def test_production_app_loads_configuration_once_when_not_injected(
     monkeypatch.setattr(
         app_module,
         "create_app",
-        lambda selected, authenticator: application,
+        lambda selected, authenticator, **_kwargs: application,
     )
 
     assert app_module.create_production_app() is application
     assert loader_calls == 1
+
+
+def test_production_app_propagates_schema_v6_protocol_strictness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = _runtime("production", [])
+    configuration = parse_host_configuration_toml(
+        """
+schema_version = 6
+[authentication]
+anonymous_enabled = true
+[mcp]
+strict_protocol_version = false
+"""
+    )
+    observed: dict[str, object] = {}
+
+    monkeypatch.setattr(bootstrap, "build_production_runtime", lambda _configuration: runtime)
+
+    def build_app(selected_runtime, selected_authenticator, *, strict_protocol_version=True):
+        observed.update(
+            runtime=selected_runtime,
+            authenticator=selected_authenticator,
+            strict_protocol_version=strict_protocol_version,
+        )
+        return object()
+
+    monkeypatch.setattr(app_module, "create_app", build_app)
+
+    app_module.create_production_app(configuration)
+
+    assert observed["runtime"] is runtime
+    assert observed["strict_protocol_version"] is False
 
 
 def test_runtime_requests_never_reload_host_configuration(
@@ -492,7 +525,7 @@ def test_production_app_loads_verifier_source_before_runtime_construction(
     monkeypatch.setattr(
         app_module,
         "create_app",
-        lambda _runtime, _authenticator: object(),
+        lambda _runtime, _authenticator, **_kwargs: object(),
     )
 
     application = app_module.create_production_app(configuration)

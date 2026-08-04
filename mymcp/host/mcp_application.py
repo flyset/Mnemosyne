@@ -45,12 +45,14 @@ class PrincipalAwareMCPApplication:
         default_factory=lambda: ProcessLocalSessionStore(_DEFAULT_RUNTIME_GENERATION),
         repr=False,
     )
+    strict_protocol_version: bool = True
 
     def __post_init__(self) -> None:
         if (
             not isinstance(self.dispatcher, MCPDispatcher)
             or not isinstance(self.runtime_generation, RuntimeGenerationId)
             or not isinstance(self.sessions, ProcessLocalSessionStore)
+            or type(self.strict_protocol_version) is not bool
         ):
             raise ValueError("invalid principal-aware MCP application")
 
@@ -106,9 +108,11 @@ class PrincipalAwareMCPApplication:
                 200,
                 {"MCP-Session-Id": session.identifier.value},
             )
-        if session_id is None or protocol_version is None:
+        if session_id is None or (
+            protocol_version is None and self.strict_protocol_version
+        ):
             return MCPApplicationResult(None, 400)
-        if protocol_version != MCP_PROTOCOL_VERSION:
+        if protocol_version is not None and protocol_version != MCP_PROTOCOL_VERSION:
             return MCPApplicationResult(None, 400)
         try:
             identifier = SessionId(session_id)
@@ -119,6 +123,7 @@ class PrincipalAwareMCPApplication:
             principal,
             self.runtime_generation,
             protocol_version,
+            allow_missing_protocol_version=not self.strict_protocol_version,
         )
         if session is None:
             return MCPApplicationResult(None, 404)
@@ -154,12 +159,12 @@ class PrincipalAwareMCPApplication:
         if principal.kind is PrincipalKind.ANONYMOUS:
             return MCPApplicationResult(None, 404)
         assert session_id is not None
-        assert protocol_version is not None
         terminated = self.sessions.terminate(
             SessionId(session_id),
             principal,
             self.runtime_generation,
             protocol_version,
+            allow_missing_protocol_version=not self.strict_protocol_version,
         )
         return MCPApplicationResult(None, 204 if terminated else 404)
 
@@ -179,9 +184,11 @@ class PrincipalAwareMCPApplication:
                 None,
                 200 if protocol_version == MCP_PROTOCOL_VERSION else 400,
             )
-        if session_id is None or protocol_version is None:
+        if session_id is None or (
+            protocol_version is None and self.strict_protocol_version
+        ):
             return MCPApplicationResult(None, 400)
-        if protocol_version != MCP_PROTOCOL_VERSION:
+        if protocol_version is not None and protocol_version != MCP_PROTOCOL_VERSION:
             return MCPApplicationResult(None, 400)
         try:
             identifier = SessionId(session_id)
@@ -192,6 +199,7 @@ class PrincipalAwareMCPApplication:
             principal,
             self.runtime_generation,
             protocol_version,
+            allow_missing_protocol_version=not self.strict_protocol_version,
         )
         return MCPApplicationResult(None, 200 if session is not None else 404)
 
