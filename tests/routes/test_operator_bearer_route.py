@@ -34,6 +34,11 @@ from mymcp.authentication.router import (
     Authenticator,
     compose_authenticator,
 )
+from mymcp.host.mcp_application import PrincipalAwareMCPApplication
+from mymcp.host.runtime import RuntimeGenerationId
+from mymcp.host.sessions import MCP_PROTOCOL_VERSION, ProcessLocalSessionStore
+from mymcp.mcp.dispatcher import MCPDispatcher
+from mymcp.mcp.tool_registry import ToolRegistration, ToolRegistry
 from mymcp.routes.mcp import create_router
 
 OPERATOR_ROUTE = EvidenceRoute("authorization", "bearer", None)
@@ -109,6 +114,58 @@ def test_valid_operator_bearer_post_delivers_registered_principal() -> None:
     principal, message = application.calls[0]
     assert principal == Principal.registered(ADAPTER_ID, SUBJECT)
     assert message == {"id": 1, "method": "ping"}
+
+
+def test_operator_bearer_registered_session_lifecycle_uses_the_common_transport_contract() -> None:
+    runtime = type(
+        "Runtime",
+        (),
+        {
+            "registry": ToolRegistry(
+                (
+                    ToolRegistration(
+                        tool={
+                            "name": "synthetic",
+                            "description": "Synthetic Tool.",
+                            "inputSchema": {"type": "object", "properties": {}},
+                        },
+                        handler=lambda _arguments: {"content": []},
+                    ),
+                )
+            )
+        },
+    )()
+    generation = RuntimeGenerationId("operator-session-generation")
+    application = PrincipalAwareMCPApplication(
+        MCPDispatcher(runtime),
+        generation,
+        ProcessLocalSessionStore(generation, token_factory=lambda: "a" * 43),
+    )
+    app = FastAPI()
+    app.include_router(create_router(application, _operator_authenticator()))
+    client = TestClient(app)
+    authorization = {"Authorization": f"Bearer {CREDENTIAL}"}
+
+    initialized = client.post(
+        "/mcp",
+        headers=authorization,
+        json={
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": MCP_PROTOCOL_VERSION},
+        },
+    )
+    session_headers = {
+        **authorization,
+        "MCP-Session-Id": initialized.headers["mcp-session-id"],
+        "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+    }
+    followed = client.post("/mcp", headers=session_headers, json={"id": 2, "method": "ping"})
+    terminated = client.delete("/mcp", headers=session_headers)
+
+    assert initialized.status_code == 200
+    assert followed.status_code == 200
+    assert (terminated.status_code, terminated.content) == (204, b"")
 
 
 def test_credential_and_raw_evidence_absent_from_downstream_and_response() -> None:

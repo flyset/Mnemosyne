@@ -334,7 +334,7 @@ def test_production_app_route_surface_remains_mcp_health_version(
     production_client,
 ) -> None:
     assert _public_routes(production_client.app) == {
-        "/mcp": frozenset({"GET", "POST"}),
+        "/mcp": frozenset({"GET", "POST", "DELETE"}),
         "/health": frozenset({"GET"}),
         "/version": frozenset({"GET"}),
     }
@@ -354,7 +354,7 @@ def test_no_oauth_resource_server_routes_are_reachable(production_client, path) 
 
 def test_default_tool_surface_stays_exact_read_only_set(production_client) -> None:
     tools = production_client.post(
-        "/mcp", json={"id": "tools", "method": "tools/list"}
+        "/mcp", headers={"MCP-Protocol-Version": "2025-11-25"}, json={"id": "tools", "method": "tools/list"}
     ).json()["result"]["tools"]
     names = [tool["name"] for tool in tools]
     assert names == ["list_tools", "memory_recall", "memory_list", "memory_inspect"]
@@ -368,14 +368,16 @@ def test_mcp_dispatch_preserves_initialize_contract(production_client) -> None:
 
     assert response.status_code == 200
     assert response.json()["result"] == {
-        "protocolVersion": "2024-11-05",
+        "protocolVersion": "2025-11-25",
         "capabilities": {"tools": {}},
-        "serverInfo": {"name": "mymcp", "version": "0.7.0"},
+        "serverInfo": {"name": "mymcp", "version": "0.8.0"},
     }
 
 
 def test_mcp_dispatch_rejects_unknown_methods_unchanged(production_client) -> None:
-    response = production_client.post("/mcp", json={"id": "r", "method": "missing"})
+    response = production_client.post(
+        "/mcp", headers={"MCP-Protocol-Version": "2025-11-25"}, json={"id": "r", "method": "missing"}
+    )
 
     assert response.json() == {
         "jsonrpc": "2.0",

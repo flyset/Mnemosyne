@@ -33,10 +33,11 @@ def test_default_production_factory_preserves_public_read_only_surface(
 
     initialized = client.post("/mcp", json={"id": "init", "method": "initialize"})
     version = client.get("/version")
-    discovered = client.post("/mcp", json={"id": "tools", "method": "tools/list"})
+    headers = {"MCP-Protocol-Version": "2025-11-25"}
+    discovered = client.post("/mcp", headers=headers, json={"id": "tools", "method": "tools/list"})
     reported = client.post(
         "/mcp",
-        json={
+        headers=headers, json={
             "id": "reported",
             "method": "tools/call",
             "params": {"name": "list_tools", "arguments": {}},
@@ -44,7 +45,7 @@ def test_default_production_factory_preserves_public_read_only_surface(
     )
     listed = client.post(
         "/mcp",
-        json={
+        headers=headers, json={
             "id": "list",
             "method": "tools/call",
             "params": {
@@ -55,7 +56,7 @@ def test_default_production_factory_preserves_public_read_only_surface(
     )
     recalled = client.post(
         "/mcp",
-        json={
+        headers=headers, json={
             "id": "recall",
             "method": "tools/call",
             "params": {
@@ -71,15 +72,15 @@ def test_default_production_factory_preserves_public_read_only_surface(
     assert client.app.title == "MyMCP"
     assert initialized.status_code == 200
     assert initialized.json()["result"] == {
-        "protocolVersion": "2024-11-05",
+        "protocolVersion": "2025-11-25",
         "capabilities": {"tools": {}},
-        "serverInfo": {"name": "mymcp", "version": "0.7.0"},
+        "serverInfo": {"name": "mymcp", "version": "0.8.0"},
     }
     assert version.status_code == 200
     assert version.json() == {
         "name": "mymcp",
-        "version": "0.7.0",
-        "protocolVersion": "2024-11-05",
+        "version": "0.8.0",
+        "protocolVersion": "2025-11-25",
     }
     assert discovered.status_code == 200
     assert discovered.json()["result"]["tools"] == expected_tools
@@ -88,7 +89,7 @@ def test_default_production_factory_preserves_public_read_only_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mymcp 0.7.0. Available tools: "
+                    "Server: mymcp 0.8.0. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect"
                 ),
             }

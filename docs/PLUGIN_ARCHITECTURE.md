@@ -15,8 +15,9 @@
 > `operator-bearer-v1` registered adapter and host configuration schema 4 while
 > retaining Authentication contract v1. TRACK_045 delivers MyMCP `0.7.0`, schema
 > 5 OAuth integration, conditional RFC 9728 protected-resource metadata, and the
-> OAuth-only Bearer challenge. OAuth establishes identity only; sessions,
-> Governance policy, approval, and audit remain later Phase 4 Tracks.
+> OAuth-only Bearer challenge. TRACK_046 delivers MyMCP `0.8.0` process-local,
+> registered-principal MCP session context under protocol `2025-11-25`; Governance
+> policy, approval, and audit remain later Phase 4 Tracks.
 
 ## Purpose
 
@@ -121,8 +122,9 @@ mymcp/
     runtime.py
     bootstrap.py
     authentication.py            # production Authentication composition
-    mcp_application.py           # principal-aware MCP application seam
-    gateway.py                   # principals, sessions, policy, approval
+    mcp_application.py           # principal/session MCP application seam
+    sessions.py                  # bounded process-local session lifecycle
+    gateway.py                   # future policy and approval
     audit.py                     # bounded host security records
 
   plugins/                        # concrete bundled plugins
@@ -297,8 +299,8 @@ Several identities must remain separate:
 
 | Dimension | Owner | Compatibility and evolution rule | Target example |
 | --- | --- | --- | --- |
-| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.7.0` |
-| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.7.0` |
+| MyMCP distribution version | MyMCP release | Semantic package/release evolution; it does not version a plugin or generation | `0.8.0` |
+| Endpoint/server identity and marker | MyMCP endpoint | Public compatibility marker, normally equal to the release version but changed only through an explicit endpoint migration | `mymcp 0.8.0` |
 | MCP protocol version | MCP specification and endpoint negotiation | Session-negotiated independently of plugin APIs | supported MCP revision |
 | Host plugin API | MyMCP | Integer logical-contract level; incompatible manifest, definition, or composition semantics require a new level | `1` |
 | Manifest schema | MyMCP | Strict integer shape; unsupported versions fail closed | `1` |
@@ -327,7 +329,7 @@ Mnemosyne record schema versions remain plugin-owned.
 Current bundled Mnemosyne declares its plugin version as `0.3.0` and each
 capability version explicitly: `memory_recall` is `1.2.0`; the other seven
 `memory_*` capabilities are `1.1.0`. MyMCP's host/package/endpoint marker is
-independently `0.7.0`. Bundling does not merge host, plugin, or capability version
+independently `0.8.0`. Bundling does not merge host, plugin, or capability version
 ownership. A test-owned, version-keyed canonical-JSON Tool-definition
 digest ledger couples each declared capability version to a SHA-256 digest and
 readable properties/required-field fingerprints, preserving historical entries
@@ -706,7 +708,7 @@ not manufacture consent.
 
 ## Configuration and plugin-owned data
 
-MyMCP 0.7.0 supports host configuration schemas 1–5. Schema 1 remains an
+MyMCP 0.8.0 supports host configuration schemas 1–5. Schema 1 remains an
 exact immutable desired-state contract: an enabled declaration fails with
 `enabled_plugin_unsupported`. Schema 2 explicitly adds an absolute manifest
 path and dotted module locator to every declaration, including disabled ones.

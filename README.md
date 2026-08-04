@@ -4,7 +4,7 @@ MyMCP is the repository and Python host package for an experimental local MCP
 server. Released `0.2.0` established the host, application, package, and official
 tracked client as MyMCP/`mymcp`; `0.2.1` remains the Ollama schema-compatibility
 build and `0.3.0` the host-configuration foundation. The current
-MyMCP/package/server version is `0.7.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
+MyMCP/package/server version is `0.8.0`. It hosts Mnemosyne, the user-governed AI memory domain, through a
 bundled plugin.
 
 Its intended direction is a local, client-neutral MCP host and governance gateway
@@ -31,7 +31,7 @@ manifest/definition/contribution parity before generation construction.
 The plugin's trusted in-process Mnemosyne `0.3.0` adapter supplies canonical
 registrations. Every capability declares its own contract version: `memory_recall`
 is `1.2.0`; the other seven `memory_*` capabilities are `1.1.0`. The MyMCP
-host/package/server is independently `0.7.0`. A test-owned,
+host/package/server is independently `0.8.0`. A test-owned,
 version-keyed canonical Tool-definition digest ledger retains readable
 properties/required-field fingerprints and historical entries, so definition
 drift cannot silently reuse a capability version. The ledger covers declared Tool
@@ -81,7 +81,20 @@ metadata at `/.well-known/oauth-protected-resource/mcp` and sends its exact
 Bearer metadata challenge on failed `/mcp` authentication. The loopback HTTP
 resource is an explicit local interoperability exception, not remote or TLS-ready
 OAuth deployment.
-Sessions, Governance policy, Tool authorization, exact-call approval, and
+MyMCP `0.8.0` implements bounded process-local MCP sessions for registered
+principals under Streamable HTTP revision `2025-11-25`. Each `/mcp` request is
+authenticated before session validation. A successful registered, response-bearing
+`initialize` offering that revision returns one opaque `MCP-Session-Id`; later
+registered POST and GET requests require that header and exactly one
+`MCP-Protocol-Version: 2025-11-25`. Sessions bind the complete normalized
+principal and runtime generation, expire after 30 minutes of inactivity or eight
+hours absolute lifetime, disappear at restart, and can be terminated with an
+authenticated `DELETE /mcp`. Session failures are body-free 400, 404, or 503
+responses. Anonymous access remains explicitly configured and stateless; after
+initialization, its POST and GET traffic carries `MCP-Protocol-Version: 2025-11-25`
+but never an `MCP-Session-Id`. Sessions
+do not authorize Tools, replace mutation consent, expose data to plugins, or add
+Governance policy. Governance policy, Tool authorization, exact-call approval, and
 security audit remain unimplemented. See [Authentication](docs/AUTHENTICATION.md).
 Gateway governance remains deferred. See
 [host configuration](docs/CONFIGURATION.md) and
@@ -509,7 +522,7 @@ arguments, paths, fingerprints, exception details, and tracebacks.
 
 `list_tools` prefixes the discovered Tool names with the same static server
 version exposed by MCP initialize and `/version`, for example
-`Server: mymcp 0.7.0.`. Restart the server and reconnect the client after an
+`Server: mymcp 0.8.0.`. Restart the server and reconnect the client after an
 upgrade; a prior marker identifies a stale process.
 
 ## Archiving and Restoring Memory

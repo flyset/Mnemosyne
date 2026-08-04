@@ -1,6 +1,6 @@
 [project]
 name = "mymcp"
-version = "0.7.0"
+version = "0.8.0"
 description = "Local-first MCP host for narrowly scoped integrations, with bundled Mnemosyne memory."
 readme = "README.md"
 requires-python = ">=3.11"

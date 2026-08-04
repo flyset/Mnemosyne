@@ -328,6 +328,36 @@ def test_oauth_valid_token_reaches_app_without_challenge(
     assert "WWW-Authenticate" not in caplog.text
 
 
+def test_oauth_registered_session_lifecycle_uses_the_common_transport_contract(
+    isolated_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private = _install_oauth_seam(monkeypatch)
+    client = TestClient(create_production_app(_schema5_configuration()))
+    authorization = {"Authorization": f"Bearer {_valid_token(private)}"}
+
+    initialized = client.post(
+        "/mcp",
+        headers=authorization,
+        json={
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2025-11-25"},
+        },
+    )
+    session_headers = {
+        **authorization,
+        "MCP-Session-Id": initialized.headers["mcp-session-id"],
+        "MCP-Protocol-Version": "2025-11-25",
+    }
+    followed = client.post("/mcp", headers=session_headers, json={"id": 2, "method": "ping"})
+    terminated = client.delete("/mcp", headers=session_headers)
+
+    assert initialized.status_code == 200
+    assert followed.status_code == 200
+    assert (terminated.status_code, terminated.content) == (204, b"")
+
+
 # --------------------------------------------------------------------------- #
 # Operator / anonymous / default / disabled-OAuth stay challenge- and route-free
 # --------------------------------------------------------------------------- #

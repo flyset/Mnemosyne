@@ -1,7 +1,7 @@
 # MCP Scope Rules
 
 - This is the MyMCP host's MCP layer, dispatching the runtime-bound
-  MyMCP/`mymcp` `0.7.0` endpoint surface through the extracted trusted bundled
+  MyMCP/`mymcp` `0.8.0` endpoint surface through the extracted trusted bundled
   Mnemosyne 0.3.0 adapter. Static bootstrap validates bundled parity and enabled
   schema-2 external manifests before any external import, then composes one
   immutable runtime. Mnemosyne Tool and domain compatibility remain preserved;

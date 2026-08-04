@@ -9,14 +9,15 @@ client principal or rejects the request.
 Authentication answers **who the client is**. Governance decides what that
 principal may do.
 
-MyMCP `0.7.0` delivers the contract-version-1 principal, adapter-result,
+MyMCP `0.8.0` retains the contract-version-1 principal, adapter-result,
 evidence-routing, configuration, and anonymous HTTP foundation, plus two
 alternative production methods: `operator-bearer-v1` and
 `oauth-jwt-jwks-v1`. Authentication contract v1 is unchanged. Schema 5 selects
 OAuth only from immutable startup configuration and composes one immutable
 validation snapshot before the plugin runtime. Authentication establishes
-identity only; sessions, Governance, Tool authorization, exact-call approval,
-and security audit remain unimplemented.
+identity plus a method-neutral host session boundary. Authentication contract v1,
+adapters, and schemas remain unchanged. Governance, Tool authorization, exact-call
+approval, and security audit remain unimplemented.
 
 ## Adapter Model
 
@@ -104,6 +105,19 @@ similar subject text to distinct canonical principals without collision.
 The plugin runtime, plugins, and plugin data or external services receive no
 authentication credential or adapter capability. They receive only calls that
 have passed the upstream Authentication and Governance boundaries.
+
+## MCP session boundary
+
+Authentication runs before every session lookup; `MCP-Session-Id` is never
+Authentication evidence. Under MCP `2025-11-25`, a registered principal's
+successful response-bearing `initialize` creates one opaque process-local session
+and returns `MCP-Session-Id`. Later registered `/mcp` traffic must repeat exact
+singleton session and `MCP-Protocol-Version` headers. Sessions bind the complete
+normalized principal and host runtime generation, are not persisted or shared
+across restart, and are unavailable to adapters, generic MCP, plugins, and plugin
+data. Anonymous access remains stateless and sends the negotiated
+`MCP-Protocol-Version` without a session identifier after initialization. This context establishes no Tool
+authority, policy, approval, or mutation consent.
 
 ## Delivered operator-provisioned bearer adapter
 

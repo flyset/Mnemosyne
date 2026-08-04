@@ -25,6 +25,21 @@ client = TestClient(
 )
 
 
+@pytest.fixture(autouse=True)
+def _anonymous_followups_offer_protocol_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    original_post = client.post
+
+    def post(url, *args, **kwargs):
+        message = kwargs.get("json")
+        if not (isinstance(message, dict) and message.get("method") == "initialize"):
+            headers = dict(kwargs.pop("headers", {}))
+            headers.setdefault("MCP-Protocol-Version", PROTOCOL_VERSION)
+            kwargs["headers"] = headers
+        return original_post(url, *args, **kwargs)
+
+    monkeypatch.setattr(client, "post", post)
+
+
 def test_importing_route_does_not_configure_global_logging() -> None:
     probe = """
 import logging
@@ -495,6 +510,7 @@ def test_mcp_route_preserves_claude_style_revise_argument_strings(
 
     response = transport_client.post(
         "/mcp",
+        headers={"MCP-Protocol-Version": PROTOCOL_VERSION},
         json={
             "id": "transport",
             "method": "tools/call",

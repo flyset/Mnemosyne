@@ -12,6 +12,8 @@ from mymcp.host.configuration import (
     load_host_configuration,
 )
 from mymcp.host.mcp_application import PrincipalAwareMCPApplication
+from mymcp.host.runtime import RuntimeGenerationId
+from mymcp.host.sessions import ProcessLocalSessionStore
 from mymcp.mcp.dispatcher import MCPDispatcher, RuntimeLike
 from mymcp.routes.health import router as health_router
 from mymcp.routes.mcp import create_router as create_mcp_router
@@ -60,9 +62,19 @@ def create_app(
         else authenticator
     )
     app = FastAPI(title=APP_TITLE)
+    generation = getattr(runtime, "generation", None)
+    selected_generation = (
+        generation
+        if isinstance(generation, RuntimeGenerationId)
+        else RuntimeGenerationId("application-default")
+    )
     app.include_router(
         create_mcp_router(
-            PrincipalAwareMCPApplication(MCPDispatcher(runtime)),
+            PrincipalAwareMCPApplication(
+                MCPDispatcher(runtime),
+                selected_generation,
+                ProcessLocalSessionStore(selected_generation),
+            ),
             selected_authenticator,
             oauth_resource_metadata_url=(
                 oauth_protected_resource.metadata_url

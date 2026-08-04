@@ -57,15 +57,16 @@ def test_two_apps_use_only_their_explicit_runtime() -> None:
     first = TestClient(create_app(_runtime("first", first_calls)))
     second = TestClient(create_app(_runtime("second", second_calls)))
 
-    assert first.post("/mcp", json={"id": 1, "method": "tools/list"}).json()[
+    headers = {"MCP-Protocol-Version": PROTOCOL_VERSION}
+    assert first.post("/mcp", headers=headers, json={"id": 1, "method": "tools/list"}).json()[
         "result"
     ]["tools"][0]["name"] == "first"
-    assert second.post("/mcp", json={"id": 2, "method": "tools/list"}).json()[
+    assert second.post("/mcp", headers=headers, json={"id": 2, "method": "tools/list"}).json()[
         "result"
     ]["tools"][0]["name"] == "second"
     assert first.post(
         "/mcp",
-        json={
+        headers=headers, json={
             "id": 3,
             "method": "tools/call",
             "params": {"name": "first", "arguments": {"value": 1}},
@@ -73,7 +74,7 @@ def test_two_apps_use_only_their_explicit_runtime() -> None:
     ).json()["result"] == {"content": [], "runtime": "first"}
     assert second.post(
         "/mcp",
-        json={
+        headers=headers, json={
             "id": 4,
             "method": "tools/call",
             "params": {"name": "first", "arguments": {}},
@@ -196,7 +197,9 @@ def test_runtime_requests_never_reload_host_configuration(
     client = TestClient(app_module.create_production_app())
 
     assert client.get("/health").status_code == 200
-    assert client.post("/mcp", json={"id": 1, "method": "tools/list"}).status_code == 200
+    assert client.post(
+        "/mcp", headers={"MCP-Protocol-Version": PROTOCOL_VERSION}, json={"id": 1, "method": "tools/list"}
+    ).status_code == 200
     assert loader_calls == 1
 
 
@@ -329,7 +332,9 @@ def test_existing_application_is_stable_after_configuration_file_changes(
     )
     configuration_path.chmod(0o600)
 
-    response = client.post("/mcp", json={"id": 1, "method": "tools/list"})
+    response = client.post(
+        "/mcp", headers={"MCP-Protocol-Version": PROTOCOL_VERSION}, json={"id": 1, "method": "tools/list"}
+    )
     assert response.status_code == 200
     assert [tool["name"] for tool in response.json()["result"]["tools"]] == [
         "list_tools",
@@ -382,7 +387,9 @@ def test_running_external_application_does_not_reread_changed_manifest(
     client = TestClient(app_module.create_production_app())
     manifest.write_bytes(b"{")
 
-    assert client.post("/mcp", json={"id": 1, "method": "tools/list"}).status_code == 200
+    assert client.post(
+        "/mcp", headers={"MCP-Protocol-Version": PROTOCOL_VERSION}, json={"id": 1, "method": "tools/list"}
+    ).status_code == 200
     with pytest.raises(bootstrap.ExternalPluginLoadError) as captured:
         app_module.create_production_app()
     assert captured.value.code == "external_manifest_invalid"

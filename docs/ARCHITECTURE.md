@@ -19,8 +19,9 @@ configuration schema 2, and Phase 3 external startup composition while retaining
 exact schema-1 compatibility.
 TRACK_042 delivers MyMCP `0.5.0`, Authentication contract version 1, normalized
 namespaced principals, exact no-fallback routing, host configuration schema 3,
-and explicit compatibility anonymous access. Sessions and Governance remain
-deferred. TRACK_043 delivers MyMCP `0.6.0`, host
+and explicit compatibility anonymous access. TRACK_046 delivers MyMCP `0.8.0`
+method-neutral registered-principal MCP sessions under protocol `2025-11-25`;
+Governance remains deferred. TRACK_043 delivers MyMCP `0.6.0`, host
 configuration schema 4 and the transport-neutral `operator-bearer-v1` production
 adapter over unchanged Authentication contract v1. TRACK_045 delivers MyMCP
 `0.7.0`, schema 5, and `oauth-jwt-jwks-v1` as a startup-fixed alternative
@@ -105,7 +106,7 @@ The approved target is defined in
 Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
 adapter over canonical registrations. `memory_recall` declares capability
 contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
-MyMCP's host/package/server marker is independently `0.7.0`. Host configuration
+MyMCP's host/package/server marker is independently `0.8.0`. Host configuration
 is loaded into one immutable startup snapshot before bootstrap. Schema 1 retains
 its exact desired-state behavior and `enabled_plugin_unsupported`; schema 2 has
 explicit locators. Bootstrap preflights every enabled external manifest before
@@ -117,9 +118,11 @@ is compatibility/composition validation, not an authority grant or safety claim.
 Authentication routing/principals are implemented upstream of MCP. Schema-5
 OAuth and operator bearer are alternative production configurations; OAuth adds
 only immutable startup validation, conditional RFC 9728 metadata, and the exact
-OAuth-only Bearer challenge. It establishes identity only. Sessions, Gateway
-governance, Tool authorization, approval, audit, and public metadata beyond this
-protected-resource document remain deferred.
+OAuth-only Bearer challenge. Registered sessions now bind the normalized principal,
+runtime generation, and negotiated MCP context after Authentication, while
+remaining process-local and unavailable to plugins. Gateway governance, Tool
+authorization, approval, audit, and public metadata beyond this protected-resource
+document remain deferred.
 The canonical repository is `https://github.com/flyset/MyMCP`, and the former
 URL redirects there. Local origin/history/tag/placeholder verification is
 complete. The tracked and ignored OpenCode migration uses connection/agent/prefix
@@ -137,12 +140,18 @@ The public HTTP surface is intentionally small:
 
 - `GET /mcp` — MCP stream endpoint.
 - `POST /mcp` — MCP JSON-RPC message endpoint.
+- `DELETE /mcp` — authenticated registered-session termination endpoint.
 - `GET /health` — liveness check for the running process.
 - `GET /version` — server identity and supported MCP protocol version.
 - `GET /.well-known/oauth-protected-resource/mcp` — conditional enabled-OAuth
   RFC 9728 metadata route; it is absent for every other configuration.
 
-The `/mcp` endpoint is the main protocol gate. Most behavior should be expressed as MCP methods or tools, not as extra HTTP routes.
+The `/mcp` endpoint is the main protocol gate. Under `2025-11-25`, a registered
+successful response-bearing initialize returns `MCP-Session-Id`; later registered
+GET/POST/DELETE traffic repeats it with `MCP-Protocol-Version: 2025-11-25` after
+each request's Authentication. Session transport failures are body-free 400/404/503;
+anonymous access remains stateless. Most behavior should be expressed as MCP
+methods or tools, not as extra HTTP routes.
 
 MCP requests receive JSON-RPC result or error bodies. MCP notifications omit
 `id` and receive HTTP `202` with no JSON-RPC body; the transport does not log
@@ -166,7 +175,8 @@ mymcp/
 
   host/
     authentication.py     # production Authentication composition
-    mcp_application.py    # principal-aware, method-neutral application seam
+    mcp_application.py    # principal/session-aware host application seam
+    sessions.py           # process-local registered-principal session lifecycle
     configuration.py    # XDG source, strict schema-1 through schema-5 snapshots
     bootstrap.py        # explicit production runtime construction
     runtime.py          # immutable HostRuntime and opaque generation
@@ -675,7 +685,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.7.0` and is kept equal to the package version. The marker is also
+is `mymcp 0.8.0` and is kept equal to the package version. The marker is also
 returned by initialize and `/version`; the
 public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
 processes after public-contract updates; it is not a dynamic Git identifier or a

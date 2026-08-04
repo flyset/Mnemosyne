@@ -129,7 +129,7 @@ async def test_anonymous_get_preserves_stream_transport() -> None:
             "type": "http",
             "method": "GET",
             "path": "/mcp",
-            "headers": [],
+            "headers": [(b"mcp-protocol-version", b"2025-11-25")],
         }
     )
 

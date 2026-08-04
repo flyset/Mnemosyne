@@ -19,7 +19,8 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam, a
 delivered Phase 2 bundled Mnemosyne extraction, the released MyMCP/`mymcp`
 `0.2.0` public host, the prior `0.2.1` Ollama schema-compatibility build, and the
-current `0.7.0` OAuth Authentication resource-server integration.
+current `0.8.0` MCP principal/session integration over the OAuth Authentication
+resource-server foundation.
 The bundled Mnemosyne plugin is `0.3.0`; memory_recall is capability contract
 `1.2.0`, while its other seven capabilities are `1.1.0`. The canonical
 Mnemosyne adapter, configuration,
@@ -33,8 +34,9 @@ adds the `operator-bearer-v1` verifier-source selector; schema 5 adds the
 `oauth-jwt-jwks-v1` issuer selector, immutable startup validation snapshot, and
 conditional RFC 9728 protected-resource metadata/challenge. The two production
 Bearer methods are mutually exclusive, OAuth establishes identity only, and the
-literal loopback HTTP resource is a local interoperability exception. Sessions and
-Governance policy remain unimplemented. Repository migration, operational
+literal loopback HTTP resource is a local interoperability exception. Registered
+MCP sessions are host-owned, process-local context; Governance policy remains
+unimplemented. Repository migration, operational
 reconnect/approval checks,
 annotated tag creation, and release publication are complete. Startup composition
 for operator-installed, operator-trusted external plugins is delivered: MyMCP

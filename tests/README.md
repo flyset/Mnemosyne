@@ -26,12 +26,14 @@ MyMCP `0.5.0` adds tested Authentication contract/routing/principal behavior,
 schema-3 configuration, explicit anonymous compatibility, and pre-MCP empty-401
 rejection. The delivered `0.6.0` build adds the tested `operator-bearer-v1`
 production adapter, protected verifier-source format 1, schema-4 configuration,
-exact Authorization bearer handling, and registered-principal delivery. Sessions
-and Gateway policy remain deferred. The delivered `0.7.0` build adds tested
+exact Authorization bearer handling, and registered-principal delivery. The delivered `0.7.0` build adds tested
 schema-5 `oauth-jwt-jwks-v1` startup composition, mutually exclusive Bearer
 methods, immutable OAuth validation snapshots, conditional RFC 9728
 protected-resource metadata, and OAuth-only body-free 401 challenges. MCP,
-plugin, Mnemosyne, and Governance behavior remain unchanged.
+plugin, Mnemosyne, and Governance behavior remain unchanged. The delivered `0.8.0`
+build adds focused host and route coverage for reauthenticated, process-local
+registered MCP sessions, session-header transport, termination, and stateless
+anonymous compatibility; it does not add Governance or Tool authorization.
 
 ## Layout
 
