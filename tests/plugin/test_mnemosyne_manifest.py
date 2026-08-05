@@ -120,12 +120,12 @@ def test_mnemosyne_manifest_declares_all_capabilities_in_canonical_order() -> No
         for capability in definition.capabilities
     } == {
         "memory_recall": CapabilityContractVersion("1.2.0"),
-        "memory_list": CapabilityContractVersion("1.1.0"),
+        "memory_list": CapabilityContractVersion("1.2.0"),
         "memory_inspect": CapabilityContractVersion("1.1.0"),
         "memory_archive": CapabilityContractVersion("1.1.0"),
         "memory_restore": CapabilityContractVersion("1.1.0"),
-        "memory_remember": CapabilityContractVersion("1.1.0"),
-        "memory_revise": CapabilityContractVersion("1.1.0"),
+        "memory_remember": CapabilityContractVersion("1.2.0"),
+        "memory_revise": CapabilityContractVersion("1.2.0"),
         "memory_forget": CapabilityContractVersion("1.1.0"),
     }
     assert all(

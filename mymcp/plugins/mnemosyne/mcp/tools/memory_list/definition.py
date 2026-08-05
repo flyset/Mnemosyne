@@ -1,6 +1,5 @@
 from mymcp.plugins.mnemosyne.memory.listing import (
     DEFAULT_MEMORY_LIST_PAGE_SIZE,
-    MAX_MEMORY_LIST_CURSOR_LENGTH,
     MAX_MEMORY_LIST_PAGE_SIZE,
     MIN_MEMORY_LIST_PAGE_SIZE,
 )
@@ -69,7 +68,6 @@ CURSOR_SCHEMA = {
         "request and omit page_size."
     ),
     "minLength": 1,
-    "maxLength": MAX_MEMORY_LIST_CURSOR_LENGTH,
 }
 
 
@@ -93,34 +91,5 @@ TOOL = {
         },
         "required": ["scope"],
         "additionalProperties": False,
-        "oneOf": [
-            {
-                "not": {
-                    "anyOf": [
-                        {"required": ["namespace_id"]},
-                        {"required": ["collection_id"]},
-                        {"required": ["cursor"]},
-                    ],
-                }
-            },
-            {
-                "required": ["namespace_id"],
-                "not": {"required": ["cursor"]},
-            },
-            {
-                "required": ["cursor"],
-                "not": {
-                    "anyOf": [
-                        {"required": ["namespace_id"]},
-                        {"required": ["collection_id"]},
-                        {"required": ["page_size"]},
-                    ]
-                },
-            },
-            {
-                "required": ["namespace_id", "cursor"],
-                "not": {"required": ["page_size"]},
-            },
-        ],
     },
 }

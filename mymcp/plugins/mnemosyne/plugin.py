@@ -82,7 +82,7 @@ _CAPABILITY_DECLARATIONS = (
         "memory_recall", "1.2.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
-        "memory_list", "1.1.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
+        "memory_list", "1.2.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
     ),
     _capability(
         "memory_inspect", "1.1.0", _READ_ONLY_EFFECTS, ConsentRequirement.NONE
@@ -101,13 +101,13 @@ _CAPABILITY_DECLARATIONS = (
     ),
     _capability(
         "memory_remember",
-        "1.1.0",
+        "1.2.0",
         _MUTATING_EFFECTS,
         ConsentRequirement.PER_CALL,
     ),
     _capability(
         "memory_revise",
-        "1.1.0",
+        "1.2.0",
         _DESTRUCTIVE_EFFECTS,
         ConsentRequirement.PER_CALL,
     ),

@@ -99,7 +99,6 @@ def revise_input_schema() -> dict[str, object]:
             "content": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 4_000,
             },
             "tags": {
                 "type": "array",

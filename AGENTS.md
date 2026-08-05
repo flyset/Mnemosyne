@@ -7,32 +7,50 @@ currently hosts the Mnemosyne user-governed memory domain in-process.
 
 ## Principles
 
-- Read before changing.
+- Read before changing, especially `docs/AI_WORKFLOW.md`.
 - Prefer small, explicit MCP tools over broad access.
 - Do not add shell-execution or unrestricted filesystem features.
 - Do not store secrets, tokens, private keys, or sensitive personal data.
 - Keep memory visible, consent-based, and easy to delete.
 - Favor simple filesystem-backed schemas before infrastructure complexity.
 
+## Guardrails
+
+- ALWAYS read `docs/AI_WORKFLOW.md`
+
+## Analysis Style
+
+- Analysis is a joint, step-by-step exercise with the user; the agent does not deliver a
+  finished analysis on its own.
+- After each short step, present the concrete evidence and stop, so the user can course-correct
+  before the agent draws conclusions.
+- Do not write large standalone analysis dumps; keep each step small and reversible so the
+  user can steer the investigation as it unfolds.
+
 ## Current Scope
 
 This is an early FastAPI MCP host with a Phase 1 kind-qualified runtime seam, a
 delivered Phase 2 bundled Mnemosyne extraction, the released MyMCP/`mymcp`
-`0.2.0` public host, the prior `0.2.1` Ollama schema-compatibility build, and the
-current `0.8.0` MCP principal/session integration over the OAuth Authentication
-resource-server foundation.
-The bundled Mnemosyne plugin is `0.3.0`; memory_recall is capability contract
-`1.2.0`, while its other seven capabilities are `1.1.0`. The canonical
+`0.2.0` public host, the prior `0.2.1` Ollama schema-compatibility build, the
+`0.8.0` MCP principal/session integration over the OAuth Authentication
+resource-server foundation, the `0.9.0` configurable protocol-header strictness
+build, the `0.10.0` configurable MCP session-lifetime build, and the current
+`0.10.1` llama.cpp grammar-safe Tool-schema compatibility build.
+The bundled Mnemosyne plugin is `0.3.0`; `memory_recall`, `memory_list`,
+`memory_remember`, and `memory_revise` are capability contract
+`1.2.0`, while the other four capabilities are `1.1.0`. The canonical
 Mnemosyne adapter, configuration,
 memory domain, and MCP Tool adapters live under `mymcp/plugins/mnemosyne/`;
 bootstrap, runtime, bindings, argument normalization, and host `list_tools`
-remain host-owned. Host configuration schemas 1 through 5 supply immutable
+remain host-owned. Host configuration schemas 1 through 7 supply immutable
 per-process startup intent and loopback packaged-launcher settings; schema 1
 retains `enabled_plugin_unsupported`, schema 2 composes validated external
 plugins at startup, and schema 3 adds explicit Authentication intent. Schema 4
 adds the `operator-bearer-v1` verifier-source selector; schema 5 adds the
 `oauth-jwt-jwks-v1` issuer selector, immutable startup validation snapshot, and
-conditional RFC 9728 protected-resource metadata/challenge. The two production
+conditional RFC 9728 protected-resource metadata/challenge; schema 6 adds
+configurable MCP protocol-header strictness; schema 7 adds bounded registered-session
+lifetimes. The two production
 Bearer methods are mutually exclusive, OAuth establishes identity only, and the
 literal loopback HTTP resource is a local interoperability exception. Registered
 MCP sessions are host-owned, process-local context; Governance policy remains
@@ -54,6 +72,8 @@ runtime lifecycle management. Keep changes minimal and protocol-aware.
   non-negotiable.
 
 ## Subagents
+
+Always try to use subagents rather than doing the work directly.
 
 - Use `@explore` for read-only repository discovery, analysis, and review; it
   must not edit files or run state-changing commands.
@@ -83,7 +103,6 @@ runtime lifecycle management. Keep changes minimal and protocol-aware.
 
 ## Before Editing
 
-- Read `docs/AI_WORKFLOW.md` before planning any state-changing action.
 - Inspect `README.md`, `VISION.md`, `docs/ARCHITECTURE.md`, and the affected package files.
 - For terminology or public-contract work, read `docs/GLOSSARY.md` first.
 - Before implementing any public MCP contract change, record the complete

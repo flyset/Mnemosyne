@@ -65,6 +65,19 @@
       "required": [
         "scope"
       ]
+    },
+    "1.2.0": {
+      "digest": "e412b34635d76529bdb0cbc947ed8ce711ec845f94a9ee670e54e6604869feaf",
+      "properties": [
+        "scope",
+        "namespace_id",
+        "collection_id",
+        "page_size",
+        "cursor"
+      ],
+      "required": [
+        "scope"
+      ]
     }
   },
   "memory_inspect": {
@@ -187,6 +200,32 @@
         "tags",
         "origin"
       ]
+    },
+    "1.2.0": {
+      "digest": "e5bfecc482e1aa88d488f3d3b3fad220c060a5751c7380fdaa2baf018475feac",
+      "properties": [
+        "scope",
+        "namespace",
+        "collection",
+        "kind",
+        "language",
+        "title",
+        "content",
+        "tags",
+        "origin",
+        "occurred_at"
+      ],
+      "required": [
+        "scope",
+        "namespace",
+        "collection",
+        "kind",
+        "language",
+        "title",
+        "content",
+        "tags",
+        "origin"
+      ]
     }
   },
   "memory_revise": {
@@ -212,6 +251,26 @@
     },
     "1.1.0": {
       "digest": "15efd40500a4f10d1fe8847197ce2b0f6be8a6e61c8e0f44f552872290fa9170",
+      "properties": [
+        "reference",
+        "expected_revision",
+        "namespace_label",
+        "collection_label",
+        "title",
+        "content",
+        "tags"
+      ],
+      "required": [
+        "reference",
+        "expected_revision",
+        "namespace_label",
+        "title",
+        "content",
+        "tags"
+      ]
+    },
+    "1.2.0": {
+      "digest": "305340b5c1b7bf1ad9ee762608d4251afdf0ef614c7f3e0de83cdcf6513698d9",
       "properties": [
         "reference",
         "expected_revision",

@@ -243,7 +243,6 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
     assert project["content"] == {
         "type": "string",
         "minLength": 1,
-        "maxLength": 4000,
     }
     assert project["tags"]["minItems"] == 0
     assert project["tags"]["maxItems"] == 10
@@ -255,7 +254,7 @@ def test_memory_remember_schema_derives_scope_dimensions_and_bounds() -> None:
             "Required exactly for project event memory; omit it for every other "
             "memory kind. Use strict UTC-second form YYYY-MM-DDTHH:MM:SSZ."
         ),
-        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
     }
     assert branches_by_scope["project"]["allOf"] == [
         {

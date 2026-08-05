@@ -370,7 +370,7 @@ def test_mcp_dispatch_preserves_initialize_contract(production_client) -> None:
     assert response.json()["result"] == {
         "protocolVersion": "2025-11-25",
         "capabilities": {"tools": {}},
-        "serverInfo": {"name": "mymcp", "version": "0.10.0"},
+        "serverInfo": {"name": "mymcp", "version": "0.10.1"},
     }
 
 

@@ -184,7 +184,6 @@ def _properties(
         "content": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 4_000,
         },
         "tags": {
             "type": "array",
@@ -209,7 +208,7 @@ def _properties(
                 "Required exactly for project event memory; omit it for every other "
                 "memory kind. Use strict UTC-second form YYYY-MM-DDTHH:MM:SSZ."
             ),
-            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
         }
     if definition is None:
         properties["origin"]["description"] = (

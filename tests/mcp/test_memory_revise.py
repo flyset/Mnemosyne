@@ -184,6 +184,10 @@ def test_memory_revise_exposes_a_strict_complete_replacement_definition() -> Non
         "minLength": 1,
         "maxLength": 200,
     }
+    assert schema["properties"]["content"] == {
+        "type": "string",
+        "minLength": 1,
+    }
 
 
 def test_memory_revise_description_explains_safe_refusal_recovery() -> None:

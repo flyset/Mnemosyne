@@ -106,9 +106,10 @@ The approved target is defined in
   `memory_*`, `MNEMOSYNE_*`, `~/.mnemosyne`, storage, and record identities.
 
 Current production uses the explicit trusted Mnemosyne `0.3.0` bundled-plugin
-adapter over canonical registrations. `memory_recall` declares capability
-contract `1.2.0`; the other seven `memory_*` capabilities declare `1.1.0`.
-MyMCP's host/package/server marker is independently `0.10.0`. Host configuration
+adapter over canonical registrations. `memory_recall`, `memory_list`,
+`memory_remember`, and `memory_revise` declare capability contract `1.2.0`; the
+other four `memory_*` capabilities declare `1.1.0`.
+MyMCP's host/package/server marker is independently `0.10.1`. Host configuration
 is loaded into one immutable startup snapshot before bootstrap. Schema 1 retains
 its exact desired-state behavior and `enabled_plugin_unsupported`; schema 2 has
 explicit locators. Bootstrap preflights every enabled external manifest before
@@ -687,7 +688,7 @@ until restart. No HTTP route or CLI entrypoint owns this policy, and server
 enablement remains separate from per-call client consent.
 
 `list_tools` prefixes its selected names with the static `SERVER_VERSION`, which
-is `mymcp 0.10.0` and is kept equal to the package version. The marker is also
+is `mymcp 0.10.1` and is kept equal to the package version. The marker is also
 returned by initialize and `/version`; the
 public-host cutover was released as `mymcp 0.2.0`. This marker identifies stale
 processes after public-contract updates; it is not a dynamic Git identifier or a

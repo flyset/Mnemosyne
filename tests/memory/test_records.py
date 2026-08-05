@@ -536,3 +536,86 @@ def test_memory_revision_contains_only_complete_mutable_state() -> None:
                 "occurred_at": EVENT_OCCURRED_AT,
             }
         )
+
+
+OVERLONG_CONTENT = "x" * 4_001
+BOUNDARY_LENGTH_CONTENT = "x" * 4_000
+
+
+def test_memory_draft_rejects_content_longer_than_four_thousand_characters() -> None:
+    arguments = {
+        "scope": "preference",
+        "namespace": {"kind": "domain", "id": "leisure", "label": "Leisure"},
+        "collection": None,
+        "kind": "preference",
+        "language": None,
+        "title": "Rainy weekends",
+        "content": OVERLONG_CONTENT,
+        "tags": [],
+        "origin": "explicit_user_statement",
+    }
+
+    with pytest.raises(MemoryValidationError) as error:
+        MemoryDraft.from_dict(arguments)
+
+    assert error.value.code == "invalid_record"
+    assert error.value.field == "content"
+
+
+def test_memory_draft_accepts_content_of_exactly_four_thousand_characters() -> None:
+    arguments = {
+        "scope": "preference",
+        "namespace": {"kind": "domain", "id": "leisure", "label": "Leisure"},
+        "collection": None,
+        "kind": "preference",
+        "language": None,
+        "title": "Rainy weekends",
+        "content": BOUNDARY_LENGTH_CONTENT,
+        "tags": [],
+        "origin": "explicit_user_statement",
+    }
+
+    draft = MemoryDraft.from_dict(arguments)
+
+    assert draft.content == BOUNDARY_LENGTH_CONTENT
+
+
+def test_memory_revision_rejects_content_longer_than_four_thousand_characters() -> None:
+    arguments = {
+        "expected_revision": 2,
+        "namespace_label": "Mnemosyne",
+        "collection_label": None,
+        "title": "Revised title",
+        "content": OVERLONG_CONTENT,
+        "tags": [],
+    }
+
+    with pytest.raises(MemoryValidationError) as error:
+        MemoryRevision.from_dict(arguments)
+
+    assert error.value.code == "invalid_record"
+    assert error.value.field == "content"
+
+
+def test_version_one_record_rejects_content_longer_than_four_thousand_characters() -> None:
+    payload = {
+        "schema_version": 1,
+        "id": "rainy-weekend",
+        "content": OVERLONG_CONTENT,
+    }
+
+    with pytest.raises(MemoryValidationError) as error:
+        parse_memory_record(payload)
+
+    assert error.value.code == "invalid_record"
+    assert error.value.field == "content"
+
+
+def test_version_two_record_rejects_content_longer_than_four_thousand_characters() -> None:
+    payload = {**V2_PAYLOAD, "content": OVERLONG_CONTENT}
+
+    with pytest.raises(MemoryValidationError) as error:
+        parse_memory_record(payload)
+
+    assert error.value.code == "invalid_record"
+    assert error.value.field == "content"

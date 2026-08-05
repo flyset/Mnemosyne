@@ -156,7 +156,6 @@ def test_memory_list_exposes_portable_properties_and_four_strict_variants() -> N
         "properties",
         "required",
         "additionalProperties",
-        "oneOf",
     }
     assert schema["type"] == "object"
     assert schema["required"] == ["scope"]
@@ -193,41 +192,17 @@ def test_memory_list_exposes_portable_properties_and_four_strict_variants() -> N
             "request and omit page_size."
         ),
         "minLength": 1,
-        "maxLength": 4096,
     }
     assert schema["properties"]["collection_id"]["oneOf"][1] == {
         "type": "null"
     }
-    branches = schema["oneOf"]
-    assert branches == [
-        {
-            "not": {
-                "anyOf": [
-                    {"required": ["namespace_id"]},
-                    {"required": ["collection_id"]},
-                    {"required": ["cursor"]},
-                ]
-            }
-        },
-        {
-            "required": ["namespace_id"],
-            "not": {"required": ["cursor"]},
-        },
-        {
-            "required": ["cursor"],
-            "not": {
-                "anyOf": [
-                    {"required": ["namespace_id"]},
-                    {"required": ["collection_id"]},
-                    {"required": ["page_size"]},
-                ]
-            },
-        },
-        {
-            "required": ["namespace_id", "cursor"],
-            "not": {"required": ["page_size"]},
-        },
-    ]
+    assert "oneOf" not in schema
+    assert set(schema) == {
+        "type",
+        "properties",
+        "required",
+        "additionalProperties",
+    }
 
 
 def test_memory_list_flat_property_prose_explains_every_request_variant() -> None:

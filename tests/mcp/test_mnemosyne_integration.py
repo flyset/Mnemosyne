@@ -86,6 +86,26 @@ def _schema_patterns(value: object) -> list[str]:
     return []
 
 
+def _schema_max_lengths(value: object) -> list[object]:
+    if isinstance(value, dict):
+        lengths = [
+            length
+            for key, length in value.items()
+            if key == "maxLength" and isinstance(length, (int, float))
+        ]
+        for key, nested in value.items():
+            if key != "maxLength":
+                lengths.extend(_schema_max_lengths(nested))
+        return lengths
+    if isinstance(value, list):
+        return [
+            length
+            for nested in value
+            for length in _schema_max_lengths(nested)
+        ]
+    return []
+
+
 def _runtime_for_settings(
     settings: MemoryToolSettings,
     monkeypatch: pytest.MonkeyPatch,
@@ -128,8 +148,23 @@ def test_every_advertised_mnemosyne_schema_pattern_is_ollama_compatible() -> Non
             or "\\S" in pattern
         )
     ]
+    shorthand_classes = ("\\d", "\\D", "\\w", "\\W", "\\s", "\\S")
+    shorthand_patterns = [
+        (tool["name"], pattern)
+        for tool in registry.tools
+        for pattern in _schema_patterns(tool["inputSchema"])
+        if any(shorthand in pattern for shorthand in shorthand_classes)
+    ]
+    oversized_max_lengths = [
+        (tool["name"], length)
+        for tool in registry.tools
+        for length in _schema_max_lengths(tool["inputSchema"])
+        if length > 1000
+    ]
 
     assert incompatible == []
+    assert shorthand_patterns == []
+    assert oversized_max_lengths == []
 
 
 def test_server_nonblank_validation_preserves_multiline_text() -> None:
@@ -174,12 +209,12 @@ def test_trusted_adapter_wraps_ordered_registrations_without_list_tools() -> Non
         for capability in mnemosyne.mnemosyne_plugin_definition().capabilities
     } == {
         "memory_recall": "1.2.0",
-        "memory_list": "1.1.0",
+        "memory_list": "1.2.0",
         "memory_inspect": "1.1.0",
         "memory_archive": "1.1.0",
         "memory_restore": "1.1.0",
-        "memory_remember": "1.1.0",
-        "memory_revise": "1.1.0",
+        "memory_remember": "1.2.0",
+        "memory_revise": "1.2.0",
         "memory_forget": "1.1.0",
     }
 
@@ -263,7 +298,7 @@ def test_mnemosyne_composition_binds_list_tools_to_the_selected_surface(
             {
                 "type": "text",
                 "text": (
-                    "Server: mymcp 0.10.0. Available tools: "
+                    "Server: mymcp 0.10.1. Available tools: "
                     "list_tools, memory_recall, memory_list, memory_inspect, "
                     "memory_remember, memory_revise"
                 ),
